@@ -1,0 +1,93 @@
+{
+  "nav": {
+    "pricing": "Pricing",
+    "login": "Login",
+    "signup": "Sign Up",
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "hero": {
+    "title": "Create Your Own Campaign Frame",
+    "subtitle": "A private twibbon platform for communities, organizations, and events. All campaigns are PRIVATE — accessible only via link.",
+    "cta": "Start Campaign",
+    "badge": "100% Private & Secure"
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "subtitle": "Three easy steps to create your twibbon campaign",
+    "step1Title": "Create Campaign",
+    "step1Desc": "Design your frame or background twibbon with our powerful canvas editor.",
+    "step2Title": "Share Link",
+    "step2Desc": "Get a unique private link and share it only with the people you choose.",
+    "step3Title": "Supporters Upload Photos",
+    "step3Desc": "Supporters upload their photos and instantly download the twibbon result."
+  },
+  "features": {
+    "title": "Key Features",
+    "subtitle": "Everything you need to create professional twibbon campaigns",
+    "frameTwibbon": "Frame Twibbon",
+    "frameDesc": "Transparent frame overlay on top of supporter photos. Perfect for branding campaigns.",
+    "bgTwibbon": "Background Twibbon",
+    "bgDesc": "Auto-remove photo background and merge with your campaign background design.",
+    "privateLink": "Private Link",
+    "privateLinkDesc": "Each campaign has a unique link accessible only by those who have it.",
+    "noAccount": "No Account Needed",
+    "noAccountDesc": "Supporters don't need to create an account. Just open the link, upload, and download."
+  },
+  "privacy": {
+    "title": "Why TWIBO.id?",
+    "subtitle": "Unlike other platforms, all campaigns on TWIBO.id are 100% private.",
+    "point1": "Campaigns don't appear in public search",
+    "point2": "Accessible only via special link",
+    "point3": "Supporter data is safe and protected",
+    "point4": "Full control over who can see your campaign"
+  },
+  "footer": {
+    "tagline": "Private twibbon platform for communities, organizations, and events.",
+    "product": "Product",
+    "company": "Company",
+    "about": "About Us",
+    "contact": "Contact",
+    "terms": "Terms of Service",
+    "privacyPolicy": "Privacy Policy",
+    "allRights": "All rights reserved."
+  },
+  "pricing": {
+    "title": "Choose Your Plan",
+    "subtitle": "Start free or upgrade to Premium for full features",
+    "free": "FREE ACCESS",
+    "premium": "PREMIUM ACCESS",
+    "freePrice": "Free",
+    "premiumPrice": "Rp 50,000",
+    "premiumOriginal": "Rp 149,000",
+    "perCampaign": "/campaign",
+    "freeCta": "Start Free",
+    "premiumCta": "Upgrade Premium",
+    "features": "Features",
+    "freeFeatures": {
+      "f1": "Basic editor",
+      "f2": "Watermark on results",
+      "f3": "Ads on campaign page",
+      "f4": "No statistics"
+    },
+    "premiumFeatures": {
+      "f1": "Full editor & all features",
+      "f2": "No watermark",
+      "f3": "No ads",
+      "f4": "Full statistics",
+      "f5": "Priority support"
+    },
+    "comparisonTitle": "Feature Comparison",
+    "feature": "Feature",
+    "editor": "Canvas Editor",
+    "watermark": "No Watermark",
+    "ads": "No Ads",
+    "stats": "Campaign Statistics",
+    "customSlug": "Custom URL Slug",
+    "share": "Share Buttons",
+    "bgRemoval": "Background Removal",
+    "basic": "Basic",
+    "full": "Full"
+  }
+}

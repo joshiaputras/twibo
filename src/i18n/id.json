@@ -1,0 +1,93 @@
+{
+  "nav": {
+    "pricing": "Harga",
+    "login": "Masuk",
+    "signup": "Daftar",
+    "dashboard": "Dashboard",
+    "profile": "Profil",
+    "logout": "Keluar"
+  },
+  "hero": {
+    "title": "Buat Campaign Frame Kamu Sendiri",
+    "subtitle": "Platform twibbon pribadi untuk komunitas, organisasi, dan event. Semua campaign bersifat PRIVATE — hanya bisa diakses melalui link.",
+    "cta": "Mulai Campaign",
+    "badge": "100% Private & Aman"
+  },
+  "howItWorks": {
+    "title": "Cara Kerja",
+    "subtitle": "Tiga langkah mudah untuk membuat campaign twibbon kamu",
+    "step1Title": "Buat Campaign",
+    "step1Desc": "Desain frame atau background twibbon kamu dengan editor canvas yang powerful.",
+    "step2Title": "Bagikan Link",
+    "step2Desc": "Dapatkan link privat unik dan bagikan hanya ke orang-orang yang kamu pilih.",
+    "step3Title": "Supporter Upload Foto",
+    "step3Desc": "Supporter upload foto mereka dan langsung download hasil twibbon."
+  },
+  "features": {
+    "title": "Fitur Utama",
+    "subtitle": "Semua yang kamu butuhkan untuk membuat campaign twibbon profesional",
+    "frameTwibbon": "Frame Twibbon",
+    "frameDesc": "Overlay frame transparan di atas foto supporter. Cocok untuk campaign branding.",
+    "bgTwibbon": "Background Twibbon",
+    "bgDesc": "Hapus background foto secara otomatis dan gabungkan dengan desain background campaign.",
+    "privateLink": "Link Privat",
+    "privateLinkDesc": "Setiap campaign memiliki link unik yang hanya bisa diakses oleh orang yang memilikinya.",
+    "noAccount": "Tanpa Akun",
+    "noAccountDesc": "Supporter tidak perlu membuat akun. Cukup buka link, upload foto, dan download."
+  },
+  "privacy": {
+    "title": "Kenapa TWIBO.id?",
+    "subtitle": "Berbeda dengan platform lain, semua campaign di TWIBO.id bersifat 100% privat.",
+    "point1": "Campaign tidak muncul di pencarian publik",
+    "point2": "Hanya bisa diakses melalui link khusus",
+    "point3": "Data supporter aman dan terlindungi",
+    "point4": "Kontrol penuh atas siapa yang bisa melihat campaign"
+  },
+  "footer": {
+    "tagline": "Platform twibbon pribadi untuk komunitas, organisasi, dan event.",
+    "product": "Produk",
+    "company": "Perusahaan",
+    "about": "Tentang Kami",
+    "contact": "Kontak",
+    "terms": "Syarat & Ketentuan",
+    "privacyPolicy": "Kebijakan Privasi",
+    "allRights": "Semua hak dilindungi."
+  },
+  "pricing": {
+    "title": "Pilih Paket Kamu",
+    "subtitle": "Mulai gratis atau upgrade ke Premium untuk fitur penuh",
+    "free": "FREE ACCESS",
+    "premium": "PREMIUM ACCESS",
+    "freePrice": "Gratis",
+    "premiumPrice": "Rp 50.000",
+    "premiumOriginal": "Rp 149.000",
+    "perCampaign": "/campaign",
+    "freeCta": "Mulai Gratis",
+    "premiumCta": "Upgrade Premium",
+    "features": "Fitur",
+    "freeFeatures": {
+      "f1": "Editor dasar",
+      "f2": "Watermark pada hasil",
+      "f3": "Iklan pada halaman campaign",
+      "f4": "Tanpa statistik"
+    },
+    "premiumFeatures": {
+      "f1": "Editor penuh & semua fitur",
+      "f2": "Tanpa watermark",
+      "f3": "Tanpa iklan",
+      "f4": "Statistik lengkap",
+      "f5": "Prioritas support"
+    },
+    "comparisonTitle": "Perbandingan Fitur",
+    "feature": "Fitur",
+    "editor": "Canvas Editor",
+    "watermark": "Tanpa Watermark",
+    "ads": "Tanpa Iklan",
+    "stats": "Statistik Campaign",
+    "customSlug": "Custom URL Slug",
+    "share": "Share Buttons",
+    "bgRemoval": "Background Removal",
+    "basic": "Dasar",
+    "full": "Penuh"
+  }
+}
