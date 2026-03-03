@@ -28,7 +28,6 @@ const CampaignPublic = () => {
   const [photoOffsetX, setPhotoOffsetX] = useState(0);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
   const [processingPhoto, setProcessingPhoto] = useState(false);
-  const [isComposingResult, setIsComposingResult] = useState(false);
 
   const isFree = campaign?.tier !== 'premium';
   const composeVersionRef = useRef(0);
@@ -87,7 +86,6 @@ const CampaignPublic = () => {
   const updateResult = useCallback(async () => {
     if (!templateImage || !campaign) return;
     const current = ++composeVersionRef.current;
-    setIsComposingResult(true);
 
     try {
       const result = await composeResult({
@@ -108,15 +106,15 @@ const CampaignPublic = () => {
       }
     } catch (err) {
       console.error('Compose error:', err);
-    } finally {
-      if (current === composeVersionRef.current) {
-        setIsComposingResult(false);
-      }
     }
   }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree, fw, fh]);
 
   useEffect(() => {
-    updateResult();
+    const timer = window.setTimeout(() => {
+      updateResult();
+    }, 80);
+
+    return () => window.clearTimeout(timer);
   }, [updateResult]);
 
   const trackSupporter = async () => {
@@ -191,7 +189,7 @@ const CampaignPublic = () => {
     toast.success(t.public?.watermarkRemoved ?? 'Watermark berhasil dihapus!');
   };
 
-  const isPreviewBusy = processingPhoto || isComposingResult;
+  const isPreviewBusy = processingPhoto;
 
   useEffect(() => {
     const el = previewInteractionRef.current;
@@ -368,11 +366,11 @@ const CampaignPublic = () => {
                 <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
               )}
 
-              {isPreviewBusy && (
+              {processingPhoto && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
                   <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {processingPhoto ? 'Processing photo...' : 'Generating preview...'}
+                    Processing photo...
                   </div>
                 </div>
               )}
