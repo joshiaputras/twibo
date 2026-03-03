@@ -3,7 +3,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown } from 'lucide-react';
+import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -229,6 +229,13 @@ const Dashboard = () => {
                         {t.dashboard.edit}
                       </Button>
                     </Link>
+
+                    <a href={`/c/${c.slug}`} target="_blank" rel="noreferrer">
+                      <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 text-xs">
+                        <Eye className="w-3 h-3" />
+                        {t.dashboard.viewPublic ?? 'View'}
+                      </Button>
+                    </a>
 
                     <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => setStatsDialog(c)}>
                       <BarChart3 className="w-3 h-3" />

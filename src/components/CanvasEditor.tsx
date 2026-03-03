@@ -81,6 +81,7 @@ const CanvasEditor = ({
     color: '#ffffff',
   });
   const [shapeColor, setShapeColor] = useState('#ffffff');
+  const [shapeRoundness, setShapeRoundness] = useState(0);
   const [placeholderRoundness, setPlaceholderRoundness] = useState(20);
   const [hasPlaceholder, setHasPlaceholder] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -178,12 +179,23 @@ const CanvasEditor = ({
         if (isPlaceholderObject(selected)) {
           const size = String(selected?.type).toLowerCase() === 'circle'
             ? Math.max(1, (selected.radius ?? 0) * 2)
-            : Math.max(1, selected.width ?? 1);
+            : Math.max(1, Math.min(selected.width ?? 1, selected.height ?? 1));
           const rx = selected.rx ?? selected.radius ?? 0;
           const normalized = clamp((rx / (size / 2)) * 100, 0, 100);
           setPlaceholderRoundness(normalized);
-        } else if (typeof selected.fill === 'string' && selected.fill.startsWith('#')) {
-          setShapeColor(selected.fill);
+        } else {
+          if (typeof selected.fill === 'string' && selected.fill.startsWith('#')) {
+            setShapeColor(selected.fill);
+          }
+
+          if (String(selected?.type).toLowerCase() === 'rect') {
+            const size = Math.max(1, Math.min(selected.width ?? 1, selected.height ?? 1));
+            const rx = selected.rx ?? 0;
+            const normalized = clamp((rx / (size / 2)) * 100, 0, 100);
+            setShapeRoundness(normalized);
+          } else {
+            setShapeRoundness(100);
+          }
         }
       }
     };
@@ -369,7 +381,8 @@ const CanvasEditor = ({
     const size = Math.min(width, height) * 0.2;
     let obj: any;
     if (shape === 'rect') {
-      obj = new Rect({ width: size, height: size, left: width / 2, top: height / 2, originX: 'center', originY: 'center', fill: shapeColor });
+      const cornerRadius = (size / 2) * (clamp(shapeRoundness, 0, 100) / 100);
+      obj = new Rect({ width: size, height: size, left: width / 2, top: height / 2, originX: 'center', originY: 'center', fill: shapeColor, rx: cornerRadius, ry: cornerRadius });
       obj.name = t.campaign.editor.rectangle;
     } else {
       obj = new Circle({ radius: size / 2, left: width / 2, top: height / 2, originX: 'center', originY: 'center', fill: shapeColor });
@@ -380,7 +393,7 @@ const CanvasEditor = ({
     fabricRef.current.setActiveObject(obj);
     fabricRef.current.renderAll();
     saveHistory();
-  }, [width, height, saveHistory, shapeColor, t.campaign.editor.circle, t.campaign.editor.rectangle]);
+  }, [width, height, saveHistory, shapeColor, shapeRoundness, t.campaign.editor.circle, t.campaign.editor.rectangle]);
 
   const updateSelectedShapeColor = useCallback((color: string) => {
     setShapeColor(color);
@@ -391,6 +404,22 @@ const CanvasEditor = ({
     if (activeType !== 'rect' && activeType !== 'circle') return;
 
     active.set('fill', color);
+    fabricRef.current?.renderAll();
+    saveHistory();
+  }, [saveHistory]);
+
+
+  const updateSelectedShapeRoundness = useCallback((roundness: number) => {
+    setShapeRoundness(roundness);
+
+    const active = fabricRef.current?.getActiveObject() as any;
+    if (!active || isPlaceholderObject(active)) return;
+    const activeType = String(active.type).toLowerCase();
+    if (activeType !== 'rect') return;
+
+    const size = Math.max(1, Math.min(active.width ?? 1, active.height ?? 1));
+    const cornerRadius = (size / 2) * (clamp(roundness, 0, 100) / 100);
+    active.set({ rx: cornerRadius, ry: cornerRadius });
     fabricRef.current?.renderAll();
     saveHistory();
   }, [saveHistory]);
@@ -620,6 +649,18 @@ const CanvasEditor = ({
               <div className="flex items-center gap-2">
                 <Input type="color" value={shapeColor} onChange={e => updateSelectedShapeColor(e.target.value)} className="h-8 w-10 p-0.5 bg-secondary/50 border-border" />
                 <span className="text-xs text-muted-foreground">{t.campaign.editor.shapeColor}</span>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-muted-foreground">Rounded: {Math.round(shapeRoundness)}%</label>
+                <Input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={shapeRoundness}
+                  onChange={e => updateSelectedShapeRoundness(Number(e.target.value))}
+                  className="bg-secondary/50 border-border h-8"
+                />
               </div>
             </div>
 
