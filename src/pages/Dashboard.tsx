@@ -3,8 +3,8 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -13,37 +13,89 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-const initialCampaigns = [
-  { id: '1', name: 'Hari Kemerdekaan 2025', slug: 'hk-2025', status: 'published' as const, tier: 'premium' as const, supporters: 245, downloads: 180 },
-  { id: '2', name: 'Wisuda Universitas', slug: 'wisuda-ui', status: 'draft' as const, tier: 'free' as const, supporters: 0, downloads: 0 },
-  { id: '3', name: 'Earth Day Campaign', slug: 'earth-day', status: 'published' as const, tier: 'free' as const, supporters: 52, downloads: 38 },
-];
+type CampaignItem = {
+  id: string;
+  name: string;
+  slug: string;
+  status: 'draft' | 'published';
+  tier: 'free' | 'premium';
+  supporters: number;
+  downloads: number;
+};
 
 const Dashboard = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
-  const [campaigns, setCampaigns] = useState(initialCampaigns);
-  const [statsDialog, setStatsDialog] = useState<typeof initialCampaigns[0] | null>(null);
+  const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statsDialog, setStatsDialog] = useState<CampaignItem | null>(null);
 
-  const filtered = campaigns.filter(c => {
+  const loadCampaigns = async () => {
+    if (!user) return;
+    setLoading(true);
+
+    const { data, error }: { data: any[] | null; error: any } = await supabase
+      .from('campaigns' as any)
+      .select('id,name,slug,status,created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+      return;
+    }
+
+    const mapped: CampaignItem[] = (data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name || 'Untitled Campaign',
+      slug: row.slug || '-',
+      status: row.status === 'published' ? 'published' : 'draft',
+      tier: 'free',
+      supporters: 0,
+      downloads: 0,
+    }));
+
+    setCampaigns(mapped);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [user?.id]);
+
+  const filtered = useMemo(() => campaigns.filter(c => {
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === 'draft') return c.status === 'draft';
     if (filter === 'published') return c.status === 'published';
     if (filter === 'free') return c.tier === 'free';
     if (filter === 'premium') return c.tier === 'premium';
     return true;
-  });
+  }), [campaigns, filter, search]);
 
-  const handleCopyLink = (slug: string) => {
+  const handleCopyLink = async (slug: string) => {
     const url = `${window.location.origin}/c/${slug}`;
-    navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(url);
     toast.success('Link berhasil disalin!');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase
+      .from('campaigns' as any)
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
     setCampaigns(prev => prev.filter(c => c.id !== id));
     toast.success('Campaign berhasil dihapus');
   };
@@ -77,7 +129,9 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="glass rounded-2xl p-12 text-center border-gold-subtle text-muted-foreground">Loading campaigns...</div>
+          ) : filtered.length === 0 ? (
             <div className="glass rounded-2xl p-12 text-center border-gold-subtle">
               <h3 className="font-display text-xl font-semibold text-foreground mb-2">{t.dashboard.noCampaigns}</h3>
               <p className="text-muted-foreground text-sm mb-6">{t.dashboard.noCampaignsDesc}</p>
@@ -93,12 +147,8 @@ const Dashboard = () => {
                       <p className="text-xs text-muted-foreground mt-1">twibo.id/c/{c.slug}</p>
                     </div>
                     <div className="flex gap-1.5">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === 'published' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                         {t.dashboard[c.status as keyof typeof t.dashboard] as string}
-                      </span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${c.tier === 'premium' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                        {c.tier === 'premium' && <Crown className="w-3 h-3" />}
-                        {t.dashboard[c.tier as keyof typeof t.dashboard] as string}
                       </span>
                     </div>
                   </div>
@@ -117,15 +167,9 @@ const Dashboard = () => {
                         <Pencil className="w-3 h-3" />{t.dashboard.edit}
                       </Button>
                     </Link>
-                    {c.tier === 'premium' ? (
-                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1" onClick={() => setStatsDialog(c)}>
-                        <BarChart3 className="w-3 h-3" />{t.dashboard.viewStats}
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 opacity-50" onClick={() => toast.info(t.dashboard.upgradeForStats)}>
-                        <BarChart3 className="w-3 h-3" />
-                      </Button>
-                    )}
+                    <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1" onClick={() => setStatsDialog(c)}>
+                      <BarChart3 className="w-3 h-3" />{t.dashboard.viewStats}
+                    </Button>
 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -156,7 +200,6 @@ const Dashboard = () => {
         </div>
       </section>
 
-      {/* Stats Dialog */}
       <Dialog open={!!statsDialog} onOpenChange={() => setStatsDialog(null)}>
         <DialogContent className="glass-strong border-border">
           <DialogHeader>

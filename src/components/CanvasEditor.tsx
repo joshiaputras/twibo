@@ -73,6 +73,8 @@ const CanvasEditor = ({
   const lastPan = useRef({ x: 0, y: 0 });
   const skipHistory = useRef(false);
   const initialLoadedRef = useRef(false);
+  const syncLayersRef = useRef<() => void>(() => {});
+  const saveHistoryRef = useRef<() => void>(() => {});
 
   const scale = Math.min(900 / width, 640 / height, 1);
   const displayW = Math.round(width * scale);
@@ -121,6 +123,14 @@ const CanvasEditor = ({
   }, [historyIdx, mode, onStateChange, serializeCanvas]);
 
   useEffect(() => {
+    syncLayersRef.current = syncLayers;
+  }, [syncLayers]);
+
+  useEffect(() => {
+    saveHistoryRef.current = saveHistory;
+  }, [saveHistory]);
+
+  useEffect(() => {
     if (!canvasRef.current) return;
 
     const canvas = new Canvas(canvasRef.current, {
@@ -132,10 +142,11 @@ const CanvasEditor = ({
     });
 
     fabricRef.current = canvas;
+    initialLoadedRef.current = false;
 
     const onModified = () => {
-      saveHistory();
-      syncLayers();
+      saveHistoryRef.current();
+      syncLayersRef.current();
     };
 
     canvas.on('object:modified', onModified);
@@ -148,18 +159,23 @@ const CanvasEditor = ({
 
     return () => {
       canvas.dispose();
+      fabricRef.current = null;
     };
-  }, [displayH, displayW, mode, saveHistory, syncLayers]);
+  }, [displayH, displayW, mode]);
 
   useEffect(() => {
     const canvas = fabricRef.current;
     if (!canvas || initialLoadedRef.current) return;
 
     const load = async () => {
-      if (initialState) {
-        skipHistory.current = true;
-        await canvas.loadFromJSON(JSON.parse(initialState));
-        canvas.renderAll();
+      try {
+        if (initialState) {
+          skipHistory.current = true;
+          await canvas.loadFromJSON(JSON.parse(initialState));
+          canvas.renderAll();
+          skipHistory.current = false;
+        }
+      } catch {
         skipHistory.current = false;
       }
 
@@ -167,7 +183,7 @@ const CanvasEditor = ({
       if (json) {
         setHistory([json]);
         setHistoryIdx(0);
-        onStateChange?.(json);
+        if (mode === 'edit') onStateChange?.(json);
       }
 
       const objs = canvas.getObjects();
@@ -177,7 +193,7 @@ const CanvasEditor = ({
     };
 
     load();
-  }, [initialState, onStateChange, serializeCanvas, syncLayers]);
+  }, [displayH, displayW, initialState, mode, onStateChange, serializeCanvas, syncLayers]);
 
   useEffect(() => {
     const canvas = fabricRef.current;
