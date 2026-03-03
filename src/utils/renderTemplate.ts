@@ -2,8 +2,26 @@ import { StaticCanvas } from 'fabric';
 import { extractCanvasDesign } from './campaignDesign';
 
 const PLACEHOLDER_PREFIX = '__placeholder__';
+const LEGACY_PLACEHOLDER_FILL = 'rgba(255,255,255,0.14';
+const LEGACY_PLACEHOLDER_STROKE = 'rgba(255,255,255,0.9';
 
-const isPlaceholderId = (id?: string) => !!id && (id === PLACEHOLDER_PREFIX || id.startsWith(`${PLACEHOLDER_PREFIX}-`));
+const normalizeColor = (value: unknown) => String(value ?? '').toLowerCase().replace(/\s+/g, '');
+
+const isPlaceholderObject = (obj: any) => {
+  const id = String(obj?.id ?? '');
+  const name = String(obj?.name ?? '').toLowerCase();
+  const explicitFlag = obj?.isPlaceholder === true;
+  const type = String(obj?.type ?? '').toLowerCase();
+  const fill = normalizeColor(obj?.fill);
+  const stroke = normalizeColor(obj?.stroke);
+
+  if (explicitFlag) return true;
+  if (id && (id === PLACEHOLDER_PREFIX || id.startsWith(`${PLACEHOLDER_PREFIX}-`))) return true;
+  if (name.includes('placeholder')) return true;
+
+  // Backward compatibility for older saved designs that lost custom props
+  return type === 'rect' && fill.startsWith(LEGACY_PLACEHOLDER_FILL) && stroke.startsWith(LEGACY_PLACEHOLDER_STROKE);
+};
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
 
@@ -32,7 +50,7 @@ export async function renderTemplatePNG(
 
   await fc.loadFromJSON(parsed);
 
-  const placeholders = fc.getObjects().filter((o: any) => isPlaceholderId(o.id));
+  const placeholders = fc.getObjects().filter((o: any) => isPlaceholderObject(o));
 
   placeholders.forEach((placeholder: any) => {
     placeholder.set({

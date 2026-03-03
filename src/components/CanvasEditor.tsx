@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Canvas, FabricImage, Circle, Rect, FabricText } from 'fabric';
+import { Canvas, FabricImage, Circle, Rect, FabricText, FabricObject } from 'fabric';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,7 +27,22 @@ interface LayerItem {
 }
 
 const PLACEHOLDER_PREFIX = '__placeholder__';
+const LEGACY_PLACEHOLDER_FILL = 'rgba(255,255,255,0.14';
+const LEGACY_PLACEHOLDER_STROKE = 'rgba(255,255,255,0.9';
+
+FabricObject.customProperties = Array.from(
+  new Set([...(FabricObject.customProperties ?? []), 'id', 'name', 'isPlaceholder'])
+);
+
+const normalizeColor = (value: unknown) => String(value ?? '').toLowerCase().replace(/\s+/g, '');
 const isPlaceholderId = (id?: string) => !!id && (id === PLACEHOLDER_PREFIX || id.startsWith(`${PLACEHOLDER_PREFIX}-`));
+const isLegacyPlaceholder = (obj: any) => {
+  const type = String(obj?.type ?? '').toLowerCase();
+  const fill = normalizeColor(obj?.fill);
+  const stroke = normalizeColor(obj?.stroke);
+  return type === 'rect' && fill.startsWith(LEGACY_PLACEHOLDER_FILL) && stroke.startsWith(LEGACY_PLACEHOLDER_STROKE);
+};
+const isPlaceholderObject = (obj: any) => obj?.isPlaceholder === true || isPlaceholderId(obj?.id) || isLegacyPlaceholder(obj);
 
 const FONTS = [
   'Space Grotesk', 'Playfair Display', 'Montserrat', 'Nunito',
@@ -86,7 +101,7 @@ const CanvasEditor = ({
 
   const serializeCanvas = useCallback(() => {
     if (!fabricRef.current) return '';
-    return JSON.stringify((fabricRef.current as any).toJSON(['id', 'name', 'selectable', 'evented']));
+    return JSON.stringify((fabricRef.current as any).toJSON(['id', 'name', 'isPlaceholder', 'selectable', 'evented']));
   }, []);
 
   const syncLayers = useCallback(() => {
@@ -97,16 +112,16 @@ const CanvasEditor = ({
         id: obj.id || `layer-${i}`,
         name:
           obj.name ||
-          (isPlaceholderId(obj.id)
+          (isPlaceholderObject(obj)
             ? t.campaign.editor.placeholder
-            : obj.type === 'image'
+            : String(obj.type).toLowerCase() === 'image'
               ? t.campaign.editor.imageLayer
-              : obj.type === 'text'
+              : String(obj.type).toLowerCase() === 'text'
                 ? t.campaign.editor.textLayer
                 : `${t.campaign.editor.layer} ${i + 1}`),
         visible: obj.visible !== false,
       }));
-    setHasPlaceholder(objs.some((obj: any) => isPlaceholderId(obj.id)));
+    setHasPlaceholder(objs.some((obj: any) => isPlaceholderObject(obj)));
     setLayers(items.reverse());
   }, [t.campaign.editor]);
 
@@ -159,9 +174,9 @@ const CanvasEditor = ({
     const syncSelectionState = (selected: any) => {
       setSelectedId(selected?.id ?? null);
 
-      if (selected?.type === 'rect' || selected?.type === 'circle') {
-        if (isPlaceholderId(selected.id)) {
-          const size = selected.type === 'circle'
+      if (String(selected?.type).toLowerCase() === 'rect' || String(selected?.type).toLowerCase() === 'circle') {
+        if (isPlaceholderObject(selected)) {
+          const size = String(selected?.type).toLowerCase() === 'circle'
             ? Math.max(1, (selected.radius ?? 0) * 2)
             : Math.max(1, selected.width ?? 1);
           const rx = selected.rx ?? selected.radius ?? 0;
@@ -371,8 +386,9 @@ const CanvasEditor = ({
     setShapeColor(color);
 
     const active = fabricRef.current?.getActiveObject() as any;
-    if (!active || isPlaceholderId(active.id)) return;
-    if (active.type !== 'rect' && active.type !== 'circle') return;
+    if (!active || isPlaceholderObject(active)) return;
+    const activeType = String(active.type).toLowerCase();
+    if (activeType !== 'rect' && activeType !== 'circle') return;
 
     active.set('fill', color);
     fabricRef.current?.renderAll();
@@ -409,6 +425,7 @@ const CanvasEditor = ({
 
     (obj as any).id = PLACEHOLDER_PREFIX;
     (obj as any).name = t.campaign.editor.placeholder;
+    (obj as any).isPlaceholder = true;
 
     fabricRef.current.add(obj);
     fabricRef.current.setActiveObject(obj);
@@ -423,7 +440,7 @@ const CanvasEditor = ({
     setPlaceholderRoundness(roundness);
     if (!fabricRef.current) return;
 
-    const placeholder = fabricRef.current.getObjects().find((o: any) => isPlaceholderId(o.id)) as any;
+    const placeholder = fabricRef.current.getObjects().find((o: any) => isPlaceholderObject(o)) as any;
     if (!placeholder) return;
 
     const size = Math.max(1, placeholder.width ?? 1);

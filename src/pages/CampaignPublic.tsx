@@ -37,6 +37,9 @@ const CampaignPublic = () => {
   const gestureRef = useRef({ startScale: 100, startDistance: 0, startOffsetX: 0, startOffsetY: 0, startCenterX: 0, startCenterY: 0 });
   const dragRafRef = useRef<number | null>(null);
   const dragPendingRef = useRef({ dx: 0, dy: 0 });
+  const transformRafRef = useRef<number | null>(null);
+  const transformPendingRef = useRef<{ scale?: number; offsetX?: number; offsetY?: number }>({});
+  const wheelPendingRef = useRef(0);
 
   const sizeMap: Record<string, [number, number]> = {
     square: [1080, 1080],
@@ -100,8 +103,8 @@ const CampaignPublic = () => {
         photoOffsetY,
         addWatermark: isFree,
         campaignType: campaign.type ?? 'frame',
-        previewMaxW: 500,
-        previewMaxH: 600,
+        previewMaxW: 420,
+        previewMaxH: 520,
       });
       if (current === composeVersionRef.current) {
         setResultImage(result);
@@ -211,11 +214,23 @@ const CampaignPublic = () => {
 
   useEffect(() => {
     return () => {
-      if (dragRafRef.current) {
-        window.cancelAnimationFrame(dragRafRef.current);
-      }
+      if (dragRafRef.current) window.cancelAnimationFrame(dragRafRef.current);
+      if (transformRafRef.current) window.cancelAnimationFrame(transformRafRef.current);
     };
   }, []);
+
+  const scheduleTransformFlush = () => {
+    if (transformRafRef.current) return;
+    transformRafRef.current = window.requestAnimationFrame(() => {
+      const pending = transformPendingRef.current;
+      transformPendingRef.current = {};
+      transformRafRef.current = null;
+
+      if (typeof pending.scale === 'number') setPhotoScale(clamp(pending.scale, 20, 400));
+      if (typeof pending.offsetX === 'number') setPhotoOffsetX(pending.offsetX);
+      if (typeof pending.offsetY === 'number') setPhotoOffsetY(pending.offsetY);
+    });
+  };
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !userPhoto) return;
@@ -256,13 +271,14 @@ const CampaignPublic = () => {
       const distance = Math.hypot(dx, dy);
       if (gestureRef.current.startDistance > 0) {
         const ratio = distance / gestureRef.current.startDistance;
-        setPhotoScale(clamp(gestureRef.current.startScale * ratio, 20, 400));
+        transformPendingRef.current.scale = gestureRef.current.startScale * ratio;
       }
 
       const centerX = (a.x + b.x) / 2;
       const centerY = (a.y + b.y) / 2;
-      setPhotoOffsetX(gestureRef.current.startOffsetX + (centerX - gestureRef.current.startCenterX) / previewScale);
-      setPhotoOffsetY(gestureRef.current.startOffsetY + (centerY - gestureRef.current.startCenterY) / previewScale);
+      transformPendingRef.current.offsetX = gestureRef.current.startOffsetX + (centerX - gestureRef.current.startCenterX) / previewScale;
+      transformPendingRef.current.offsetY = gestureRef.current.startOffsetY + (centerY - gestureRef.current.startCenterY) / previewScale;
+      scheduleTransformFlush();
       return;
     }
 
@@ -303,8 +319,15 @@ const CampaignPublic = () => {
     if (isPreviewBusy || !userPhoto) return;
     event.preventDefault();
     event.stopPropagation();
-    const delta = -event.deltaY * 0.04;
-    setPhotoScale(v => clamp(v + delta, 20, 400));
+    wheelPendingRef.current += -event.deltaY * 0.04;
+
+    if (transformRafRef.current) return;
+    transformRafRef.current = window.requestAnimationFrame(() => {
+      const delta = wheelPendingRef.current;
+      wheelPendingRef.current = 0;
+      transformRafRef.current = null;
+      if (delta !== 0) setPhotoScale(v => clamp(v + delta, 20, 400));
+    });
   };
 
   if (loading) {
@@ -372,6 +395,7 @@ const CampaignPublic = () => {
               onPointerCancel={onPointerUp}
               onPointerLeave={onPointerUp}
               onWheel={onWheel}
+              onWheelCapture={onWheel}
               className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2 touch-none"
               onDragStart={event => event.preventDefault()}
               style={{
@@ -402,14 +426,14 @@ const CampaignPublic = () => {
 
             {!userPhoto ? (
               <div className="space-y-4">
-                <label className="block cursor-pointer">
+                <label className={`block ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                   <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors text-center">
                     <Upload className="w-10 h-10 text-primary/50 mx-auto mb-2" />
                     <p className="text-foreground font-medium">{t.public?.uploadPhoto ?? 'Upload foto kamu'}</p>
                     <p className="text-xs text-muted-foreground mt-1">{t.public?.clickOrDrag ?? 'Klik atau drag untuk upload'}</p>
                     {processingPhoto && <p className="text-xs text-muted-foreground mt-2">Processing photo...</p>}
                   </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
                 </label>
               </div>
             ) : (
@@ -423,8 +447,8 @@ const CampaignPublic = () => {
                     <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
                   </p>
                   <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
-                  <label className="inline-flex cursor-pointer mt-1">
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+                  <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
                     <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>
                   </label>
                 </div>
