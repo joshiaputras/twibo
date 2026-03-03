@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/i18n/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AdminRoute from "@/components/AdminRoute";
 import Index from "./pages/Index";
 import Pricing from "./pages/Pricing";
 import Login from "./pages/Login";
@@ -17,6 +18,7 @@ import Profile from "./pages/Profile";
 import CampaignEditor from "./pages/CampaignEditor";
 import CampaignPublic from "./pages/CampaignPublic";
 import Admin from "./pages/Admin";
+import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -41,7 +43,8 @@ const App = () => (
               <Route path="/campaign/new" element={<ProtectedRoute><CampaignEditor /></ProtectedRoute>} />
               <Route path="/campaign/:id/edit" element={<ProtectedRoute><CampaignEditor /></ProtectedRoute>} />
               <Route path="/c/:slug" element={<CampaignPublic />} />
-              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+              <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

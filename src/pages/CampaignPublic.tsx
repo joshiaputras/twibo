@@ -197,17 +197,24 @@ const CampaignPublic = () => {
     const el = previewInteractionRef.current;
     if (!el) return;
 
-    const preventWheel = (event: WheelEvent) => {
+    const preventNativeScroll = (event: Event) => {
       event.preventDefault();
+      event.stopPropagation();
     };
 
-    el.addEventListener('wheel', preventWheel, { passive: false });
-    return () => el.removeEventListener('wheel', preventWheel);
+    el.addEventListener('wheel', preventNativeScroll, { passive: false });
+    el.addEventListener('touchmove', preventNativeScroll, { passive: false });
+
+    return () => {
+      el.removeEventListener('wheel', preventNativeScroll);
+      el.removeEventListener('touchmove', preventNativeScroll);
+    };
   }, [resultImage, templateImage]);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (isPreviewBusy) return;
+    if (isPreviewBusy || !userPhoto) return;
     event.preventDefault();
+    event.stopPropagation();
     const el = previewInteractionRef.current;
     if (!el) return;
     el.setPointerCapture(event.pointerId);
@@ -228,8 +235,9 @@ const CampaignPublic = () => {
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (isPreviewBusy || !pointersRef.current.has(event.pointerId)) return;
+    if (isPreviewBusy || !userPhoto || !pointersRef.current.has(event.pointerId)) return;
     event.preventDefault();
+    event.stopPropagation();
 
     const prev = pointersRef.current.get(event.pointerId)!;
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -261,6 +269,8 @@ const CampaignPublic = () => {
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
     pointersRef.current.delete(event.pointerId);
     if (previewInteractionRef.current?.hasPointerCapture(event.pointerId)) {
       previewInteractionRef.current.releasePointerCapture(event.pointerId);
@@ -268,7 +278,7 @@ const CampaignPublic = () => {
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    if (isPreviewBusy) return;
+    if (isPreviewBusy || !userPhoto) return;
     event.preventDefault();
     event.stopPropagation();
     const delta = event.deltaY > 0 ? -6 : 6;
@@ -341,7 +351,10 @@ const CampaignPublic = () => {
               onPointerLeave={onPointerUp}
               onWheel={onWheel}
               className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2 touch-none"
+              onDragStart={event => event.preventDefault()}
               style={{
+                touchAction: 'none',
+                overscrollBehavior: 'contain',
                 backgroundImage:
                   'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
                 backgroundSize: '16px 16px',
