@@ -13,9 +13,11 @@ import {
 
 const Navbar = () => {
   const { t, lang, toggleLang } = useLanguage();
-  const { user, signOut } = useAuth();
+  const { user, profileName, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const displayName = profileName || user?.user_metadata?.name || user?.email?.split('@')[0] || '';
 
   const handleSignOut = async () => {
     await signOut();
@@ -44,7 +46,7 @@ const Navbar = () => {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
                   <User className="w-4 h-4" />
-                  {user.user_metadata?.name || user.email?.split('@')[0]}
+                  {displayName}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
