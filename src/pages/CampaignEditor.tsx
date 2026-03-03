@@ -86,6 +86,9 @@ const CampaignEditor = () => {
   const gestureRef = useRef({ startScale: 100, startDistance: 0, startOffsetX: 0, startOffsetY: 0, startCenterX: 0, startCenterY: 0 });
   const dragRafRef = useRef<number | null>(null);
   const dragPendingRef = useRef({ dx: 0, dy: 0 });
+  const transformRafRef = useRef<number | null>(null);
+  const transformPendingRef = useRef<{ scale?: number; offsetX?: number; offsetY?: number }>({});
+  const wheelPendingRef = useRef(0);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -163,8 +166,8 @@ const CampaignEditor = () => {
         photoOffsetY: simOffsetY,
         addWatermark: false,
         campaignType: form.type,
-        previewMaxW: 500,
-        previewMaxH: 600,
+        previewMaxW: 420,
+        previewMaxH: 520,
       });
       if (current === composeVersionRef.current) {
         setPreviewResult(result);
@@ -358,11 +361,23 @@ const CampaignEditor = () => {
 
   useEffect(() => {
     return () => {
-      if (dragRafRef.current) {
-        window.cancelAnimationFrame(dragRafRef.current);
-      }
+      if (dragRafRef.current) window.cancelAnimationFrame(dragRafRef.current);
+      if (transformRafRef.current) window.cancelAnimationFrame(transformRafRef.current);
     };
   }, []);
+
+  const scheduleTransformFlush = () => {
+    if (transformRafRef.current) return;
+    transformRafRef.current = window.requestAnimationFrame(() => {
+      const pending = transformPendingRef.current;
+      transformPendingRef.current = {};
+      transformRafRef.current = null;
+
+      if (typeof pending.scale === 'number') setSimScale(clamp(pending.scale, 20, 400));
+      if (typeof pending.offsetX === 'number') setSimOffsetX(pending.offsetX);
+      if (typeof pending.offsetY === 'number') setSimOffsetY(pending.offsetY);
+    });
+  };
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !simulationPhoto) return;
@@ -403,13 +418,14 @@ const CampaignEditor = () => {
       const distance = Math.hypot(dx, dy);
       if (gestureRef.current.startDistance > 0) {
         const ratio = distance / gestureRef.current.startDistance;
-        setSimScale(clamp(gestureRef.current.startScale * ratio, 20, 400));
+        transformPendingRef.current.scale = gestureRef.current.startScale * ratio;
       }
 
       const centerX = (a.x + b.x) / 2;
       const centerY = (a.y + b.y) / 2;
-      setSimOffsetX(gestureRef.current.startOffsetX + (centerX - gestureRef.current.startCenterX) / previewScale);
-      setSimOffsetY(gestureRef.current.startOffsetY + (centerY - gestureRef.current.startCenterY) / previewScale);
+      transformPendingRef.current.offsetX = gestureRef.current.startOffsetX + (centerX - gestureRef.current.startCenterX) / previewScale;
+      transformPendingRef.current.offsetY = gestureRef.current.startOffsetY + (centerY - gestureRef.current.startCenterY) / previewScale;
+      scheduleTransformFlush();
       return;
     }
 
@@ -450,8 +466,15 @@ const CampaignEditor = () => {
     if (isPreviewBusy || !simulationPhoto) return;
     event.preventDefault();
     event.stopPropagation();
-    const delta = -event.deltaY * 0.04;
-    setSimScale(v => clamp(v + delta, 20, 400));
+    wheelPendingRef.current += -event.deltaY * 0.04;
+
+    if (transformRafRef.current) return;
+    transformRafRef.current = window.requestAnimationFrame(() => {
+      const delta = wheelPendingRef.current;
+      wheelPendingRef.current = 0;
+      transformRafRef.current = null;
+      if (delta !== 0) setSimScale(v => clamp(v + delta, 20, 400));
+    });
   };
 
   return (
@@ -601,6 +624,7 @@ const CampaignEditor = () => {
                     onPointerCancel={onPointerUp}
                     onPointerLeave={onPointerUp}
                     onWheel={onWheel}
+                    onWheelCapture={onWheel}
                     className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2 touch-none"
                     onDragStart={event => event.preventDefault()}
                     style={{
@@ -636,9 +660,12 @@ const CampaignEditor = () => {
                   <h3 className="font-semibold text-foreground text-sm text-center">{t.campaign.simulationTitle}</h3>
                   <p className="text-xs text-muted-foreground text-center">{t.campaign.simulationDesc}</p>
                   <div className="flex justify-center">
-                    <label className="inline-flex cursor-pointer">
-                      <input type="file" accept="image/*" className="hidden" onChange={handleSimulationUpload} />
-                      <span className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary/50 transition-colors">
+                    <label className={`inline-flex ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleSimulationUpload} disabled={processingPhoto} />
+                      <span
+                        className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary/50 transition-colors"
+                        aria-disabled={processingPhoto}
+                      >
                         <Upload className="w-4 h-4" />
                         {simulationPhoto ? t.campaign.replaceSimulationPhoto : t.campaign.uploadSimulationPhoto}
                       </span>
