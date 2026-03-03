@@ -3,6 +3,7 @@ export type CampaignPreviewMeta = {
   photoScale?: number;
   photoOffsetX?: number;
   photoOffsetY?: number;
+  previewImageDataUrl?: string;
 };
 
 const PREVIEW_KEY = '__twiboPreview';
@@ -29,6 +30,7 @@ export function extractPreviewMeta(raw: unknown): CampaignPreviewMeta {
     photoScale: typeof preview.photoScale === 'number' ? preview.photoScale : 100,
     photoOffsetX: typeof preview.photoOffsetX === 'number' ? preview.photoOffsetX : 0,
     photoOffsetY: typeof preview.photoOffsetY === 'number' ? preview.photoOffsetY : 0,
+    previewImageDataUrl: typeof preview.previewImageDataUrl === 'string' ? preview.previewImageDataUrl : '',
   };
 }
 
@@ -49,6 +51,7 @@ export function mergeDesignWithPreview(rawCanvasDesign: unknown, previewMeta: Ca
       photoScale: typeof previewMeta.photoScale === 'number' ? previewMeta.photoScale : 100,
       photoOffsetX: typeof previewMeta.photoOffsetX === 'number' ? previewMeta.photoOffsetX : 0,
       photoOffsetY: typeof previewMeta.photoOffsetY === 'number' ? previewMeta.photoOffsetY : 0,
+      previewImageDataUrl: previewMeta.previewImageDataUrl ?? '',
     },
   };
 }

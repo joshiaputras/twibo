@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
-import { removeBackgroundFromDataUrl } from '@/utils/removeBackground';
+import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { extractPreviewMeta } from '@/utils/campaignDesign';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -24,13 +24,14 @@ const CampaignPublic = () => {
   const [userPhoto, setUserPhoto] = useState<string>('');
   const [templateImage, setTemplateImage] = useState<string>('');
   const [resultImage, setResultImage] = useState<string>('');
+  const [previewImage, setPreviewImage] = useState<string>('');
   const [photoScale, setPhotoScale] = useState(100);
   const [photoOffsetX, setPhotoOffsetX] = useState(0);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
   const [processingPhoto, setProcessingPhoto] = useState(false);
+  const [isInteractingPreview, setIsInteractingPreview] = useState(false);
 
   const isFree = campaign?.tier !== 'premium';
-  const isPublicPreviewLocked = true;
   const composeVersionRef = useRef(0);
   const supporterTrackedRef = useRef(false);
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
@@ -41,6 +42,7 @@ const CampaignPublic = () => {
   const transformRafRef = useRef<number | null>(null);
   const transformPendingRef = useRef<{ scale?: number; offsetX?: number; offsetY?: number }>({});
   const wheelPendingRef = useRef(0);
+  const wheelIdleTimerRef = useRef<number | null>(null);
 
   const sizeMap: Record<string, [number, number]> = {
     square: [1080, 1080],
@@ -75,6 +77,7 @@ const CampaignPublic = () => {
       setPhotoScale(previewMeta.photoScale ?? 100);
       setPhotoOffsetX(previewMeta.photoOffsetX ?? 0);
       setPhotoOffsetY(previewMeta.photoOffsetY ?? 0);
+      setPreviewImage(previewMeta.previewImageDataUrl ?? '');
 
       setLoading(false);
 
@@ -88,6 +91,11 @@ const CampaignPublic = () => {
     };
     load();
   }, [slug, user]);
+
+  useEffect(() => {
+    if (campaign?.type !== 'background') return;
+    void warmupBackgroundRemoval();
+  }, [campaign?.type]);
 
   const updateResult = useCallback(async () => {
     if (!templateImage || !campaign) return;
@@ -118,10 +126,10 @@ const CampaignPublic = () => {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       updateResult();
-    }, 80);
+    }, isInteractingPreview ? 140 : 70);
 
     return () => window.clearTimeout(timer);
-  }, [updateResult]);
+  }, [updateResult, isInteractingPreview]);
 
   const trackSupporter = async () => {
     if (!slug || supporterTrackedRef.current) return;
@@ -217,6 +225,7 @@ const CampaignPublic = () => {
     return () => {
       if (dragRafRef.current) window.cancelAnimationFrame(dragRafRef.current);
       if (transformRafRef.current) window.cancelAnimationFrame(transformRafRef.current);
+      if (wheelIdleTimerRef.current) window.clearTimeout(wheelIdleTimerRef.current);
     };
   }, []);
 
@@ -235,6 +244,7 @@ const CampaignPublic = () => {
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !userPhoto) return;
+    setIsInteractingPreview(true);
     event.preventDefault();
     event.stopPropagation();
     const el = previewInteractionRef.current;
@@ -314,13 +324,25 @@ const CampaignPublic = () => {
     if (pointersRef.current.size < 2) {
       gestureRef.current.startDistance = 0;
     }
+
+    if (pointersRef.current.size === 0) {
+      setIsInteractingPreview(false);
+      updateResult();
+    }
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !userPhoto) return;
+    setIsInteractingPreview(true);
     event.preventDefault();
     event.stopPropagation();
     wheelPendingRef.current += -event.deltaY * 0.04;
+
+    if (wheelIdleTimerRef.current) window.clearTimeout(wheelIdleTimerRef.current);
+    wheelIdleTimerRef.current = window.setTimeout(() => {
+      setIsInteractingPreview(false);
+      updateResult();
+    }, 140);
 
     if (transformRafRef.current) return;
     transformRafRef.current = window.requestAnimationFrame(() => {
@@ -388,19 +410,24 @@ const CampaignPublic = () => {
               </div>
             )}
 
+            {previewImage && (
+              <div className="mb-4 rounded-xl border border-border bg-secondary/20 p-2">
+                <img src={previewImage} alt="Contoh hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
+              </div>
+            )}
+
             <div
               ref={previewInteractionRef}
-              onPointerDown={isPublicPreviewLocked ? undefined : onPointerDown}
-              onPointerMove={isPublicPreviewLocked ? undefined : onPointerMove}
-              onPointerUp={isPublicPreviewLocked ? undefined : onPointerUp}
-              onPointerCancel={isPublicPreviewLocked ? undefined : onPointerUp}
-              onPointerLeave={isPublicPreviewLocked ? undefined : onPointerUp}
-              onWheel={isPublicPreviewLocked ? undefined : onWheel}
-              onWheelCapture={isPublicPreviewLocked ? undefined : onWheel}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              onPointerLeave={onPointerUp}
+              onWheelCapture={onWheel}
               className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2"
               onDragStart={event => event.preventDefault()}
               style={{
-                touchAction: isPublicPreviewLocked ? 'auto' : 'none',
+                touchAction: 'none',
                 overscrollBehavior: 'contain',
                 backgroundImage:
                   'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
@@ -441,19 +468,13 @@ const CampaignPublic = () => {
               <div className="space-y-4">
                 <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
                   <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
-                  {isPublicPreviewLocked ? (
-                    <p className="text-xs text-muted-foreground">Preview campaign ini dikunci sebagai contoh PNG final.</p>
-                  ) : (
-                    <>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Move className="w-3 h-3" /> Drag untuk geser
-                      </p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
-                      </p>
-                      <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
-                    </>
-                  )}
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Move className="w-3 h-3" /> Drag untuk geser
+                  </p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
+                  </p>
+                  <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
                   <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
                     <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>

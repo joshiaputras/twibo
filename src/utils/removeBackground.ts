@@ -1,7 +1,13 @@
 const STATICIMGLY_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
 const JSDELIVR_PUBLIC_PATH = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.7.0/dist/';
+const UNPKG_PUBLIC_PATH = 'https://unpkg.com/@imgly/background-removal-data@1.7.0/dist/';
 
 type RemoveConfig = Record<string, unknown>;
+
+type Attempt = {
+  key: string;
+  config: RemoveConfig;
+};
 
 const baseConfig: RemoveConfig = {
   output: { format: 'image/png' },
@@ -9,16 +15,17 @@ const baseConfig: RemoveConfig = {
 };
 
 const MODELS = ['isnet_quint8', 'isnet_fp16', 'isnet'] as const;
-const PUBLIC_PATHS: Array<string | undefined> = [undefined, STATICIMGLY_PUBLIC_PATH, JSDELIVR_PUBLIC_PATH];
+const PUBLIC_PATHS = [STATICIMGLY_PUBLIC_PATH, JSDELIVR_PUBLIC_PATH, UNPKG_PUBLIC_PATH] as const;
 
-const ATTEMPTS: RemoveConfig[] = MODELS.flatMap(model =>
+const ATTEMPTS: Attempt[] = MODELS.flatMap(model =>
   PUBLIC_PATHS.flatMap(publicPath => [
-    { ...baseConfig, model, proxyToWorker: false, ...(publicPath ? { publicPath } : {}) },
-    { ...baseConfig, model, proxyToWorker: true, ...(publicPath ? { publicPath } : {}) },
+    { key: `${model}-${publicPath}-main`, config: { ...baseConfig, model, proxyToWorker: false, publicPath } },
+    { key: `${model}-${publicPath}-worker`, config: { ...baseConfig, model, proxyToWorker: true, publicPath } },
   ])
 );
 
 let preloadPromise: Promise<void> | null = null;
+let preferredAttemptKey: string | null = null;
 
 const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
   let timeoutId: number | null = null;
@@ -33,23 +40,35 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
   }
 };
 
+const getOrderedAttempts = () => {
+  if (!preferredAttemptKey) return ATTEMPTS;
+  const preferred = ATTEMPTS.find(attempt => attempt.key === preferredAttemptKey);
+  if (!preferred) return ATTEMPTS;
+  return [preferred, ...ATTEMPTS.filter(attempt => attempt.key !== preferredAttemptKey)];
+};
+
 async function ensureBackgroundModelReady() {
   if (preloadPromise) return preloadPromise;
 
   preloadPromise = (async () => {
     const { preload } = await import('@imgly/background-removal');
 
-    for (const cfg of ATTEMPTS.slice(0, 8)) {
+    for (const attempt of getOrderedAttempts().slice(0, 6)) {
       try {
-        await withTimeout(preload(cfg as any), 25000);
+        await withTimeout(preload(attempt.config as any), 35000);
+        preferredAttemptKey = attempt.key;
         return;
       } catch {
-        // Try next config
+        // coba attempt berikutnya
       }
     }
   })();
 
   return preloadPromise;
+}
+
+export async function warmupBackgroundRemoval(): Promise<void> {
+  await ensureBackgroundModelReady();
 }
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
@@ -58,42 +77,49 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
 }
 
 async function normalizeInputBlob(sourceBlob: Blob): Promise<Blob> {
-  const bitmap = await createImageBitmap(sourceBlob);
-  const maxDimension = 1400;
-  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+  try {
+    const bitmap = await createImageBitmap(sourceBlob);
+    const maxDimension = 1024;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
 
-  const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
-  const targetHeight = Math.max(1, Math.round(bitmap.height * scale));
+    const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
+    const targetHeight = Math.max(1, Math.round(bitmap.height * scale));
 
-  const canvas = document.createElement('canvas');
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) {
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return sourceBlob;
+    }
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
     bitmap.close();
+
+    const normalizedBlob = await new Promise<Blob | null>(resolve => {
+      canvas.toBlob(blob => resolve(blob), 'image/png');
+    });
+
+    return normalizedBlob ?? sourceBlob;
+  } catch {
     return sourceBlob;
   }
-
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
-  bitmap.close();
-
-  const normalizedBlob = await new Promise<Blob | null>(resolve => {
-    canvas.toBlob(blob => resolve(blob), 'image/png');
-  });
-
-  return normalizedBlob ?? sourceBlob;
 }
 
 async function removeWithFallback(source: Blob | string): Promise<Blob> {
   const { removeBackground } = await import('@imgly/background-removal');
 
   let lastError: unknown;
-  for (const cfg of ATTEMPTS) {
+  for (const attempt of getOrderedAttempts()) {
     try {
-      const resultBlob = await withTimeout(removeBackground(source, cfg as any), 30000);
-      if (resultBlob && resultBlob.size > 0) return resultBlob;
+      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 45000);
+      if (resultBlob && resultBlob.size > 0) {
+        preferredAttemptKey = attempt.key;
+        return resultBlob;
+      }
     } catch (err) {
       lastError = err;
     }
@@ -112,7 +138,6 @@ export async function removeBackgroundFromDataUrl(dataUrl: string): Promise<stri
   try {
     resultBlob = await removeWithFallback(normalizedBlob);
   } catch {
-    // Last fallback: try direct data URL input in case Blob decoding backend fails on specific devices.
     resultBlob = await removeWithFallback(dataUrl);
   }
 
