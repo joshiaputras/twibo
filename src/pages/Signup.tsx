@@ -24,7 +24,7 @@ const Signup = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.password !== form.confirmPassword) {
-      toast.error(t.auth.passwordMismatch || 'Passwords do not match');
+      toast.error((t.auth as any).passwordMismatch || 'Passwords do not match');
       return;
     }
     if (form.password.length < 6) {
@@ -44,7 +44,7 @@ const Signup = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success(t.auth.signupSuccess || 'Account created! Check your email to verify.');
+      toast.success((t.auth as any).signupSuccess || 'Account created! Check your email to verify.');
     }
   };
 

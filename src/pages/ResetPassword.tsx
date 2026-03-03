@@ -19,7 +19,7 @@ const ResetPassword = () => {
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
-      toast.error(t.auth.passwordMismatch || 'Passwords do not match');
+      toast.error((t.auth as any).passwordMismatch || 'Passwords do not match');
       return;
     }
     setLoading(true);

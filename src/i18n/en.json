@@ -113,7 +113,8 @@
     "backToLogin": "Back to login",
     "or": "or",
     "passwordMismatch": "Passwords do not match",
-    "signupSuccess": "Account created! Check your email to verify."
+    "signupSuccess": "Account created! Check your email to verify.",
+    "resetSuccess": "Password updated successfully!"
   },
   "dashboard": {
     "title": "My Campaigns",
