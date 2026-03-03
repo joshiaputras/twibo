@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaigns: {
+        Row: {
+          caption: string
+          created_at: string
+          description: string
+          design_json: Json
+          id: string
+          name: string
+          size: string
+          slug: string
+          status: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string
+          created_at?: string
+          description?: string
+          design_json?: Json
+          id?: string
+          name?: string
+          size?: string
+          slug: string
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          description?: string
+          design_json?: Json
+          id?: string
+          name?: string
+          size?: string
+          slug?: string
+          status?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
