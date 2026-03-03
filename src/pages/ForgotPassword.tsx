@@ -1,21 +1,32 @@
 import Layout from '@/components/Layout';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 const ForgotPassword = () => {
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Supabase resetPasswordForEmail
-    setSent(true);
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setSent(true);
+    }
   };
 
   return (
@@ -47,7 +58,9 @@ const ForgotPassword = () => {
                     <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="pl-10 bg-secondary/50 border-border" required />
                   </div>
                 </div>
-                <Button type="submit" className="w-full gold-glow font-semibold">{t.auth.forgotCta}</Button>
+                <Button type="submit" className="w-full gold-glow font-semibold" disabled={loading}>
+                  {loading ? '...' : t.auth.forgotCta}
+                </Button>
                 <div className="text-center">
                   <Link to="/login" className="text-sm text-primary hover:underline flex items-center justify-center gap-1">
                     <ArrowLeft className="w-3 h-3" />{t.auth.backToLogin}

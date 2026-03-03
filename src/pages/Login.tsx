@@ -1,21 +1,45 @@
 import Layout from '@/components/Layout';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Chrome } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 const Login = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) navigate('/dashboard');
+  }, [user, navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Supabase auth
-    console.log('Login:', { email, password });
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const handleGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/dashboard' },
+    });
+    if (error) toast.error(error.message);
   };
 
   return (
@@ -28,7 +52,7 @@ const Login = () => {
               <p className="text-muted-foreground text-sm">{t.auth.loginSubtitle}</p>
             </div>
 
-            <Button variant="outline" className="w-full mb-6 border-border hover:border-primary/50 gap-2">
+            <Button variant="outline" className="w-full mb-6 border-border hover:border-primary/50 gap-2" onClick={handleGoogle}>
               <Chrome className="w-4 h-4" />
               {t.auth.googleCta}
             </Button>
@@ -56,7 +80,9 @@ const Login = () => {
               <div className="text-right">
                 <Link to="/forgot-password" className="text-xs text-primary hover:underline">{t.auth.forgotPassword}</Link>
               </div>
-              <Button type="submit" className="w-full gold-glow font-semibold">{t.auth.loginCta}</Button>
+              <Button type="submit" className="w-full gold-glow font-semibold" disabled={loading}>
+                {loading ? '...' : t.auth.loginCta}
+              </Button>
             </form>
 
             <p className="text-center text-sm text-muted-foreground mt-6">
