@@ -12,6 +12,7 @@ const Pricing = () => {
     { feature: t.pricing.watermark, free: false, premium: true },
     { feature: t.pricing.ads, free: false, premium: true },
     { feature: t.pricing.stats, free: false, premium: true },
+    { feature: t.pricing.privateLink, free: true, premium: true },
     { feature: t.pricing.customSlug, free: true, premium: true },
     { feature: t.pricing.share, free: true, premium: true },
     { feature: t.pricing.bgRemoval, free: true, premium: true },
@@ -58,8 +59,8 @@ const Pricing = () => {
                 <Crown className="w-5 h-5 text-primary" />
                 <h2 className="font-display font-bold text-lg text-foreground">{t.pricing.premium}</h2>
               </div>
-              <div className="mb-6">
-                <span className="text-sm text-muted-foreground line-through mr-2">{t.pricing.premiumOriginal}</span>
+              <div className="mb-6 flex items-baseline gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground line-through">{t.pricing.premiumOriginal}</span>
                 <span className="font-display text-4xl font-bold text-gold-gradient">{t.pricing.premiumPrice}</span>
                 <span className="text-sm text-muted-foreground">{t.pricing.perCampaign}</span>
               </div>
