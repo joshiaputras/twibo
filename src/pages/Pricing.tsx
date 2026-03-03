@@ -59,10 +59,14 @@ const Pricing = () => {
                 <Crown className="w-5 h-5 text-primary" />
                 <h2 className="font-display font-bold text-lg text-foreground">{t.pricing.premium}</h2>
               </div>
-              <div className="mb-6 flex items-baseline gap-2 flex-wrap">
-                <span className="text-sm text-muted-foreground line-through">{t.pricing.premiumOriginal}</span>
-                <span className="font-display text-4xl font-bold text-gold-gradient">{t.pricing.premiumPrice}</span>
-                <span className="text-sm text-muted-foreground">{t.pricing.perCampaign}</span>
+              <div className="mb-6">
+                <div className="mb-1">
+                  <span className="text-sm text-muted-foreground line-through">{t.pricing.premiumOriginal}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-display text-4xl font-bold text-gold-gradient">{t.pricing.premiumPrice}</span>
+                  <span className="text-sm text-muted-foreground">{t.pricing.perCampaign}</span>
+                </div>
               </div>
               <ul className="space-y-3 mb-8 flex-1">
                 {Object.values(t.pricing.premiumFeatures).map((f, i) => (

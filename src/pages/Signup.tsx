@@ -1,19 +1,59 @@
 import Layout from '@/components/Layout';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Phone, Chrome } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 const Signup = () => {
   const { t } = useLanguage();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
+  const [loading, setLoading] = useState(false);
 
-  const handleSignup = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) navigate('/dashboard');
+  }, [user, navigate]);
+
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Signup:', form);
+    if (form.password !== form.confirmPassword) {
+      toast.error(t.auth.passwordMismatch || 'Passwords do not match');
+      return;
+    }
+    if (form.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+      options: {
+        data: { name: form.name, phone: form.phone },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(t.auth.signupSuccess || 'Account created! Check your email to verify.');
+    }
+  };
+
+  const handleGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/dashboard' },
+    });
+    if (error) toast.error(error.message);
   };
 
   const update = (key: string, value: string) => setForm(prev => ({ ...prev, [key]: value }));
@@ -28,7 +68,7 @@ const Signup = () => {
               <p className="text-muted-foreground text-sm">{t.auth.signupSubtitle}</p>
             </div>
 
-            <Button variant="outline" className="w-full mb-6 border-border hover:border-primary/50 gap-2">
+            <Button variant="outline" className="w-full mb-6 border-border hover:border-primary/50 gap-2" onClick={handleGoogle}>
               <Chrome className="w-4 h-4" />
               {t.auth.googleCta}
             </Button>
@@ -74,7 +114,9 @@ const Signup = () => {
                   <Input id="confirmPassword" type="password" value={form.confirmPassword} onChange={e => update('confirmPassword', e.target.value)} className="pl-10 bg-secondary/50 border-border" required />
                 </div>
               </div>
-              <Button type="submit" className="w-full gold-glow font-semibold">{t.auth.signupCta}</Button>
+              <Button type="submit" className="w-full gold-glow font-semibold" disabled={loading}>
+                {loading ? '...' : t.auth.signupCta}
+              </Button>
             </form>
 
             <p className="text-center text-sm text-muted-foreground mt-6">

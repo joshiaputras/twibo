@@ -8,8 +8,8 @@
     "logout": "Keluar"
   },
   "hero": {
-    "title": "Buat Twibbon & Frame Campaign Online — Gratis & Privat",
-    "subtitle": "Platform twibbon maker termudah untuk komunitas, organisasi, dan event. Desain frame campaign sendiri, bagikan link privat, dan biarkan supporter membuat foto branded secara instan — tanpa perlu akun.",
+    "title": "Buat Twibbon & Frame Campaign Online — Gratis & Mudah",
+    "subtitle": "Platform twibbon maker termudah untuk komunitas, organisasi, dan event. Desain frame campaign sendiri, bagikan link unik, dan biarkan supporter membuat foto branded secara instan — tanpa perlu akun.",
     "cta": "Buat Twibbon Sekarang",
     "badge": "100% Private & Aman"
   },
@@ -111,7 +111,9 @@
     "forgotSubtitle": "Masukkan email kamu dan kami akan mengirimkan link reset",
     "forgotCta": "Kirim Link Reset",
     "backToLogin": "Kembali ke login",
-    "or": "atau"
+    "or": "atau",
+    "passwordMismatch": "Password tidak cocok",
+    "signupSuccess": "Akun berhasil dibuat! Cek email kamu untuk verifikasi."
   },
   "dashboard": {
     "title": "Campaign Saya",

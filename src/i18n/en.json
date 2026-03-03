@@ -8,8 +8,8 @@
     "logout": "Logout"
   },
   "hero": {
-    "title": "Create Twibbon & Campaign Frames Online — Free & Private",
-    "subtitle": "The easiest twibbon maker for communities, organizations, and events. Design your own campaign frame, share a private link, and let supporters create branded photos instantly — no account needed.",
+    "title": "Create Twibbon & Campaign Frames Online — Free & Easy",
+    "subtitle": "The easiest twibbon maker for communities, organizations, and events. Design your own campaign frame, share a unique link, and let supporters create branded photos instantly — no account needed.",
     "cta": "Create Your Twibbon Now",
     "badge": "100% Private & Secure"
   },
@@ -111,7 +111,9 @@
     "forgotSubtitle": "Enter your email and we'll send you a reset link",
     "forgotCta": "Send Reset Link",
     "backToLogin": "Back to login",
-    "or": "or"
+    "or": "or",
+    "passwordMismatch": "Passwords do not match",
+    "signupSuccess": "Account created! Check your email to verify."
   },
   "dashboard": {
     "title": "My Campaigns",
