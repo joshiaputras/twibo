@@ -106,7 +106,7 @@ const Admin = () => {
       return;
     }
     setCampaigns(prev => prev.filter((c: any) => c.id !== id));
-    toast.success('Campaign dihapus');
+    toast.success(t.admin.campaignDeleted ?? 'Campaign deleted');
   };
 
   const toggleUserAdmin = async (userId: string, makeAdmin: boolean) => {
@@ -117,7 +117,7 @@ const Admin = () => {
         return;
       }
       setUsers(prev => prev.map((u: any) => (u.id === userId ? { ...u, is_admin: true } : u)));
-      toast.success('Role admin diberikan');
+      toast.success(t.admin.adminGranted ?? 'Admin role granted');
       return;
     }
 
@@ -127,7 +127,7 @@ const Admin = () => {
       return;
     }
     setUsers(prev => prev.map((u: any) => (u.id === userId ? { ...u, is_admin: false } : u)));
-    toast.success('Role admin dicabut');
+    toast.success(t.admin.adminRevoked ?? 'Admin role revoked');
   };
 
   const deleteUser = async (userId: string) => {
@@ -137,14 +137,14 @@ const Admin = () => {
       return;
     }
     setUsers(prev => prev.filter((u: any) => u.id !== userId));
-    toast.success('User dihapus dari profil');
+    toast.success(t.admin.userDeleted ?? 'User profile deleted');
   };
 
   if (loading) {
     return (
       <Layout>
         <section className="py-24 md:py-32">
-          <div className="container mx-auto px-4 text-center text-muted-foreground">Loading...</div>
+          <div className="container mx-auto px-4 text-center text-muted-foreground">{t.campaign.editor.loading}</div>
         </section>
       </Layout>
     );
@@ -197,16 +197,16 @@ const Admin = () => {
             </TabsList>
 
             <TabsContent value="campaigns" className="space-y-3">
-              <Input value={searchCampaign} onChange={e => setSearchCampaign(e.target.value)} placeholder="Cari campaign" className="max-w-sm bg-secondary/50 border-border" />
+              <Input value={searchCampaign} onChange={e => setSearchCampaign(e.target.value)} placeholder={t.admin.searchCampaign ?? 'Search campaigns'} className="max-w-sm bg-secondary/50 border-border" />
 
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Campaign</TableHead>
-                      <TableHead>Slug</TableHead>
+                      <TableHead>{t.admin.campaign ?? 'Campaign'}</TableHead>
+                      <TableHead>{t.admin.slug ?? 'Slug'}</TableHead>
                       <TableHead>{t.admin.tier ?? 'Tier'}</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>{t.admin.status ?? 'Status'}</TableHead>
                       <TableHead className="w-[360px]">{t.admin.actions ?? 'Actions'}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -237,21 +237,21 @@ const Admin = () => {
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
                             {c.status !== 'published' && (
-                              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, 'Campaign dipublish')}>
-                                Publish
+                              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, t.admin.campaignPublished ?? 'Campaign published')}>
+                                {t.admin.publish ?? 'Publish'}
                               </Button>
                             )}
                             {c.status !== 'draft' && (
-                              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'draft' }, 'Campaign jadi draft')}>
-                                Draft
+                              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'draft' }, t.admin.campaignDrafted ?? 'Campaign moved to draft')}>
+                                {t.admin.draft ?? 'Draft'}
                               </Button>
                             )}
                             {c.status !== 'blocked' ? (
-                              <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'blocked' }, t.admin.campaignBlocked ?? 'Campaign diblokir')}>
+                              <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'blocked' }, t.admin.campaignBlocked ?? 'Campaign blocked')}>
                                 <Ban className="w-3 h-3" /> {t.admin.block}
                               </Button>
                             ) : (
-                              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, 'Campaign dibuka')}>
+                              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, t.admin.campaignOpened ?? 'Campaign unblocked')}>
                                 <Unlock className="w-3 h-3" /> {t.admin.unblock ?? 'Unblock'}
                               </Button>
                             )}
@@ -259,12 +259,12 @@ const Admin = () => {
                               size="sm"
                               variant="outline"
                               className="text-xs"
-                              onClick={() => updateCampaign(c.id, { tier: c.tier === 'premium' ? 'free' : 'premium' }, 'Tier campaign diperbarui')}
+                              onClick={() => updateCampaign(c.id, { tier: c.tier === 'premium' ? 'free' : 'premium' }, t.admin.tierUpdated ?? 'Campaign tier updated')}
                             >
-                              {c.tier === 'premium' ? 'Set Free' : 'Set Premium'}
+                              {c.tier === 'premium' ? (t.admin.setFree ?? 'Set Free') : (t.admin.setPremium ?? 'Set Premium')}
                             </Button>
                             <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteCampaign(c.id)}>
-                              <Trash2 className="w-3 h-3" /> Delete
+                              <Trash2 className="w-3 h-3" /> {t.admin.delete ?? 'Delete'}
                             </Button>
                           </div>
                         </TableCell>
@@ -283,16 +283,16 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="users" className="space-y-3">
-              <Input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder="Cari user" className="max-w-sm bg-secondary/50 border-border" />
+              <Input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder={t.admin.searchUser ?? 'Search users'} className="max-w-sm bg-secondary/50 border-border" />
 
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t.admin.name ?? 'Name'}</TableHead>
-                      <TableHead>Email</TableHead>
+                      <TableHead>{t.admin.email ?? 'Email'}</TableHead>
                       <TableHead>{t.admin.phone ?? 'Phone'}</TableHead>
-                      <TableHead>Role</TableHead>
+                      <TableHead>{t.admin.role ?? 'Role'}</TableHead>
                       <TableHead>{t.admin.joined ?? 'Joined'}</TableHead>
                       <TableHead className="w-[220px]">{t.admin.actions ?? 'Actions'}</TableHead>
                     </TableRow>
@@ -306,17 +306,17 @@ const Admin = () => {
                         <TableCell>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${u.is_admin ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                             {u.is_admin && <Shield className="w-3 h-3 inline mr-1" />}
-                            {u.is_admin ? 'admin' : 'user'}
+                            {u.is_admin ? (t.admin.adminRole ?? 'admin') : (t.admin.userRole ?? 'user')}
                           </span>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString('id-ID')}</TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
                             <Button size="sm" variant="outline" className="text-xs" onClick={() => toggleUserAdmin(u.id, !u.is_admin)}>
-                              {u.is_admin ? 'Set User' : 'Set Admin'}
+                              {u.is_admin ? (t.admin.setUser ?? 'Set User') : (t.admin.setAdmin ?? 'Set Admin')}
                             </Button>
                             <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteUser(u.id)}>
-                              <Trash2 className="w-3 h-3" /> Delete
+                              <Trash2 className="w-3 h-3" /> {t.admin.delete ?? 'Delete'}
                             </Button>
                           </div>
                         </TableCell>
@@ -340,9 +340,9 @@ const Admin = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t.admin.date ?? 'Date'}</TableHead>
-                      <TableHead>Campaign</TableHead>
+                      <TableHead>{t.admin.campaign ?? 'Campaign'}</TableHead>
                       <TableHead>{t.admin.amount ?? 'Amount'}</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>{t.admin.status ?? 'Status'}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -382,7 +382,7 @@ const Admin = () => {
                   ].map(item => (
                     <div key={item.key}>
                       <label className="text-sm text-muted-foreground">{item.label}</label>
-                      <Input value={settings[item.key] || ''} onChange={e => setSettings(prev => ({ ...prev, [item.key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-sm" placeholder={item.label} />
+                      <Input value={settings[item.key] || ''} onChange={e => setSettings(prev => ({ ...prev, [item.key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-sm" placeholder={t.admin.settingPlaceholder ?? 'Enter value'} />
                     </div>
                   ))}
                 </div>

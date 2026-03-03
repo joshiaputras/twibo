@@ -79,7 +79,6 @@ const CampaignEditor = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle');
   const [processingPhoto, setProcessingPhoto] = useState(false);
-  const [isComposingPreview, setIsComposingPreview] = useState(false);
 
   const composeVersionRef = useRef(0);
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
@@ -150,7 +149,6 @@ const CampaignEditor = () => {
   const updatePreview = useCallback(async () => {
     if (!templateImage) return;
     const current = ++composeVersionRef.current;
-    setIsComposingPreview(true);
 
     try {
       const result = await composeResult({
@@ -171,15 +169,15 @@ const CampaignEditor = () => {
       }
     } catch (err) {
       console.error('Preview compose error:', err);
-    } finally {
-      if (current === composeVersionRef.current) {
-        setIsComposingPreview(false);
-      }
     }
   }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h, form.type]);
 
   useEffect(() => {
-    updatePreview();
+    const timer = window.setTimeout(() => {
+      updatePreview();
+    }, 80);
+
+    return () => window.clearTimeout(timer);
   }, [updatePreview]);
 
   const normalizeSlug = (value: string) =>
@@ -338,7 +336,7 @@ const CampaignEditor = () => {
     setStep(s => Math.min(s + 1, steps.length - 1));
   };
 
-  const isPreviewBusy = processingPhoto || isComposingPreview;
+  const isPreviewBusy = processingPhoto;
 
   useEffect(() => {
     const el = previewInteractionRef.current;
@@ -599,11 +597,11 @@ const CampaignEditor = () => {
                       <div className="py-12 text-muted-foreground text-sm">{t.campaign.editor.loading}</div>
                     )}
 
-                    {isPreviewBusy && (
+                    {processingPhoto && (
                       <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
                         <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          {processingPhoto ? 'Processing photo...' : 'Generating preview...'}
+                          Processing photo...
                         </div>
                       </div>
                     )}

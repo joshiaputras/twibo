@@ -65,8 +65,9 @@ const CanvasEditor = ({
     size: 40,
     color: '#ffffff',
   });
-  const [shapeColor, setShapeColor] = useState('hsl(var(--primary))');
+  const [shapeColor, setShapeColor] = useState('#ffffff');
   const [placeholderRoundness, setPlaceholderRoundness] = useState(20);
+  const [hasPlaceholder, setHasPlaceholder] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
 
   const isPanning = useRef(false);
@@ -105,6 +106,7 @@ const CanvasEditor = ({
                 : `${t.campaign.editor.layer} ${i + 1}`),
         visible: obj.visible !== false,
       }));
+    setHasPlaceholder(objs.some((obj: any) => isPlaceholderId(obj.id)));
     setLayers(items.reverse());
   }, [t.campaign.editor]);
 
@@ -154,8 +156,25 @@ const CanvasEditor = ({
     canvas.on('object:modified', onModified);
     canvas.on('object:added', onModified);
     canvas.on('object:removed', onModified);
-    canvas.on('selection:created', (e: any) => setSelectedId(e.selected?.[0]?.id ?? null));
-    canvas.on('selection:updated', (e: any) => setSelectedId(e.selected?.[0]?.id ?? null));
+    const syncSelectionState = (selected: any) => {
+      setSelectedId(selected?.id ?? null);
+
+      if (selected?.type === 'rect' || selected?.type === 'circle') {
+        if (isPlaceholderId(selected.id)) {
+          const size = selected.type === 'circle'
+            ? Math.max(1, (selected.radius ?? 0) * 2)
+            : Math.max(1, selected.width ?? 1);
+          const rx = selected.rx ?? selected.radius ?? 0;
+          const normalized = clamp((rx / (size / 2)) * 100, 0, 100);
+          setPlaceholderRoundness(normalized);
+        } else if (typeof selected.fill === 'string' && selected.fill.startsWith('#')) {
+          setShapeColor(selected.fill);
+        }
+      }
+    };
+
+    canvas.on('selection:created', (e: any) => syncSelectionState(e.selected?.[0]));
+    canvas.on('selection:updated', (e: any) => syncSelectionState(e.selected?.[0]));
     canvas.on('selection:cleared', () => setSelectedId(null));
 
     return () => { canvas.dispose(); fabricRef.current = null; };
@@ -348,6 +367,18 @@ const CanvasEditor = ({
     saveHistory();
   }, [width, height, saveHistory, shapeColor, t.campaign.editor.circle, t.campaign.editor.rectangle]);
 
+  const updateSelectedShapeColor = useCallback((color: string) => {
+    setShapeColor(color);
+
+    const active = fabricRef.current?.getActiveObject() as any;
+    if (!active || isPlaceholderId(active.id)) return;
+    if (active.type !== 'rect' && active.type !== 'circle') return;
+
+    active.set('fill', color);
+    fabricRef.current?.renderAll();
+    saveHistory();
+  }, [saveHistory]);
+
   const addPlaceholder = useCallback(() => {
     if (type === 'background') {
       toast.info(t.campaign.editor.placeholderNotNeeded ?? 'Mode Background tidak membutuhkan placeholder.');
@@ -355,10 +386,12 @@ const CanvasEditor = ({
     }
 
     if (!fabricRef.current) return;
+    if (hasPlaceholder) {
+      toast.info(t.campaign.editor.onePlaceholderOnly);
+      return;
+    }
 
     const size = Math.min(width, height) * 0.42;
-    const normalizedRoundness = clamp(placeholderRoundness, 0, 100);
-    const cornerRadius = (size / 2) * (normalizedRoundness / 100);
 
     const obj = new Rect({
       width: size,
@@ -367,22 +400,38 @@ const CanvasEditor = ({
       top: height / 2,
       originX: 'center',
       originY: 'center',
-      fill: 'hsl(var(--background) / 0.12)',
-      stroke: 'hsl(var(--primary))',
+      fill: 'rgba(255, 255, 255, 0.14)',
+      stroke: 'rgba(255, 255, 255, 0.9)',
       strokeWidth: 2,
-      rx: cornerRadius,
-      ry: cornerRadius,
+      rx: 0,
+      ry: 0,
     });
 
-    (obj as any).id = `${PLACEHOLDER_PREFIX}-${Date.now()}`;
+    (obj as any).id = PLACEHOLDER_PREFIX;
     (obj as any).name = t.campaign.editor.placeholder;
 
     fabricRef.current.add(obj);
     fabricRef.current.setActiveObject(obj);
     fabricRef.current.renderAll();
+    setPlaceholderRoundness(0);
     saveHistory();
+    syncLayers();
     toast.success(t.campaign.editor.placeholderAdded);
-  }, [width, height, type, placeholderRoundness, saveHistory, t.campaign.editor]);
+  }, [width, height, type, hasPlaceholder, saveHistory, syncLayers, t.campaign.editor]);
+
+  const updatePlaceholderRoundness = useCallback((roundness: number) => {
+    setPlaceholderRoundness(roundness);
+    if (!fabricRef.current) return;
+
+    const placeholder = fabricRef.current.getObjects().find((o: any) => isPlaceholderId(o.id)) as any;
+    if (!placeholder) return;
+
+    const size = Math.max(1, placeholder.width ?? 1);
+    const cornerRadius = (size / 2) * (clamp(roundness, 0, 100) / 100);
+    placeholder.set({ rx: cornerRadius, ry: cornerRadius });
+    fabricRef.current.renderAll();
+    saveHistory();
+  }, [saveHistory]);
 
   const deleteSelected = useCallback(() => {
     if (!fabricRef.current) return;
@@ -552,7 +601,7 @@ const CanvasEditor = ({
             <div className="glass rounded-xl p-3 border-gold-subtle space-y-2">
               <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Square className="w-3.5 h-3.5 text-primary" /> {t.campaign.editor.shapeTool}</h3>
               <div className="flex items-center gap-2">
-                <Input type="color" value={shapeColor} onChange={e => setShapeColor(e.target.value)} className="h-8 w-10 p-0.5 bg-secondary/50 border-border" />
+                <Input type="color" value={shapeColor} onChange={e => updateSelectedShapeColor(e.target.value)} className="h-8 w-10 p-0.5 bg-secondary/50 border-border" />
                 <span className="text-xs text-muted-foreground">{t.campaign.editor.shapeColor}</span>
               </div>
             </div>
@@ -560,7 +609,16 @@ const CanvasEditor = ({
             {type === 'frame' && (
               <div className="glass rounded-xl p-3 border-gold-subtle space-y-2">
                 <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Crosshair className="w-3.5 h-3.5 text-primary" /> {t.campaign.editor.placeholderTool}</h3>
-                <p className="text-[10px] text-muted-foreground leading-tight">Placeholder selalu berbentuk square; atur roundness sampai 100% untuk jadi circle.</p>
+                <p className="text-[10px] text-muted-foreground leading-tight">Placeholder hanya 1; tambahkan dulu lalu atur roundness untuk lihat bentuk real-time.</p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full gap-1 border-primary/30 text-primary h-8 text-xs"
+                  onClick={addPlaceholder}
+                  disabled={hasPlaceholder}
+                >
+                  <Crosshair className="w-3 h-3" /> {hasPlaceholder ? t.campaign.editor.placeholderExists : t.campaign.editor.addPlaceholder}
+                </Button>
                 <div className="space-y-1">
                   <label className="text-[10px] text-muted-foreground">Roundness: {Math.round(placeholderRoundness)}%</label>
                   <Input
@@ -569,13 +627,11 @@ const CanvasEditor = ({
                     max={100}
                     step={1}
                     value={placeholderRoundness}
-                    onChange={e => setPlaceholderRoundness(Number(e.target.value))}
+                    onChange={e => updatePlaceholderRoundness(Number(e.target.value))}
+                    disabled={!hasPlaceholder}
                     className="bg-secondary/50 border-border h-8"
                   />
                 </div>
-                <Button size="sm" variant="outline" className="w-full gap-1 border-primary/30 text-primary h-8 text-xs" onClick={addPlaceholder}>
-                  <Crosshair className="w-3 h-3" /> {t.campaign.editor.addPlaceholder}
-                </Button>
               </div>
             )}
           </div>

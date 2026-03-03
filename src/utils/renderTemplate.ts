@@ -38,8 +38,8 @@ export async function renderTemplatePNG(
       visible: false,
       stroke: 'transparent',
       strokeWidth: 0,
-      fill: '#000000',
-      opacity: 1,
+      fill: 'transparent',
+      opacity: 0,
     });
   });
 
@@ -63,29 +63,27 @@ export async function renderTemplatePNG(
         ctx.rotate(angle);
         ctx.beginPath();
 
-        if (placeholder.type === 'circle') {
-          ctx.ellipse(0, 0, scaledW / 2, scaledH / 2, 0, 0, Math.PI * 2);
-        } else {
-          const radiusX = Math.min((placeholder.rx ?? 0) * (placeholder.scaleX ?? 1), scaledW / 2);
-          const radiusY = Math.min((placeholder.ry ?? 0) * (placeholder.scaleY ?? 1), scaledH / 2);
-          const radius = Math.max(0, Math.min(radiusX, radiusY));
+        const radiusX = Math.min((placeholder.rx ?? 0) * (placeholder.scaleX ?? 1), scaledW / 2);
+        const radiusY = Math.min((placeholder.ry ?? 0) * (placeholder.scaleY ?? 1), scaledH / 2);
+        const radius = Math.max(0, Math.min(radiusX, radiusY));
 
-          if (radius <= 0) {
-            ctx.rect(-scaledW / 2, -scaledH / 2, scaledW, scaledH);
-          } else {
-            const x = -scaledW / 2;
-            const y = -scaledH / 2;
-            const r = Math.min(radius, scaledW / 2, scaledH / 2);
-            ctx.moveTo(x + r, y);
-            ctx.lineTo(x + scaledW - r, y);
-            ctx.quadraticCurveTo(x + scaledW, y, x + scaledW, y + r);
-            ctx.lineTo(x + scaledW, y + scaledH - r);
-            ctx.quadraticCurveTo(x + scaledW, y + scaledH, x + scaledW - r, y + scaledH);
-            ctx.lineTo(x + r, y + scaledH);
-            ctx.quadraticCurveTo(x, y + scaledH, x, y + scaledH - r);
-            ctx.lineTo(x, y + r);
-            ctx.quadraticCurveTo(x, y, x + r, y);
-          }
+        if (radius <= 0) {
+          ctx.rect(-scaledW / 2, -scaledH / 2, scaledW, scaledH);
+        } else if (typeof (ctx as any).roundRect === 'function') {
+          (ctx as any).roundRect(-scaledW / 2, -scaledH / 2, scaledW, scaledH, radius);
+        } else {
+          const x = -scaledW / 2;
+          const y = -scaledH / 2;
+          const r = Math.min(radius, scaledW / 2, scaledH / 2);
+          ctx.moveTo(x + r, y);
+          ctx.lineTo(x + scaledW - r, y);
+          ctx.quadraticCurveTo(x + scaledW, y, x + scaledW, y + r);
+          ctx.lineTo(x + scaledW, y + scaledH - r);
+          ctx.quadraticCurveTo(x + scaledW, y + scaledH, x + scaledW - r, y + scaledH);
+          ctx.lineTo(x + r, y + scaledH);
+          ctx.quadraticCurveTo(x, y + scaledH, x, y + scaledH - r);
+          ctx.lineTo(x, y + r);
+          ctx.quadraticCurveTo(x, y, x + r, y);
         }
 
         ctx.closePath();
