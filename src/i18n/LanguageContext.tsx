@@ -3,7 +3,8 @@ import id from './id.json';
 import en from './en.json';
 
 type Language = 'id' | 'en';
-type Translations = typeof id;
+// Use a loose type so new keys don't cause TS errors
+type Translations = Record<string, any>;
 
 interface LanguageContextType {
   lang: Language;

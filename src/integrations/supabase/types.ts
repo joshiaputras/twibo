@@ -25,6 +25,7 @@ export type Database = {
           size: string
           slug: string
           status: string
+          tier: string
           type: string
           updated_at: string
           user_id: string
@@ -39,6 +40,7 @@ export type Database = {
           size?: string
           slug: string
           status?: string
+          tier?: string
           type?: string
           updated_at?: string
           user_id: string
@@ -53,11 +55,62 @@ export type Database = {
           size?: string
           slug?: string
           status?: string
+          tier?: string
           type?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      payments: {
+        Row: {
+          amount: number
+          campaign_id: string
+          created_at: string
+          id: string
+          midtrans_order_id: string | null
+          midtrans_transaction_id: string | null
+          paid_at: string | null
+          payment_method: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          campaign_id: string
+          created_at?: string
+          id?: string
+          midtrans_order_id?: string | null
+          midtrans_transaction_id?: string | null
+          paid_at?: string | null
+          payment_method?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          midtrans_order_id?: string | null
+          midtrans_transaction_id?: string | null
+          paid_at?: string | null
+          payment_method?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -86,6 +139,27 @@ export type Database = {
           name?: string
           phone?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      site_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
         }
         Relationships: []
       }

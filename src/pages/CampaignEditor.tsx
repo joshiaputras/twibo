@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useEffect, useState, lazy, Suspense } from 'react';
+import { Slider } from '@/components/ui/slider';
+import { useEffect, useState, useRef, lazy, Suspense, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Check, AlertTriangle, Square, RectangleVertical, Smartphone, Frame, Image, ChevronLeft, ChevronRight, Save, Upload } from 'lucide-react';
+import { Check, AlertTriangle, Square, RectangleVertical, Smartphone, Frame, Image, ChevronLeft, ChevronRight, Save, Upload, Move, ZoomIn, Crown, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -38,12 +39,19 @@ const CampaignEditor = () => {
   const [campaignId, setCampaignId] = useState<string | null>(id ?? null);
   const [saving, setSaving] = useState(false);
   const [canvasState, setCanvasState] = useState<string>('');
-  const [simulationPhoto, setSimulationPhoto] = useState<string>('');
   const [form, setForm] = useState<FormState>({
     name: '', description: '', caption: '', slug: '',
-    size: 'square',
-    type: 'frame',
+    size: 'square', type: 'frame',
   });
+
+  // Step 5 simulation state
+  const [templateImage, setTemplateImage] = useState<string>('');
+  const [simulationPhoto, setSimulationPhoto] = useState<string>('');
+  const [simScale, setSimScale] = useState(100);
+  const [simOffsetX, setSimOffsetX] = useState(0);
+  const [simOffsetY, setSimOffsetY] = useState(0);
+  const simCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [showPayment, setShowPayment] = useState(false);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -62,39 +70,103 @@ const CampaignEditor = () => {
 
   useEffect(() => {
     if (!isEdit || !id) return;
-
     const loadCampaign = async () => {
       const { data, error }: { data: any; error: any } = await supabase
-        .from('campaigns' as any)
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error || !data) {
-        toast.error(t.campaign.loadError);
-        navigate('/dashboard');
-        return;
-      }
-
+        .from('campaigns' as any).select('*').eq('id', id).single();
+      if (error || !data) { toast.error(t.campaign.loadError); navigate('/dashboard'); return; }
       setCampaignId(data.id);
       setForm({
-        name: data.name ?? '',
-        description: data.description ?? '',
-        caption: data.caption ?? '',
-        slug: data.slug ?? '',
-        size: (data.size as CampaignSize) ?? 'square',
-        type: (data.type as CampaignType) ?? 'frame',
+        name: data.name ?? '', description: data.description ?? '', caption: data.caption ?? '', slug: data.slug ?? '',
+        size: (data.size as CampaignSize) ?? 'square', type: (data.type as CampaignType) ?? 'frame',
       });
-
-      const loadedDesign = typeof data.design_json === 'string'
-        ? data.design_json
-        : JSON.stringify(data.design_json ?? {});
-
+      const loadedDesign = typeof data.design_json === 'string' ? data.design_json : JSON.stringify(data.design_json ?? {});
       setCanvasState(loadedDesign === '{}' ? '' : loadedDesign);
     };
-
     loadCampaign();
   }, [id, isEdit, navigate, t.campaign.loadError]);
+
+  // When entering step 5, render template to PNG
+  useEffect(() => {
+    if (step !== 4 || !canvasState) return;
+    // Render canvas state to a PNG by creating a temporary off-screen fabric canvas
+    const renderTemplate = async () => {
+      try {
+        const { Canvas: FabricCanvas } = await import('fabric');
+        const tmpCanvas = document.createElement('canvas');
+        tmpCanvas.width = selectedSize.w;
+        tmpCanvas.height = selectedSize.h;
+
+        const fc = new FabricCanvas(tmpCanvas, {
+          width: selectedSize.w, height: selectedSize.h,
+          backgroundColor: 'transparent',
+        });
+
+        const parsed = JSON.parse(canvasState);
+        await fc.loadFromJSON(parsed);
+        fc.renderAll();
+
+        const dataUrl = tmpCanvas.toDataURL('image/png');
+        setTemplateImage(dataUrl);
+        fc.dispose();
+      } catch (err) {
+        console.error('Template render error:', err);
+      }
+    };
+    renderTemplate();
+  }, [step, canvasState, selectedSize.w, selectedSize.h]);
+
+  // Draw simulation canvas
+  const drawSimulation = useCallback(() => {
+    const canvas = simCanvasRef.current;
+    if (!canvas || !templateImage) return;
+
+    const previewScale = Math.min(400 / selectedSize.w, 500 / selectedSize.h, 1);
+    const pw = Math.round(selectedSize.w * previewScale);
+    const ph = Math.round(selectedSize.h * previewScale);
+    canvas.width = pw;
+    canvas.height = ph;
+
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, pw, ph);
+
+    // Draw checkerboard
+    const cs = 10;
+    for (let y = 0; y < ph; y += cs) {
+      for (let x = 0; x < pw; x += cs) {
+        ctx.fillStyle = (Math.floor(x / cs) + Math.floor(y / cs)) % 2 === 0 ? '#2a2a2a' : '#333';
+        ctx.fillRect(x, y, cs, cs);
+      }
+    }
+
+    const loadAndDraw = async () => {
+      // Draw simulation photo if exists (behind template)
+      if (simulationPhoto) {
+        const photo = new window.Image();
+        photo.crossOrigin = 'anonymous';
+        photo.onload = () => {
+          const s = (simScale / 100) * previewScale;
+          const imgW = photo.width * s;
+          const imgH = photo.height * s;
+          const ox = (pw / 2) + (simOffsetX * previewScale) - imgW / 2;
+          const oy = (ph / 2) + (simOffsetY * previewScale) - imgH / 2;
+          ctx.drawImage(photo, ox, oy, imgW, imgH);
+
+          // Draw template on top
+          const tpl = new window.Image();
+          tpl.onload = () => { ctx.drawImage(tpl, 0, 0, pw, ph); };
+          tpl.src = templateImage;
+        };
+        photo.src = simulationPhoto;
+      } else {
+        const tpl = new window.Image();
+        tpl.onload = () => { ctx.drawImage(tpl, 0, 0, pw, ph); };
+        tpl.src = templateImage;
+      }
+    };
+    loadAndDraw();
+  }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h]);
+
+  useEffect(() => { drawSimulation(); }, [drawSimulation]);
 
   const validateRequired = () => {
     if (!form.name.trim() || !form.slug.trim()) {
@@ -108,60 +180,32 @@ const CampaignEditor = () => {
   const saveCampaign = async (status: 'draft' | 'published') => {
     if (!user) return;
     if (!validateRequired()) return;
-
     setSaving(true);
 
     let parsedDesign: Record<string, unknown> = {};
-    try {
-      parsedDesign = canvasState ? JSON.parse(canvasState) : {};
-    } catch {
-      parsedDesign = {};
-    }
+    try { parsedDesign = canvasState ? JSON.parse(canvasState) : {}; } catch { parsedDesign = {}; }
 
     const payload = {
-      user_id: user.id,
-      name: form.name.trim(),
-      description: form.description.trim(),
-      caption: form.caption.trim(),
-      slug: form.slug.trim().toLowerCase(),
-      size: form.size,
-      type: form.type,
-      status,
-      design_json: parsedDesign,
+      user_id: user.id, name: form.name.trim(), description: form.description.trim(),
+      caption: form.caption.trim(), slug: form.slug.trim().toLowerCase(),
+      size: form.size, type: form.type, status, design_json: parsedDesign,
     };
 
     if (campaignId) {
-      const { error } = await supabase
-        .from('campaigns' as any)
-        .update(payload)
-        .eq('id', campaignId);
-
-      if (error) {
-        toast.error(error.message);
-        setSaving(false);
-        return;
-      }
+      const { error } = await supabase.from('campaigns' as any).update(payload).eq('id', campaignId);
+      if (error) { toast.error(error.message); setSaving(false); return; }
     } else {
       const { data, error }: { data: any; error: any } = await supabase
-        .from('campaigns' as any)
-        .insert(payload)
-        .select('id')
-        .single();
-
-      if (error) {
-        toast.error(error.code === '23505' ? t.campaign.slugTaken : error.message);
-        setSaving(false);
-        return;
-      }
-
+        .from('campaigns' as any).insert(payload).select('id').single();
+      if (error) { toast.error(error.code === '23505' ? t.campaign.slugTaken : error.message); setSaving(false); return; }
       setCampaignId(data.id);
     }
 
     setSaving(false);
 
     if (status === 'published') {
-      toast.success(t.campaign.publishSuccess);
-      navigate('/dashboard');
+      // Show payment prompt
+      setShowPayment(true);
     } else {
       toast.success(t.campaign.draftSaved);
     }
@@ -170,23 +214,45 @@ const CampaignEditor = () => {
   const handleSimulationUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
-    reader.onload = (e) => setSimulationPhoto((e.target?.result as string) ?? '');
+    reader.onload = (e) => {
+      setSimulationPhoto((e.target?.result as string) ?? '');
+      setSimScale(100);
+      setSimOffsetX(0);
+      setSimOffsetY(0);
+    };
     reader.readAsDataURL(file);
     event.target.value = '';
+  };
+
+  const handleSkipPayment = () => {
+    toast.success(t.campaign.publishSuccess);
+    navigate('/dashboard');
+  };
+
+  const handlePayment = async () => {
+    // For now, show placeholder - Midtrans integration requires API keys
+    toast.info(t.campaign.paymentPending ?? 'Pembayaran sedang diproses...');
+    // In the future, this will redirect to Midtrans
+    // For demo, just upgrade to premium
+    if (campaignId) {
+      await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaignId);
+    }
+    toast.success(t.campaign.premiumSuccess ?? 'Campaign berhasil diupgrade ke Premium!');
+    navigate('/dashboard');
   };
 
   return (
     <Layout>
       <section className="py-16 md:py-24">
         <div className={`container mx-auto px-4 ${step >= 3 ? 'max-w-7xl' : 'max-w-3xl'}`}>
-          <div className="flex items-center justify-center gap-2 mb-10 overflow-x-auto pb-2">
+          {/* Steps indicator */}
+          <div className="flex items-center justify-center gap-2 mb-8 overflow-x-auto pb-2">
             {steps.map((s, i) => (
               <div key={s} className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => i <= step && setStep(i)}
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
+                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
                     i < step ? 'bg-primary text-primary-foreground' :
                     i === step ? 'bg-primary/20 text-primary border-2 border-primary' :
                     'bg-secondary text-muted-foreground'
@@ -194,12 +260,13 @@ const CampaignEditor = () => {
                 >
                   {i < step ? <Check className="w-4 h-4" /> : i + 1}
                 </button>
-                {i < steps.length - 1 && <div className={`w-8 h-0.5 ${i < step ? 'bg-primary' : 'bg-border'}`} />}
+                {i < steps.length - 1 && <div className={`w-6 h-0.5 ${i < step ? 'bg-primary' : 'bg-border'}`} />}
               </div>
             ))}
           </div>
 
-          <div className="glass-strong rounded-2xl p-5 md:p-8 border-gold-subtle">
+          <div className="glass-strong rounded-2xl p-4 md:p-8 border-gold-subtle">
+            {/* Step 1: Details */}
             {step === 0 && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step1}</h2>
@@ -226,6 +293,7 @@ const CampaignEditor = () => {
               </div>
             )}
 
+            {/* Step 2: Size */}
             {step === 1 && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step2}</h2>
@@ -241,6 +309,7 @@ const CampaignEditor = () => {
               </div>
             )}
 
+            {/* Step 3: Type */}
             {step === 2 && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step3}</h2>
@@ -256,8 +325,9 @@ const CampaignEditor = () => {
               </div>
             )}
 
+            {/* Step 4: Canvas Editor */}
             {step === 3 && (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step4}</h2>
                 <Suspense fallback={<div className="text-center text-muted-foreground py-12">{t.campaign.editor.loading}</div>}>
                   <CanvasEditor
@@ -272,39 +342,70 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {step === 4 && (
+            {/* Step 5: Publish & Preview */}
+            {step === 4 && !showPayment && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground text-center">{t.campaign.publishSettings}</h2>
-                <div className="glass rounded-xl p-6 border-gold-subtle max-w-xl mx-auto text-center">
-                  <p className="text-foreground font-semibold">{form.name || 'Untitled Campaign'}</p>
+
+                {/* Campaign info */}
+                <div className="glass rounded-xl p-5 border-gold-subtle max-w-xl mx-auto text-center">
+                  <p className="text-foreground font-semibold text-lg">{form.name || 'Untitled Campaign'}</p>
                   <p className="text-xs text-muted-foreground mt-1">twibo.id/c/{form.slug || '...'}</p>
                   <p className="text-xs text-muted-foreground mt-1">{selectedSize.label} • {form.type === 'frame' ? t.campaign.typeFrame : t.campaign.typeBg}</p>
                 </div>
 
-                <div className="glass rounded-xl p-5 border-gold-subtle max-w-xl mx-auto text-center space-y-3">
-                  <h3 className="font-semibold text-foreground">{t.campaign.simulationTitle}</h3>
-                  <p className="text-xs text-muted-foreground">{t.campaign.simulationDesc}</p>
-                  <label className="inline-flex">
-                    <input type="file" accept="image/*" className="hidden" onChange={handleSimulationUpload} />
-                    <span className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground cursor-pointer hover:bg-secondary/50 transition-colors">
-                      <Upload className="w-4 h-4" />
-                      {simulationPhoto ? t.campaign.replaceSimulationPhoto : t.campaign.uploadSimulationPhoto}
-                    </span>
-                  </label>
+                {/* Template preview (PNG) */}
+                <div className="max-w-md mx-auto">
+                  <p className="text-sm text-muted-foreground text-center mb-2">{t.campaign.templatePreview ?? 'Template Preview'}</p>
+                  <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2">
+                    {templateImage ? (
+                      <canvas ref={simCanvasRef} className="max-w-full h-auto rounded" />
+                    ) : (
+                      <div className="py-12 text-muted-foreground text-sm">{t.campaign.editor.loading}</div>
+                    )}
+                  </div>
                 </div>
 
-                <Suspense fallback={<div className="text-center text-muted-foreground py-12">{t.campaign.editor.loading}</div>}>
-                  <CanvasEditor
-                    width={selectedSize.w}
-                    height={selectedSize.h}
-                    type={form.type}
-                    mode="preview"
-                    initialState={canvasState}
-                    previewPhotoUrl={simulationPhoto || undefined}
-                  />
-                </Suspense>
+                {/* Simulation photo upload */}
+                <div className="glass rounded-xl p-4 border-gold-subtle max-w-md mx-auto space-y-3">
+                  <h3 className="font-semibold text-foreground text-sm text-center">{t.campaign.simulationTitle}</h3>
+                  <p className="text-xs text-muted-foreground text-center">{t.campaign.simulationDesc}</p>
+                  <div className="flex justify-center">
+                    <label className="inline-flex cursor-pointer">
+                      <input type="file" accept="image/*" className="hidden" onChange={handleSimulationUpload} />
+                      <span className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm text-foreground hover:bg-secondary/50 transition-colors">
+                        <Upload className="w-4 h-4" />
+                        {simulationPhoto ? t.campaign.replaceSimulationPhoto : t.campaign.uploadSimulationPhoto}
+                      </span>
+                    </label>
+                  </div>
 
-                <div className="flex gap-3 justify-center">
+                  {simulationPhoto && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <ZoomIn className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <span className="text-xs text-muted-foreground w-12">{t.campaign.scale ?? 'Scale'}</span>
+                        <Slider value={[simScale]} onValueChange={v => setSimScale(v[0])} min={20} max={300} step={5} className="flex-1" />
+                        <span className="text-xs text-muted-foreground w-10">{simScale}%</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Move className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <span className="text-xs text-muted-foreground w-12">X</span>
+                        <Slider value={[simOffsetX]} onValueChange={v => setSimOffsetX(v[0])} min={-500} max={500} step={5} className="flex-1" />
+                        <span className="text-xs text-muted-foreground w-10">{simOffsetX}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Move className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <span className="text-xs text-muted-foreground w-12">Y</span>
+                        <Slider value={[simOffsetY]} onValueChange={v => setSimOffsetY(v[0])} min={-500} max={500} step={5} className="flex-1" />
+                        <span className="text-xs text-muted-foreground w-10">{simOffsetY}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Publish actions */}
+                <div className="flex gap-3 justify-center flex-wrap">
                   <Button variant="outline" className="border-border gap-2" onClick={() => saveCampaign('draft')} disabled={saving}>
                     <Save className="w-4 h-4" />{t.campaign.saveDraft}
                   </Button>
@@ -315,16 +416,53 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            <div className="flex justify-between mt-8 pt-6 border-t border-border/30">
-              <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 0} className="border-border gap-1">
-                <ChevronLeft className="w-4 h-4" />{t.campaign.prev}
-              </Button>
-              {step < steps.length - 1 && (
-                <Button onClick={() => setStep(s => s + 1)} className="gold-glow gap-1">
-                  {t.campaign.next}<ChevronRight className="w-4 h-4" />
+            {/* Payment prompt (after publish) */}
+            {step === 4 && showPayment && (
+              <div className="space-y-6 max-w-lg mx-auto text-center">
+                <Crown className="w-12 h-12 text-primary mx-auto" />
+                <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.upgradeToPremium ?? 'Upgrade ke Premium'}</h2>
+                <p className="text-muted-foreground text-sm">{t.campaign.upgradeDesc ?? 'Hapus watermark dan iklan dari campaign kamu dengan upgrade ke Premium.'}</p>
+
+                <div className="glass rounded-xl p-6 border-gold-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground font-semibold">{t.campaign.premiumPlan ?? 'Premium Access'}</span>
+                    <div>
+                      <span className="text-xs text-muted-foreground line-through mr-2">Rp 149.000</span>
+                      <span className="text-primary font-bold text-lg">Rp 50.000</span>
+                    </div>
+                  </div>
+                  <ul className="text-left text-sm text-muted-foreground space-y-1">
+                    <li>✓ {t.pricing.premiumFeatures.f2}</li>
+                    <li>✓ {t.pricing.premiumFeatures.f3}</li>
+                    <li>✓ {t.pricing.premiumFeatures.f4}</li>
+                    <li>✓ {t.pricing.premiumFeatures.f5}</li>
+                  </ul>
+                </div>
+
+                <div className="flex gap-3 justify-center flex-wrap">
+                  <Button variant="outline" className="border-border" onClick={handleSkipPayment}>
+                    {t.campaign.skipForNow ?? 'Lewati, Coba Gratis'}
+                  </Button>
+                  <Button className="gold-glow font-semibold gap-2" onClick={handlePayment}>
+                    <CreditCard className="w-4 h-4" /> {t.campaign.payNow ?? 'Bayar Sekarang'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation */}
+            {!showPayment && (
+              <div className="flex justify-between mt-8 pt-6 border-t border-border/30">
+                <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 0} className="border-border gap-1">
+                  <ChevronLeft className="w-4 h-4" />{t.campaign.prev}
                 </Button>
-              )}
-            </div>
+                {step < steps.length - 1 && (
+                  <Button onClick={() => setStep(s => s + 1)} className="gold-glow gap-1">
+                    {t.campaign.next}<ChevronRight className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
