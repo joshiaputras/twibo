@@ -113,7 +113,8 @@
     "backToLogin": "Kembali ke login",
     "or": "atau",
     "passwordMismatch": "Password tidak cocok",
-    "signupSuccess": "Akun berhasil dibuat! Cek email kamu untuk verifikasi."
+    "signupSuccess": "Akun berhasil dibuat! Cek email kamu untuk verifikasi.",
+    "resetSuccess": "Password berhasil diperbarui!"
   },
   "dashboard": {
     "title": "Campaign Saya",
