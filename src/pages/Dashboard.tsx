@@ -5,8 +5,16 @@ import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
 import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
 
-const mockCampaigns = [
+const initialCampaigns = [
   { id: '1', name: 'Hari Kemerdekaan 2025', slug: 'hk-2025', status: 'published' as const, tier: 'premium' as const, supporters: 245, downloads: 180 },
   { id: '2', name: 'Wisuda Universitas', slug: 'wisuda-ui', status: 'draft' as const, tier: 'free' as const, supporters: 0, downloads: 0 },
   { id: '3', name: 'Earth Day Campaign', slug: 'earth-day', status: 'published' as const, tier: 'free' as const, supporters: 52, downloads: 38 },
@@ -17,8 +25,10 @@ const Dashboard = () => {
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [campaigns, setCampaigns] = useState(initialCampaigns);
+  const [statsDialog, setStatsDialog] = useState<typeof initialCampaigns[0] | null>(null);
 
-  const filtered = mockCampaigns.filter(c => {
+  const filtered = campaigns.filter(c => {
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filter === 'draft') return c.status === 'draft';
     if (filter === 'published') return c.status === 'published';
@@ -26,6 +36,17 @@ const Dashboard = () => {
     if (filter === 'premium') return c.tier === 'premium';
     return true;
   });
+
+  const handleCopyLink = (slug: string) => {
+    const url = `${window.location.origin}/c/${slug}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Link berhasil disalin!');
+  };
+
+  const handleDelete = (id: string) => {
+    setCampaigns(prev => prev.filter(c => c.id !== id));
+    toast.success('Campaign berhasil dihapus');
+  };
 
   return (
     <Layout>
@@ -88,14 +109,45 @@ const Dashboard = () => {
                   </div>
 
                   <div className="flex gap-2 flex-wrap">
-                    <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1"><Copy className="w-3 h-3" />{t.dashboard.copyLink}</Button>
-                    <Link to={`/campaign/${c.id}/edit`}><Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1"><Pencil className="w-3 h-3" />{t.dashboard.edit}</Button></Link>
+                    <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1" onClick={() => handleCopyLink(c.slug)}>
+                      <Copy className="w-3 h-3" />{t.dashboard.copyLink}
+                    </Button>
+                    <Link to={`/campaign/${c.id}/edit`}>
+                      <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1">
+                        <Pencil className="w-3 h-3" />{t.dashboard.edit}
+                      </Button>
+                    </Link>
                     {c.tier === 'premium' ? (
-                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1"><BarChart3 className="w-3 h-3" />{t.dashboard.viewStats}</Button>
+                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1" onClick={() => setStatsDialog(c)}>
+                        <BarChart3 className="w-3 h-3" />{t.dashboard.viewStats}
+                      </Button>
                     ) : (
-                      <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 opacity-50" title={t.dashboard.upgradeForStats}><BarChart3 className="w-3 h-3" /></Button>
+                      <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 opacity-50" onClick={() => toast.info(t.dashboard.upgradeForStats)}>
+                        <BarChart3 className="w-3 h-3" />
+                      </Button>
                     )}
-                    <Button variant="outline" size="sm" className="border-destructive/30 text-destructive gap-1"><Trash2 className="w-3 h-3" />{t.dashboard.delete}</Button>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="border-destructive/30 text-destructive gap-1">
+                          <Trash2 className="w-3 h-3" />{t.dashboard.delete}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="glass-strong border-border">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Hapus Campaign?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Campaign "{c.name}" akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel className="border-border">Batal</AlertDialogCancel>
+                          <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => handleDelete(c.id)}>
+                            Hapus
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               ))}
@@ -103,6 +155,33 @@ const Dashboard = () => {
           )}
         </div>
       </section>
+
+      {/* Stats Dialog */}
+      <Dialog open={!!statsDialog} onOpenChange={() => setStatsDialog(null)}>
+        <DialogContent className="glass-strong border-border">
+          <DialogHeader>
+            <DialogTitle className="font-display text-gold-gradient">Statistik: {statsDialog?.name}</DialogTitle>
+          </DialogHeader>
+          {statsDialog && (
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+                <p className="text-2xl font-bold text-foreground">{statsDialog.supporters}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t.dashboard.supporters}</p>
+              </div>
+              <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+                <p className="text-2xl font-bold text-foreground">{statsDialog.downloads}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t.dashboard.downloads}</p>
+              </div>
+              <div className="glass rounded-xl p-4 text-center border-gold-subtle col-span-2">
+                <p className="text-2xl font-bold text-primary">
+                  {statsDialog.supporters > 0 ? Math.round((statsDialog.downloads / statsDialog.supporters) * 100) : 0}%
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Conversion Rate</p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

@@ -1,16 +1,57 @@
 import Layout from '@/components/Layout';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { User, Lock, Camera } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 const Profile = () => {
   const { t } = useLanguage();
-  const [name, setName] = useState('John Doe');
-  const [currentPassword, setCurrentPassword] = useState('');
+  const { user } = useAuth();
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('name, phone, avatar_url').eq('id', user.id).single()
+      .then(({ data }) => {
+        if (data) {
+          setName(data.name || '');
+          setPhone(data.phone || '');
+        }
+      });
+  }, [user]);
+
+  const handleSaveName = async () => {
+    if (!user) return;
+    setSavingName(true);
+    const { error } = await supabase.from('profiles').update({ name, phone }).eq('id', user.id);
+    setSavingName(false);
+    if (error) toast.error(error.message);
+    else toast.success(t.profile.saveChanges + ' ✓');
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    setSavingPassword(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success((t.auth as any).resetSuccess || 'Password updated!');
+      setNewPassword('');
+    }
+  };
 
   return (
     <Layout>
@@ -32,7 +73,7 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Edit Name */}
+          {/* Edit Name & Phone */}
           <div className="glass-strong rounded-2xl p-6 border-gold-subtle mb-6">
             <h2 className="font-display font-semibold text-foreground mb-4">{t.profile.changeName}</h2>
             <div className="space-y-3">
@@ -40,7 +81,13 @@ const Profile = () => {
                 <Label className="text-sm text-muted-foreground">{t.auth.name}</Label>
                 <Input value={name} onChange={e => setName(e.target.value)} className="mt-1 bg-secondary/50 border-border" />
               </div>
-              <Button className="gold-glow font-semibold">{t.profile.saveChanges}</Button>
+              <div>
+                <Label className="text-sm text-muted-foreground">{t.auth.phone}</Label>
+                <Input value={phone} onChange={e => setPhone(e.target.value)} className="mt-1 bg-secondary/50 border-border" />
+              </div>
+              <Button className="gold-glow font-semibold" onClick={handleSaveName} disabled={savingName}>
+                {savingName ? '...' : t.profile.saveChanges}
+              </Button>
             </div>
           </div>
 
@@ -49,14 +96,12 @@ const Profile = () => {
             <h2 className="font-display font-semibold text-foreground mb-4 flex items-center gap-2"><Lock className="w-4 h-4" />{t.profile.changePassword}</h2>
             <div className="space-y-3">
               <div>
-                <Label className="text-sm text-muted-foreground">{t.profile.currentPassword}</Label>
-                <Input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="mt-1 bg-secondary/50 border-border" />
-              </div>
-              <div>
                 <Label className="text-sm text-muted-foreground">{t.profile.newPassword}</Label>
                 <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-1 bg-secondary/50 border-border" />
               </div>
-              <Button className="gold-glow font-semibold">{t.profile.saveChanges}</Button>
+              <Button className="gold-glow font-semibold" onClick={handleChangePassword} disabled={savingPassword}>
+                {savingPassword ? '...' : t.profile.saveChanges}
+              </Button>
             </div>
           </div>
         </div>
