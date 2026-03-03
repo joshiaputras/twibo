@@ -3,7 +3,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List } from 'lucide-react';
+import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -39,36 +39,28 @@ const Dashboard = () => {
   const loadCampaigns = async () => {
     if (!user) return;
     setLoading(true);
-
     const { data, error }: { data: any[] | null; error: any } = await supabase
       .from('campaigns' as any)
-      .select('id,name,slug,status,created_at')
+      .select('id,name,slug,status,tier,created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-      return;
-    }
+    if (error) { toast.error(error.message); setLoading(false); return; }
 
     const mapped: CampaignItem[] = (data ?? []).map((row) => ({
       id: row.id,
       name: row.name || 'Untitled Campaign',
       slug: row.slug || '-',
       status: row.status === 'published' ? 'published' : 'draft',
-      tier: 'free',
+      tier: row.tier === 'premium' ? 'premium' : 'free',
       supporters: 0,
       downloads: 0,
     }));
-
     setCampaigns(mapped);
     setLoading(false);
   };
 
-  useEffect(() => {
-    loadCampaigns();
-  }, [user?.id]);
+  useEffect(() => { loadCampaigns(); }, [user?.id]);
 
   const filtered = useMemo(() => campaigns.filter(c => {
     if (search && !c.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -86,18 +78,18 @@ const Dashboard = () => {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase
-      .from('campaigns' as any)
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-
+    const { error } = await supabase.from('campaigns' as any).delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
     setCampaigns(prev => prev.filter(c => c.id !== id));
     toast.success('Campaign berhasil dihapus');
+  };
+
+  const handleRemoveWatermark = async (id: string) => {
+    // Demo: upgrade to premium directly
+    const { error } = await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    setCampaigns(prev => prev.map(c => c.id === id ? { ...c, tier: 'premium' } : c));
+    toast.success(t.dashboard.watermarkRemoved ?? 'Watermark berhasil dihapus!');
   };
 
   return (
@@ -116,7 +108,7 @@ const Dashboard = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t.dashboard.search} className="pl-10 bg-secondary/50 border-border" />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {['all', 'published', 'draft', 'free', 'premium'].map(f => (
                 <Button key={f} variant={filter === f ? 'default' : 'outline'} size="sm" onClick={() => setFilter(f)} className={filter !== f ? 'border-border text-muted-foreground' : ''}>
                   {f === 'all' ? t.dashboard.all : t.dashboard[f as keyof typeof t.dashboard] as string}
@@ -140,54 +132,66 @@ const Dashboard = () => {
           ) : (
             <div className={view === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
               {filtered.map(c => (
-                <div key={c.id} className="glass rounded-2xl p-6 border-gold-subtle hover:gold-glow transition-shadow">
-                  <div className="flex items-start justify-between mb-4">
+                <div key={c.id} className="glass rounded-2xl p-5 border-gold-subtle hover:gold-glow transition-shadow">
+                  <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="font-display font-semibold text-foreground">{c.name}</h3>
-                      <p className="text-xs text-muted-foreground mt-1">twibo.id/c/{c.slug}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">twibo.id/c/{c.slug}</p>
                     </div>
                     <div className="flex gap-1.5">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === 'published' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
                         {t.dashboard[c.status as keyof typeof t.dashboard] as string}
+                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${c.tier === 'premium' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                        {c.tier === 'premium' && <Crown className="w-3 h-3 inline mr-0.5" />}
+                        {t.dashboard[c.tier as keyof typeof t.dashboard] as string}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex gap-4 mb-4 text-sm">
+                  <div className="flex gap-4 mb-3 text-sm">
                     <span className="text-muted-foreground">{t.dashboard.supporters}: <strong className="text-foreground">{c.supporters}</strong></span>
                     <span className="text-muted-foreground">{t.dashboard.downloads}: <strong className="text-foreground">{c.downloads}</strong></span>
                   </div>
 
                   <div className="flex gap-2 flex-wrap">
-                    <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1" onClick={() => handleCopyLink(c.slug)}>
+                    <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 text-xs" onClick={() => handleCopyLink(c.slug)}>
                       <Copy className="w-3 h-3" />{t.dashboard.copyLink}
                     </Button>
                     <Link to={`/campaign/${c.id}/edit`}>
-                      <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1">
+                      <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 text-xs">
                         <Pencil className="w-3 h-3" />{t.dashboard.edit}
                       </Button>
                     </Link>
-                    <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1" onClick={() => setStatsDialog(c)}>
-                      <BarChart3 className="w-3 h-3" />{t.dashboard.viewStats}
-                    </Button>
+
+                    {c.tier === 'premium' && (
+                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => setStatsDialog(c)}>
+                        <BarChart3 className="w-3 h-3" />{t.dashboard.viewStats}
+                      </Button>
+                    )}
+                    {c.tier === 'free' && (
+                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => handleRemoveWatermark(c.id)}>
+                        <Crown className="w-3 h-3" />{t.dashboard.removeWatermark ?? 'Remove Watermark'}
+                      </Button>
+                    )}
 
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="border-destructive/30 text-destructive gap-1">
+                        <Button variant="outline" size="sm" className="border-destructive/30 text-destructive gap-1 text-xs">
                           <Trash2 className="w-3 h-3" />{t.dashboard.delete}
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent className="glass-strong border-border">
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Hapus Campaign?</AlertDialogTitle>
+                          <AlertDialogTitle>{t.dashboard.deleteConfirm ?? 'Hapus Campaign?'}</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Campaign "{c.name}" akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.
+                            Campaign "{c.name}" {t.dashboard.deleteDesc ?? 'akan dihapus secara permanen.'}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel className="border-border">Batal</AlertDialogCancel>
+                          <AlertDialogCancel className="border-border">{t.dashboard.cancel ?? 'Batal'}</AlertDialogCancel>
                           <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => handleDelete(c.id)}>
-                            Hapus
+                            {t.dashboard.delete}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -203,7 +207,7 @@ const Dashboard = () => {
       <Dialog open={!!statsDialog} onOpenChange={() => setStatsDialog(null)}>
         <DialogContent className="glass-strong border-border">
           <DialogHeader>
-            <DialogTitle className="font-display text-gold-gradient">Statistik: {statsDialog?.name}</DialogTitle>
+            <DialogTitle className="font-display text-gold-gradient">{t.dashboard.statsTitle ?? 'Statistik'}: {statsDialog?.name}</DialogTitle>
           </DialogHeader>
           {statsDialog && (
             <div className="grid grid-cols-2 gap-4 mt-4">
@@ -214,12 +218,6 @@ const Dashboard = () => {
               <div className="glass rounded-xl p-4 text-center border-gold-subtle">
                 <p className="text-2xl font-bold text-foreground">{statsDialog.downloads}</p>
                 <p className="text-xs text-muted-foreground mt-1">{t.dashboard.downloads}</p>
-              </div>
-              <div className="glass rounded-xl p-4 text-center border-gold-subtle col-span-2">
-                <p className="text-2xl font-bold text-primary">
-                  {statsDialog.supporters > 0 ? Math.round((statsDialog.downloads / statsDialog.supporters) * 100) : 0}%
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">Conversion Rate</p>
               </div>
             </div>
           )}

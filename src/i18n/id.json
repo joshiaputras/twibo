@@ -132,6 +132,12 @@
     "delete": "Hapus",
     "viewStats": "Lihat Statistik",
     "upgradeForStats": "Upgrade ke Premium untuk statistik",
+    "removeWatermark": "Hapus Watermark",
+    "watermarkRemoved": "Watermark berhasil dihapus!",
+    "deleteConfirm": "Hapus Campaign?",
+    "deleteDesc": "akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.",
+    "cancel": "Batal",
+    "statsTitle": "Statistik",
     "filter": "Filter",
     "all": "Semua",
     "search": "Cari campaign..."
@@ -175,11 +181,20 @@
     "uploadSimulationPhoto": "Upload Foto Simulasi",
     "replaceSimulationPhoto": "Ganti Foto Simulasi",
     "preview": "Preview",
+    "templatePreview": "Preview Template",
+    "scale": "Skala",
     "requiredFields": "Nama campaign dan slug wajib diisi.",
     "slugTaken": "Slug sudah dipakai, silakan gunakan slug lain.",
     "draftSaved": "Draft campaign berhasil disimpan.",
     "publishSuccess": "Campaign berhasil dipublish.",
     "loadError": "Campaign gagal dimuat.",
+    "paymentPending": "Pembayaran sedang diproses...",
+    "premiumSuccess": "Campaign berhasil diupgrade ke Premium!",
+    "upgradeToPremium": "Upgrade ke Premium",
+    "upgradeDesc": "Hapus watermark dan iklan dari campaign kamu dengan upgrade ke Premium.",
+    "premiumPlan": "Premium Access",
+    "skipForNow": "Lewati, Coba Gratis",
+    "payNow": "Bayar Sekarang",
     "editor": {
       "loading": "Memuat editor...",
       "select": "Pilih",
@@ -210,8 +225,29 @@
       "frameHint": "Upload frame transparan (PNG). Placeholder = area foto supporter.",
       "backgroundHint": "Upload background. Placeholder = area foto supporter.",
       "outputSize": "Ukuran output",
-      "shortcuts": "Shortcut: Ctrl+Z undo, Ctrl+Shift+Z redo, Delete hapus"
+      "shortcuts": "Shortcut: Ctrl+Z undo, Ctrl+Shift+Z redo, Delete hapus",
+      "hideTools": "Sembunyikan Tools",
+      "showTools": "Tampilkan Tools"
     }
+  },
+  "public": {
+    "notFound": "Campaign tidak ditemukan",
+    "notFoundDesc": "Link ini tidak valid atau campaign sudah dihapus.",
+    "uploadPhoto": "Upload foto kamu",
+    "clickOrDrag": "Klik atau drag untuk upload",
+    "adjustPhoto": "Atur Posisi Foto",
+    "changePhoto": "Ganti Foto",
+    "downloadResult": "Download Hasil",
+    "copyCaption": "Salin Caption",
+    "captionCopied": "Caption berhasil disalin!",
+    "linkCopied": "Link berhasil disalin!",
+    "uploadPrompt": "Upload foto kamu untuk membuat twibbon",
+    "adSpace": "Iklan",
+    "ownerWatermarkNotice": "Campaign ini masih menggunakan watermark",
+    "ownerWatermarkDesc": "Upgrade ke Premium untuk menghapus watermark dan iklan.",
+    "removeWatermark": "Hapus Watermark",
+    "watermarkRemoved": "Watermark berhasil dihapus!",
+    "scale": "Skala"
   },
   "admin": {
     "title": "Admin Dashboard",
@@ -223,6 +259,17 @@
     "totalUsers": "Total Pengguna",
     "totalRevenue": "Total Pendapatan",
     "block": "Blokir",
-    "unblock": "Buka Blokir"
+    "unblock": "Buka Blokir",
+    "tier": "Tier",
+    "actions": "Aksi",
+    "noData": "Belum ada data",
+    "name": "Nama",
+    "phone": "Telepon",
+    "joined": "Bergabung",
+    "date": "Tanggal",
+    "amount": "Jumlah",
+    "settingsSaved": "Pengaturan berhasil disimpan",
+    "campaignBlocked": "Campaign diblokir",
+    "saveSettings": "Simpan Pengaturan"
   }
 }

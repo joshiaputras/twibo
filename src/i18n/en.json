@@ -132,6 +132,12 @@
     "delete": "Delete",
     "viewStats": "View Stats",
     "upgradeForStats": "Upgrade to Premium for statistics",
+    "removeWatermark": "Remove Watermark",
+    "watermarkRemoved": "Watermark removed successfully!",
+    "deleteConfirm": "Delete Campaign?",
+    "deleteDesc": "will be permanently deleted. This action cannot be undone.",
+    "cancel": "Cancel",
+    "statsTitle": "Statistics",
     "filter": "Filter",
     "all": "All",
     "search": "Search campaigns..."
@@ -175,11 +181,20 @@
     "uploadSimulationPhoto": "Upload Simulation Photo",
     "replaceSimulationPhoto": "Replace Simulation Photo",
     "preview": "Preview",
+    "templatePreview": "Template Preview",
+    "scale": "Scale",
     "requiredFields": "Campaign name and slug are required.",
     "slugTaken": "Slug is already used, please choose another one.",
     "draftSaved": "Campaign draft saved successfully.",
     "publishSuccess": "Campaign published successfully.",
     "loadError": "Failed to load campaign.",
+    "paymentPending": "Processing payment...",
+    "premiumSuccess": "Campaign upgraded to Premium!",
+    "upgradeToPremium": "Upgrade to Premium",
+    "upgradeDesc": "Remove watermark and ads from your campaign by upgrading to Premium.",
+    "premiumPlan": "Premium Access",
+    "skipForNow": "Skip, Try Free",
+    "payNow": "Pay Now",
     "editor": {
       "loading": "Loading editor...",
       "select": "Select",
@@ -210,8 +225,29 @@
       "frameHint": "Upload a transparent frame (PNG). Placeholder = supporter photo area.",
       "backgroundHint": "Upload background. Placeholder = supporter photo area.",
       "outputSize": "Output size",
-      "shortcuts": "Shortcuts: Ctrl+Z undo, Ctrl+Shift+Z redo, Delete remove"
+      "shortcuts": "Shortcuts: Ctrl+Z undo, Ctrl+Shift+Z redo, Delete remove",
+      "hideTools": "Hide Tools",
+      "showTools": "Show Tools"
     }
+  },
+  "public": {
+    "notFound": "Campaign not found",
+    "notFoundDesc": "This link is invalid or the campaign has been deleted.",
+    "uploadPhoto": "Upload your photo",
+    "clickOrDrag": "Click or drag to upload",
+    "adjustPhoto": "Adjust Photo Position",
+    "changePhoto": "Change Photo",
+    "downloadResult": "Download Result",
+    "copyCaption": "Copy Caption",
+    "captionCopied": "Caption copied!",
+    "linkCopied": "Link copied!",
+    "uploadPrompt": "Upload your photo to create your twibbon",
+    "adSpace": "Advertisement",
+    "ownerWatermarkNotice": "This campaign still uses watermark",
+    "ownerWatermarkDesc": "Upgrade to Premium to remove watermark and ads.",
+    "removeWatermark": "Remove Watermark",
+    "watermarkRemoved": "Watermark removed successfully!",
+    "scale": "Scale"
   },
   "admin": {
     "title": "Admin Dashboard",
@@ -223,6 +259,17 @@
     "totalUsers": "Total Users",
     "totalRevenue": "Total Revenue",
     "block": "Block",
-    "unblock": "Unblock"
+    "unblock": "Unblock",
+    "tier": "Tier",
+    "actions": "Actions",
+    "noData": "No data yet",
+    "name": "Name",
+    "phone": "Phone",
+    "joined": "Joined",
+    "date": "Date",
+    "amount": "Amount",
+    "settingsSaved": "Settings saved successfully",
+    "campaignBlocked": "Campaign blocked",
+    "saveSettings": "Save Settings"
   }
 }
