@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 
 const Profile = () => {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -34,21 +35,44 @@ const Profile = () => {
     setSavingName(true);
     const { error } = await supabase.from('profiles').update({ name, phone }).eq('id', user.id);
     setSavingName(false);
-    if (error) toast.error(error.message);
-    else toast.success(t.profile.saveChanges + ' ✓');
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(t.profile.saveChanges + ' ✓');
+      await refreshProfile();
+    }
   };
 
   const handleChangePassword = async () => {
+    if (!currentPassword) {
+      toast.error('Masukkan password saat ini');
+      return;
+    }
     if (!newPassword || newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error('Password baru minimal 6 karakter');
       return;
     }
     setSavingPassword(true);
+
+    // Verify current password by re-signing in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user?.email || '',
+      password: currentPassword,
+    });
+
+    if (signInError) {
+      setSavingPassword(false);
+      toast.error('Password saat ini salah');
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setSavingPassword(false);
-    if (error) toast.error(error.message);
-    else {
+    if (error) {
+      toast.error(error.message);
+    } else {
       toast.success((t.auth as any).resetSuccess || 'Password updated!');
+      setCurrentPassword('');
       setNewPassword('');
     }
   };
@@ -95,6 +119,10 @@ const Profile = () => {
           <div className="glass-strong rounded-2xl p-6 border-gold-subtle">
             <h2 className="font-display font-semibold text-foreground mb-4 flex items-center gap-2"><Lock className="w-4 h-4" />{t.profile.changePassword}</h2>
             <div className="space-y-3">
+              <div>
+                <Label className="text-sm text-muted-foreground">{t.profile.currentPassword}</Label>
+                <Input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="mt-1 bg-secondary/50 border-border" />
+              </div>
               <div>
                 <Label className="text-sm text-muted-foreground">{t.profile.newPassword}</Label>
                 <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="mt-1 bg-secondary/50 border-border" />
