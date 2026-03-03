@@ -84,6 +84,8 @@ const CampaignEditor = () => {
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const gestureRef = useRef({ startScale: 100, startDistance: 0, startOffsetX: 0, startOffsetY: 0, startCenterX: 0, startCenterY: 0 });
+  const dragRafRef = useRef<number | null>(null);
+  const dragPendingRef = useRef({ dx: 0, dy: 0 });
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -347,14 +349,20 @@ const CampaignEditor = () => {
       event.stopPropagation();
     };
 
-    el.addEventListener('wheel', preventNativeScroll, { passive: false });
     el.addEventListener('touchmove', preventNativeScroll, { passive: false });
 
     return () => {
-      el.removeEventListener('wheel', preventNativeScroll);
       el.removeEventListener('touchmove', preventNativeScroll);
     };
   }, [step, previewResult, templateImage]);
+
+  useEffect(() => {
+    return () => {
+      if (dragRafRef.current) {
+        window.cancelAnimationFrame(dragRafRef.current);
+      }
+    };
+  }, []);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !simulationPhoto) return;
@@ -406,10 +414,22 @@ const CampaignEditor = () => {
     }
 
     if (points.length === 1) {
-      const dx = event.clientX - prev.x;
-      const dy = event.clientY - prev.y;
-      setSimOffsetX(v => v + dx / previewScale);
-      setSimOffsetY(v => v + dy / previewScale);
+      const dx = (event.clientX - prev.x) / previewScale;
+      const dy = (event.clientY - prev.y) / previewScale;
+
+      dragPendingRef.current.dx += dx;
+      dragPendingRef.current.dy += dy;
+
+      if (dragRafRef.current) return;
+
+      dragRafRef.current = window.requestAnimationFrame(() => {
+        const { dx: pendingDx, dy: pendingDy } = dragPendingRef.current;
+        dragPendingRef.current = { dx: 0, dy: 0 };
+        dragRafRef.current = null;
+
+        if (pendingDx !== 0) setSimOffsetX(v => v + pendingDx);
+        if (pendingDy !== 0) setSimOffsetY(v => v + pendingDy);
+      });
     }
   };
 
@@ -420,13 +440,17 @@ const CampaignEditor = () => {
     if (previewInteractionRef.current?.hasPointerCapture(event.pointerId)) {
       previewInteractionRef.current.releasePointerCapture(event.pointerId);
     }
+
+    if (pointersRef.current.size < 2) {
+      gestureRef.current.startDistance = 0;
+    }
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !simulationPhoto) return;
     event.preventDefault();
     event.stopPropagation();
-    const delta = event.deltaY > 0 ? -6 : 6;
+    const delta = -event.deltaY * 0.04;
     setSimScale(v => clamp(v + delta, 20, 400));
   };
 

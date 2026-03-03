@@ -5,6 +5,8 @@ const PLACEHOLDER_PREFIX = '__placeholder__';
 
 const isPlaceholderId = (id?: string) => !!id && (id === PLACEHOLDER_PREFIX || id.startsWith(`${PLACEHOLDER_PREFIX}-`));
 
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+
 /**
  * Render campaign design_json to PNG data URL.
  * For frame mode, placeholder is cut out (transparent hole).
@@ -32,7 +34,6 @@ export async function renderTemplatePNG(
 
   const placeholders = fc.getObjects().filter((o: any) => isPlaceholderId(o.id));
 
-  // Hide helper placeholders from normal template drawing.
   placeholders.forEach((placeholder: any) => {
     placeholder.set({
       visible: false,
@@ -101,14 +102,25 @@ export async function renderTemplatePNG(
 }
 
 export function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
+  if (!src) return Promise.reject(new Error('Image source is empty'));
+
+  const cached = imageCache.get(src);
+  if (cached) return cached;
+
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new window.Image();
     img.crossOrigin = 'anonymous';
     img.decoding = 'async';
     img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = (err) => {
+      imageCache.delete(src);
+      reject(err);
+    };
     img.src = src;
   });
+
+  imageCache.set(src, promise);
+  return promise;
 }
 
 export async function composeResult(opts: {
@@ -146,9 +158,12 @@ export async function composeResult(opts: {
   const canvas = document.createElement('canvas');
   canvas.width = pw;
   canvas.height = ph;
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Cannot get canvas context');
 
   ctx.clearRect(0, 0, pw, ph);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   const drawPhoto = async () => {
     if (!userPhotoDataUrl) return;
@@ -156,8 +171,8 @@ export async function composeResult(opts: {
     const s = Math.max(0.05, photoScale / 100) * previewScale;
     const imgW = photo.width * s;
     const imgH = photo.height * s;
-    const ox = (pw / 2) + (photoOffsetX * previewScale) - imgW / 2;
-    const oy = (ph / 2) + (photoOffsetY * previewScale) - imgH / 2;
+    const ox = pw / 2 + photoOffsetX * previewScale - imgW / 2;
+    const oy = ph / 2 + photoOffsetY * previewScale - imgH / 2;
     ctx.drawImage(photo, ox, oy, imgW, imgH);
   };
 

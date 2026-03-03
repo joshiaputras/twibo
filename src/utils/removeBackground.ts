@@ -1,41 +1,50 @@
+const DEFAULT_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
+
+type RemoveConfig = Record<string, unknown>;
+
+const baseConfig: RemoveConfig = {
+  device: 'cpu',
+  output: { format: 'image/png' },
+};
+
+const ATTEMPTS: RemoveConfig[] = [
+  { ...baseConfig, proxyToWorker: false },
+  { ...baseConfig, proxyToWorker: true },
+  { ...baseConfig, proxyToWorker: false, publicPath: DEFAULT_PUBLIC_PATH },
+  { ...baseConfig, proxyToWorker: true, publicPath: DEFAULT_PUBLIC_PATH },
+];
+
 let preloadPromise: Promise<void> | null = null;
 
-const MODELS = ['medium', 'small'] as const;
-
 async function ensureBackgroundModelReady() {
-  if (!preloadPromise) {
-    preloadPromise = (async () => {
-      const { preload } = await import('@imgly/background-removal');
-      for (const model of MODELS) {
-        try {
-          await preload({ device: 'cpu', model } as any);
-          return;
-        } catch {
-          // fallback to next model
-        }
+  if (preloadPromise) return preloadPromise;
+
+  preloadPromise = (async () => {
+    const { preload } = await import('@imgly/background-removal');
+
+    for (const cfg of ATTEMPTS) {
+      try {
+        await preload(cfg as any);
+        return;
+      } catch {
+        // Try next config
       }
-      throw new Error('Background model preload failed');
-    })();
-  }
-  await preloadPromise;
+    }
+
+    // Keep going: removeBackground below still has additional retries.
+  })();
+
+  return preloadPromise;
 }
 
 async function removeWithFallback(sourceBlob: Blob): Promise<Blob> {
   const { removeBackground } = await import('@imgly/background-removal');
 
   let lastError: unknown;
-  for (const model of MODELS) {
+  for (const cfg of ATTEMPTS) {
     try {
-      const resultBlob = await removeBackground(sourceBlob, {
-        device: 'cpu',
-        model,
-        output: { format: 'image/png' },
-        proxyToWorker: false,
-      } as any);
-
-      if (resultBlob && resultBlob.size > 0) {
-        return resultBlob;
-      }
+      const resultBlob = await removeBackground(sourceBlob, cfg as any);
+      if (resultBlob && resultBlob.size > 0) return resultBlob;
     } catch (err) {
       lastError = err;
     }

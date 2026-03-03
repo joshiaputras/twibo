@@ -35,6 +35,8 @@ const CampaignPublic = () => {
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const gestureRef = useRef({ startScale: 100, startDistance: 0, startOffsetX: 0, startOffsetY: 0, startCenterX: 0, startCenterY: 0 });
+  const dragRafRef = useRef<number | null>(null);
+  const dragPendingRef = useRef({ dx: 0, dy: 0 });
 
   const sizeMap: Record<string, [number, number]> = {
     square: [1080, 1080],
@@ -200,14 +202,20 @@ const CampaignPublic = () => {
       event.stopPropagation();
     };
 
-    el.addEventListener('wheel', preventNativeScroll, { passive: false });
     el.addEventListener('touchmove', preventNativeScroll, { passive: false });
 
     return () => {
-      el.removeEventListener('wheel', preventNativeScroll);
       el.removeEventListener('touchmove', preventNativeScroll);
     };
   }, [resultImage, templateImage]);
+
+  useEffect(() => {
+    return () => {
+      if (dragRafRef.current) {
+        window.cancelAnimationFrame(dragRafRef.current);
+      }
+    };
+  }, []);
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !userPhoto) return;
@@ -259,10 +267,22 @@ const CampaignPublic = () => {
     }
 
     if (points.length === 1) {
-      const dx = event.clientX - prev.x;
-      const dy = event.clientY - prev.y;
-      setPhotoOffsetX(v => v + dx / previewScale);
-      setPhotoOffsetY(v => v + dy / previewScale);
+      const dx = (event.clientX - prev.x) / previewScale;
+      const dy = (event.clientY - prev.y) / previewScale;
+
+      dragPendingRef.current.dx += dx;
+      dragPendingRef.current.dy += dy;
+
+      if (dragRafRef.current) return;
+
+      dragRafRef.current = window.requestAnimationFrame(() => {
+        const { dx: pendingDx, dy: pendingDy } = dragPendingRef.current;
+        dragPendingRef.current = { dx: 0, dy: 0 };
+        dragRafRef.current = null;
+
+        if (pendingDx !== 0) setPhotoOffsetX(v => v + pendingDx);
+        if (pendingDy !== 0) setPhotoOffsetY(v => v + pendingDy);
+      });
     }
   };
 
@@ -273,13 +293,17 @@ const CampaignPublic = () => {
     if (previewInteractionRef.current?.hasPointerCapture(event.pointerId)) {
       previewInteractionRef.current.releasePointerCapture(event.pointerId);
     }
+
+    if (pointersRef.current.size < 2) {
+      gestureRef.current.startDistance = 0;
+    }
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !userPhoto) return;
     event.preventDefault();
     event.stopPropagation();
-    const delta = event.deltaY > 0 ? -6 : 6;
+    const delta = -event.deltaY * 0.04;
     setPhotoScale(v => clamp(v + delta, 20, 400));
   };
 
