@@ -5,12 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
-import { useEffect, useState, useRef, lazy, Suspense, useCallback } from 'react';
+import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Check, AlertTriangle, Square, RectangleVertical, Smartphone, Frame, Image, ChevronLeft, ChevronRight, Save, Upload, Move, ZoomIn, Crown, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
 
 const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
 
@@ -50,7 +51,7 @@ const CampaignEditor = () => {
   const [simScale, setSimScale] = useState(100);
   const [simOffsetX, setSimOffsetX] = useState(0);
   const [simOffsetY, setSimOffsetY] = useState(0);
-  const simCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [previewResult, setPreviewResult] = useState<string>('');
   const [showPayment, setShowPayment] = useState(false);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm(prev => ({ ...prev, [key]: value }));
@@ -85,88 +86,43 @@ const CampaignEditor = () => {
     loadCampaign();
   }, [id, isEdit, navigate, t.campaign.loadError]);
 
-  // When entering step 5, render template to PNG
+  // When entering step 5, render template PNG with transparent placeholder
   useEffect(() => {
     if (step !== 4 || !canvasState) return;
-    // Render canvas state to a PNG by creating a temporary off-screen fabric canvas
-    const renderTemplate = async () => {
+    const render = async () => {
       try {
-        const { Canvas: FabricCanvas } = await import('fabric');
-        const tmpCanvas = document.createElement('canvas');
-        tmpCanvas.width = selectedSize.w;
-        tmpCanvas.height = selectedSize.h;
-
-        const fc = new FabricCanvas(tmpCanvas, {
-          width: selectedSize.w, height: selectedSize.h,
-          backgroundColor: 'transparent',
-        });
-
-        const parsed = JSON.parse(canvasState);
-        await fc.loadFromJSON(parsed);
-        fc.renderAll();
-
-        const dataUrl = tmpCanvas.toDataURL('image/png');
+        const dataUrl = await renderTemplatePNG(canvasState, selectedSize.w, selectedSize.h);
         setTemplateImage(dataUrl);
-        fc.dispose();
       } catch (err) {
         console.error('Template render error:', err);
       }
     };
-    renderTemplate();
+    render();
   }, [step, canvasState, selectedSize.w, selectedSize.h]);
 
-  // Draw simulation canvas
-  const drawSimulation = useCallback(() => {
-    const canvas = simCanvasRef.current;
-    if (!canvas || !templateImage) return;
-
-    const previewScale = Math.min(400 / selectedSize.w, 500 / selectedSize.h, 1);
-    const pw = Math.round(selectedSize.w * previewScale);
-    const ph = Math.round(selectedSize.h * previewScale);
-    canvas.width = pw;
-    canvas.height = ph;
-
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, pw, ph);
-
-    // Draw checkerboard
-    const cs = 10;
-    for (let y = 0; y < ph; y += cs) {
-      for (let x = 0; x < pw; x += cs) {
-        ctx.fillStyle = (Math.floor(x / cs) + Math.floor(y / cs)) % 2 === 0 ? '#2a2a2a' : '#333';
-        ctx.fillRect(x, y, cs, cs);
-      }
+  // Compose preview when template or simulation photo changes
+  const updatePreview = useCallback(async () => {
+    if (!templateImage) return;
+    try {
+      const result = await composeResult({
+        templateDataUrl: templateImage,
+        userPhotoDataUrl: simulationPhoto || undefined,
+        fullWidth: selectedSize.w,
+        fullHeight: selectedSize.h,
+        photoScale: simScale,
+        photoOffsetX: simOffsetX,
+        photoOffsetY: simOffsetY,
+        addWatermark: false,
+        previewMaxW: 500,
+        previewMaxH: 600,
+      });
+      setPreviewResult(result);
+    } catch (err) {
+      console.error('Preview compose error:', err);
     }
-
-    const loadAndDraw = async () => {
-      // Draw simulation photo if exists (behind template)
-      if (simulationPhoto) {
-        const photo = new window.Image();
-        photo.crossOrigin = 'anonymous';
-        photo.onload = () => {
-          const s = (simScale / 100) * previewScale;
-          const imgW = photo.width * s;
-          const imgH = photo.height * s;
-          const ox = (pw / 2) + (simOffsetX * previewScale) - imgW / 2;
-          const oy = (ph / 2) + (simOffsetY * previewScale) - imgH / 2;
-          ctx.drawImage(photo, ox, oy, imgW, imgH);
-
-          // Draw template on top
-          const tpl = new window.Image();
-          tpl.onload = () => { ctx.drawImage(tpl, 0, 0, pw, ph); };
-          tpl.src = templateImage;
-        };
-        photo.src = simulationPhoto;
-      } else {
-        const tpl = new window.Image();
-        tpl.onload = () => { ctx.drawImage(tpl, 0, 0, pw, ph); };
-        tpl.src = templateImage;
-      }
-    };
-    loadAndDraw();
   }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h]);
 
-  useEffect(() => { drawSimulation(); }, [drawSimulation]);
+  useEffect(() => { updatePreview(); }, [updatePreview]);
 
   const validateRequired = () => {
     if (!form.name.trim() || !form.slug.trim()) {
@@ -204,7 +160,6 @@ const CampaignEditor = () => {
     setSaving(false);
 
     if (status === 'published') {
-      // Show payment prompt
       setShowPayment(true);
     } else {
       toast.success(t.campaign.draftSaved);
@@ -231,10 +186,7 @@ const CampaignEditor = () => {
   };
 
   const handlePayment = async () => {
-    // For now, show placeholder - Midtrans integration requires API keys
     toast.info(t.campaign.paymentPending ?? 'Pembayaran sedang diproses...');
-    // In the future, this will redirect to Midtrans
-    // For demo, just upgrade to premium
     if (campaignId) {
       await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaignId);
     }
@@ -354,12 +306,21 @@ const CampaignEditor = () => {
                   <p className="text-xs text-muted-foreground mt-1">{selectedSize.label} • {form.type === 'frame' ? t.campaign.typeFrame : t.campaign.typeBg}</p>
                 </div>
 
-                {/* Template preview (PNG) */}
+                {/* Template preview as IMG (not canvas) */}
                 <div className="max-w-md mx-auto">
                   <p className="text-sm text-muted-foreground text-center mb-2">{t.campaign.templatePreview ?? 'Template Preview'}</p>
-                  <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2">
-                    {templateImage ? (
-                      <canvas ref={simCanvasRef} className="max-w-full h-auto rounded" />
+                  <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2"
+                    style={{
+                      backgroundImage: `linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)`,
+                      backgroundSize: '16px 16px',
+                      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                      backgroundColor: 'hsl(0 0% 15%)',
+                    }}
+                  >
+                    {previewResult ? (
+                      <img src={previewResult} alt="Preview" className="max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
+                    ) : templateImage ? (
+                      <img src={templateImage} alt="Template" className="max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
                     ) : (
                       <div className="py-12 text-muted-foreground text-sm">{t.campaign.editor.loading}</div>
                     )}

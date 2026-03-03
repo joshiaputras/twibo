@@ -3,12 +3,12 @@ import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Upload, Download, Copy, MessageCircle, Move, ZoomIn, Crown } from 'lucide-react';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
-import { Canvas as FabricCanvas } from 'fabric';
+import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
 
 const CampaignPublic = () => {
   const { slug } = useParams();
@@ -25,7 +25,6 @@ const CampaignPublic = () => {
   const [photoScale, setPhotoScale] = useState(100);
   const [photoOffsetX, setPhotoOffsetX] = useState(0);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
-  const resultCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const isFree = campaign?.tier !== 'premium';
 
@@ -46,109 +45,48 @@ const CampaignPublic = () => {
       if (user && data.user_id === user.id) setIsOwner(true);
       setLoading(false);
 
-      // Render template to PNG
-      renderTemplate(data);
+      // Render template to PNG with transparent placeholder
+      const sizeMap: Record<string, [number, number]> = {
+        square: [1080, 1080], portrait: [1080, 1350], story: [1080, 1920],
+      };
+      const [w, h] = sizeMap[data.size] || [1080, 1080];
+      try {
+        const tplDataUrl = await renderTemplatePNG(data.design_json, w, h);
+        setTemplateImage(tplDataUrl);
+      } catch (err) { console.error('Template render error:', err); }
     };
     load();
   }, [slug, user]);
 
-  const renderTemplate = async (c: any) => {
-    try {
-      const designJson = typeof c.design_json === 'string' ? JSON.parse(c.design_json) : c.design_json;
-      if (!designJson || Object.keys(designJson).length === 0) return;
-
-      const sizeMap: Record<string, [number, number]> = {
-        square: [1080, 1080], portrait: [1080, 1350], story: [1080, 1920],
-      };
-      const [w, h] = sizeMap[c.size] || [1080, 1080];
-
-      const tmpEl = document.createElement('canvas');
-      tmpEl.width = w; tmpEl.height = h;
-      const fc = new FabricCanvas(tmpEl, { width: w, height: h, backgroundColor: 'transparent' });
-      await fc.loadFromJSON(designJson);
-      fc.renderAll();
-      setTemplateImage(tmpEl.toDataURL('image/png'));
-      fc.dispose();
-    } catch (err) { console.error('Template render error:', err); }
-  };
-
-  // Draw result when photo or adjustments change
-  const drawResult = useCallback(() => {
-    const canvas = resultCanvasRef.current;
-    if (!canvas || !templateImage || !campaign) return;
+  // Compose result when photo or adjustments change
+  const updateResult = useCallback(async () => {
+    if (!templateImage || !campaign) return;
 
     const sizeMap: Record<string, [number, number]> = {
       square: [1080, 1080], portrait: [1080, 1350], story: [1080, 1920],
     };
     const [fw, fh] = sizeMap[campaign.size] || [1080, 1080];
 
-    const previewScale = Math.min(400 / fw, 500 / fh, 1);
-    const pw = Math.round(fw * previewScale);
-    const ph = Math.round(fh * previewScale);
-    canvas.width = pw; canvas.height = ph;
-
-    const ctx = canvas.getContext('2d')!;
-    ctx.clearRect(0, 0, pw, ph);
-    ctx.fillStyle = '#f0f0f0';
-    ctx.fillRect(0, 0, pw, ph);
-
-    const draw = () => {
-      if (userPhoto) {
-        const photo = new window.Image();
-        photo.crossOrigin = 'anonymous';
-        photo.onload = () => {
-          const s = (photoScale / 100) * previewScale;
-          const imgW = photo.width * s;
-          const imgH = photo.height * s;
-          const ox = (pw / 2) + (photoOffsetX * previewScale) - imgW / 2;
-          const oy = (ph / 2) + (photoOffsetY * previewScale) - imgH / 2;
-          ctx.drawImage(photo, ox, oy, imgW, imgH);
-
-          const tpl = new window.Image();
-          tpl.onload = () => {
-            ctx.drawImage(tpl, 0, 0, pw, ph);
-
-            // Draw watermark if free
-            if (isFree) {
-              ctx.save();
-              ctx.globalAlpha = 0.3;
-              ctx.font = `bold ${pw * 0.06}px sans-serif`;
-              ctx.fillStyle = '#ffffff';
-              ctx.textAlign = 'center';
-              ctx.translate(pw / 2, ph / 2);
-              ctx.rotate(-Math.PI / 6);
-              ctx.fillText('TWIBO.id', 0, 0);
-              ctx.restore();
-            }
-
-            setResultImage(canvas.toDataURL('image/png'));
-          };
-          tpl.src = templateImage;
-        };
-        photo.src = userPhoto;
-      } else {
-        const tpl = new window.Image();
-        tpl.onload = () => {
-          ctx.drawImage(tpl, 0, 0, pw, ph);
-          if (isFree) {
-            ctx.save();
-            ctx.globalAlpha = 0.3;
-            ctx.font = `bold ${pw * 0.06}px sans-serif`;
-            ctx.fillStyle = '#ffffff';
-            ctx.textAlign = 'center';
-            ctx.translate(pw / 2, ph / 2);
-            ctx.rotate(-Math.PI / 6);
-            ctx.fillText('TWIBO.id', 0, 0);
-            ctx.restore();
-          }
-        };
-        tpl.src = templateImage;
-      }
-    };
-    draw();
+    try {
+      const result = await composeResult({
+        templateDataUrl: templateImage,
+        userPhotoDataUrl: userPhoto || undefined,
+        fullWidth: fw,
+        fullHeight: fh,
+        photoScale,
+        photoOffsetX,
+        photoOffsetY,
+        addWatermark: isFree,
+        previewMaxW: 500,
+        previewMaxH: 600,
+      });
+      setResultImage(result);
+    } catch (err) {
+      console.error('Compose error:', err);
+    }
   }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree]);
 
-  useEffect(() => { drawResult(); }, [drawResult]);
+  useEffect(() => { updateResult(); }, [updateResult]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -188,7 +126,6 @@ const CampaignPublic = () => {
 
   const handleRemoveWatermark = async () => {
     if (!campaign) return;
-    // For now, demo upgrade
     await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaign.id);
     setCampaign((prev: any) => ({ ...prev, tier: 'premium' }));
     toast.success(t.public?.watermarkRemoved ?? 'Watermark berhasil dihapus!');
@@ -257,7 +194,11 @@ const CampaignPublic = () => {
 
             {/* Result preview */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2">
-              <canvas ref={resultCanvasRef} className="max-w-full h-auto rounded" />
+              {resultImage ? (
+                <img src={resultImage} alt="Result" className="max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
+              ) : (
+                <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
+              )}
             </div>
 
             {!userPhoto ? (
@@ -280,7 +221,7 @@ const CampaignPublic = () => {
                   <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
                   <div className="flex items-center gap-2">
                     <ZoomIn className="w-3 h-3 text-muted-foreground shrink-0" />
-                    <span className="text-xs text-muted-foreground w-10">{t.campaign.scale ?? 'Scale'}</span>
+                    <span className="text-xs text-muted-foreground w-10">{t.campaign?.scale ?? 'Scale'}</span>
                     <Slider value={[photoScale]} onValueChange={v => setPhotoScale(v[0])} min={20} max={300} step={5} className="flex-1" />
                     <span className="text-xs text-muted-foreground w-10">{photoScale}%</span>
                   </div>

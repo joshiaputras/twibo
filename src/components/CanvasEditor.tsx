@@ -27,7 +27,6 @@ interface LayerItem {
 }
 
 const PLACEHOLDER_ID = '__placeholder__';
-const PREVIEW_ID = '__preview_photo__';
 
 const FONTS = [
   'Space Grotesk', 'Playfair Display', 'Montserrat', 'Nunito',
@@ -36,7 +35,6 @@ const FONTS = [
 
 const FONT_WEIGHTS = ['300', '400', '500', '600', '700', '800'];
 
-// Checkerboard pattern for transparent canvas background
 const CHECKERBOARD_SIZE = 16;
 
 const CanvasEditor = ({
@@ -56,7 +54,7 @@ const CanvasEditor = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
-  const [zoom, setZoom] = useState(1);
+  const [userZoom, setUserZoom] = useState(1);
   const [tool, setTool] = useState<'select' | 'pan'>('select');
   const [textSettings, setTextSettings] = useState({
     text: 'Text',
@@ -77,12 +75,12 @@ const CanvasEditor = ({
   const syncLayersRef = useRef<() => void>(() => {});
   const saveHistoryRef = useRef<() => void>(() => {});
 
-  // Responsive scale: fit into available space
-  const maxW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 40, 900) : 900;
-  const maxH = 640;
-  const scale = Math.min(maxW / width, maxH / height, 1);
-  const displayW = Math.round(width * scale);
-  const displayH = Math.round(height * scale);
+  // Compute display size: fit canvas into available viewport
+  const maxW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 40, 800) : 800;
+  const maxH = 600;
+  const baseScale = Math.min(maxW / width, maxH / height, 1);
+  const displayW = Math.round(width * baseScale);
+  const displayH = Math.round(height * baseScale);
 
   const serializeCanvas = useCallback(() => {
     if (!fabricRef.current) return '';
@@ -93,7 +91,6 @@ const CanvasEditor = ({
     if (!fabricRef.current) return;
     const objs = fabricRef.current.getObjects();
     const items = objs
-      .filter((obj: any) => obj.id !== PREVIEW_ID)
       .map((obj: any, i: number) => ({
         id: obj.id || `layer-${i}`,
         name:
@@ -129,6 +126,8 @@ const CanvasEditor = ({
   useEffect(() => { syncLayersRef.current = syncLayers; }, [syncLayers]);
   useEffect(() => { saveHistoryRef.current = saveHistory; }, [saveHistory]);
 
+  // Initialize canvas at DISPLAY size, using Fabric zoom = baseScale
+  // so all object coordinates are stored at FULL resolution (width x height).
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -139,6 +138,9 @@ const CanvasEditor = ({
       selection: mode === 'edit',
       preserveObjectStacking: true,
     });
+
+    // Set zoom so logical coords map to full resolution
+    canvas.setZoom(baseScale);
 
     fabricRef.current = canvas;
     initialLoadedRef.current = false;
@@ -156,8 +158,10 @@ const CanvasEditor = ({
     canvas.on('selection:cleared', () => setSelectedId(null));
 
     return () => { canvas.dispose(); fabricRef.current = null; };
-  }, [displayH, displayW, mode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayH, displayW, mode, baseScale]);
 
+  // Load initial state
   useEffect(() => {
     const canvas = fabricRef.current;
     if (!canvas || initialLoadedRef.current) return;
@@ -167,6 +171,8 @@ const CanvasEditor = ({
         if (initialState) {
           skipHistory.current = true;
           await canvas.loadFromJSON(JSON.parse(initialState));
+          // Restore zoom after load (loadFromJSON may reset it)
+          canvas.setZoom(baseScale);
           canvas.renderAll();
           skipHistory.current = false;
         }
@@ -185,7 +191,8 @@ const CanvasEditor = ({
     };
 
     load();
-  }, [displayH, displayW, initialState, mode, onStateChange, serializeCanvas, syncLayers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialState, mode, baseScale]);
 
   // Tool mode
   useEffect(() => {
@@ -200,7 +207,6 @@ const CanvasEditor = ({
       canvas.selection = true;
       canvas.defaultCursor = 'default';
       canvas.forEachObject((o: any) => {
-        if (o.id === PREVIEW_ID) { o.selectable = false; o.evented = false; return; }
         o.selectable = true; o.evented = true;
       });
     }
@@ -249,6 +255,7 @@ const CanvasEditor = ({
     skipHistory.current = true;
     const newIdx = historyIdx - 1;
     fabricRef.current.loadFromJSON(JSON.parse(history[newIdx])).then(() => {
+      fabricRef.current?.setZoom(baseScale * userZoom);
       fabricRef.current?.renderAll();
       setHistoryIdx(newIdx);
       syncLayers();
@@ -256,13 +263,14 @@ const CanvasEditor = ({
       onStateChange?.(history[newIdx]);
       skipHistory.current = false;
     });
-  }, [history, historyIdx, onStateChange, syncLayers]);
+  }, [history, historyIdx, onStateChange, syncLayers, baseScale, userZoom]);
 
   const handleRedo = useCallback(() => {
     if (historyIdx >= history.length - 1 || !fabricRef.current) return;
     skipHistory.current = true;
     const newIdx = historyIdx + 1;
     fabricRef.current.loadFromJSON(JSON.parse(history[newIdx])).then(() => {
+      fabricRef.current?.setZoom(baseScale * userZoom);
       fabricRef.current?.renderAll();
       setHistoryIdx(newIdx);
       syncLayers();
@@ -270,17 +278,17 @@ const CanvasEditor = ({
       onStateChange?.(history[newIdx]);
       skipHistory.current = false;
     });
-  }, [history, historyIdx, onStateChange, syncLayers]);
+  }, [history, historyIdx, onStateChange, syncLayers, baseScale, userZoom]);
 
   const handleZoom = useCallback((dir: 'in' | 'out' | 'reset') => {
     if (!fabricRef.current) return;
-    let newZoom = zoom;
-    if (dir === 'in') newZoom = Math.min(zoom * 1.2, 5);
-    if (dir === 'out') newZoom = Math.max(zoom / 1.2, 0.2);
+    let newZoom = userZoom;
+    if (dir === 'in') newZoom = Math.min(userZoom * 1.2, 5);
+    if (dir === 'out') newZoom = Math.max(userZoom / 1.2, 0.2);
     if (dir === 'reset') newZoom = 1;
-    fabricRef.current.setZoom(newZoom);
-    setZoom(newZoom);
-  }, [zoom]);
+    fabricRef.current.setZoom(baseScale * newZoom);
+    setUserZoom(newZoom);
+  }, [userZoom, baseScale]);
 
   const handleUpload = useCallback(() => fileInputRef.current?.click(), []);
 
@@ -293,11 +301,13 @@ const CanvasEditor = ({
       const url = ev.target?.result as string;
       const img = await FabricImage.fromURL(url);
       const canvas = fabricRef.current!;
-      const maxScale = Math.min(displayW * 0.8 / (img.width || 1), displayH * 0.8 / (img.height || 1));
+      // Scale image to fit ~80% of full-res canvas
+      const maxScale = Math.min(width * 0.8 / (img.width || 1), height * 0.8 / (img.height || 1));
       const imgScale = Math.min(maxScale, 1);
       (img as any).id = `img-${Date.now()}`;
       (img as any).name = file.name.substring(0, 20);
-      img.set({ scaleX: imgScale, scaleY: imgScale, left: displayW / 2, top: displayH / 2, originX: 'center', originY: 'center' });
+      // Position at center of full-res coordinates
+      img.set({ scaleX: imgScale, scaleY: imgScale, left: width / 2, top: height / 2, originX: 'center', originY: 'center' });
       canvas.add(img);
       canvas.setActiveObject(img);
       canvas.renderAll();
@@ -305,12 +315,12 @@ const CanvasEditor = ({
     };
     reader.readAsDataURL(file);
     e.target.value = '';
-  }, [displayH, displayW, saveHistory]);
+  }, [width, height, saveHistory]);
 
   const addText = useCallback(() => {
     if (!fabricRef.current) return;
     const text = new FabricText(textSettings.text, {
-      left: displayW / 2, top: displayH / 2, originX: 'center', originY: 'center',
+      left: width / 2, top: height / 2, originX: 'center', originY: 'center',
       fontFamily: textSettings.font, fontWeight: textSettings.weight, fontSize: textSettings.size, fill: textSettings.color, editable: true,
     });
     (text as any).id = `text-${Date.now()}`;
@@ -319,17 +329,17 @@ const CanvasEditor = ({
     fabricRef.current.setActiveObject(text);
     fabricRef.current.renderAll();
     saveHistory();
-  }, [displayH, displayW, saveHistory, t.campaign.editor.textLayer, textSettings]);
+  }, [width, height, saveHistory, t.campaign.editor.textLayer, textSettings]);
 
   const addShape = useCallback((shape: 'rect' | 'circle') => {
     if (!fabricRef.current) return;
-    const size = Math.min(displayW, displayH) * 0.2;
+    const size = Math.min(width, height) * 0.2;
     let obj: any;
     if (shape === 'rect') {
-      obj = new Rect({ width: size, height: size, left: displayW / 2, top: displayH / 2, originX: 'center', originY: 'center', fill: shapeColor });
+      obj = new Rect({ width: size, height: size, left: width / 2, top: height / 2, originX: 'center', originY: 'center', fill: shapeColor });
       obj.name = t.campaign.editor.rectangle;
     } else {
-      obj = new Circle({ radius: size / 2, left: displayW / 2, top: displayH / 2, originX: 'center', originY: 'center', fill: shapeColor });
+      obj = new Circle({ radius: size / 2, left: width / 2, top: height / 2, originX: 'center', originY: 'center', fill: shapeColor });
       obj.name = t.campaign.editor.circle;
     }
     obj.id = `shape-${Date.now()}`;
@@ -337,24 +347,24 @@ const CanvasEditor = ({
     fabricRef.current.setActiveObject(obj);
     fabricRef.current.renderAll();
     saveHistory();
-  }, [displayH, displayW, saveHistory, shapeColor, t.campaign.editor.circle, t.campaign.editor.rectangle]);
+  }, [width, height, saveHistory, shapeColor, t.campaign.editor.circle, t.campaign.editor.rectangle]);
 
   const addPlaceholder = useCallback(() => {
     if (!fabricRef.current || hasPlaceholder) {
       toast.error(t.campaign.editor.onePlaceholderOnly);
       return;
     }
-    const size = Math.min(displayW, displayH) * 0.42;
+    const size = Math.min(width, height) * 0.42;
     let obj: any;
     if (placeholderShape === 'circle') {
       obj = new Circle({
-        radius: size / 2, left: displayW / 2, top: displayH / 2, originX: 'center', originY: 'center',
-        fill: 'hsl(0 0% 100% / 0.08)', stroke: 'hsl(46 65% 52% / 0.9)', strokeWidth: 3, strokeDashArray: [10, 6],
+        radius: size / 2, left: width / 2, top: height / 2, originX: 'center', originY: 'center',
+        fill: 'rgba(255,255,255,0.08)', stroke: '#d4af37', strokeWidth: 3, strokeDashArray: [10, 6],
       });
     } else {
       obj = new Rect({
-        width: size, height: size, left: displayW / 2, top: displayH / 2, originX: 'center', originY: 'center',
-        fill: 'hsl(0 0% 100% / 0.08)', stroke: 'hsl(46 65% 52% / 0.9)', strokeWidth: 3, strokeDashArray: [10, 6],
+        width: size, height: size, left: width / 2, top: height / 2, originX: 'center', originY: 'center',
+        fill: 'rgba(255,255,255,0.08)', stroke: '#d4af37', strokeWidth: 3, strokeDashArray: [10, 6],
         rx: placeholderShape === 'rounded' ? size * 0.15 : 0, ry: placeholderShape === 'rounded' ? size * 0.15 : 0,
       });
     }
@@ -366,12 +376,12 @@ const CanvasEditor = ({
     setHasPlaceholder(true);
     saveHistory();
     toast.success(t.campaign.editor.placeholderAdded);
-  }, [displayH, displayW, hasPlaceholder, placeholderShape, saveHistory, t.campaign.editor]);
+  }, [width, height, hasPlaceholder, placeholderShape, saveHistory, t.campaign.editor]);
 
   const deleteSelected = useCallback(() => {
     if (!fabricRef.current) return;
     const active = fabricRef.current.getActiveObject();
-    if (!active || (active as any).id === PREVIEW_ID) return;
+    if (!active) return;
     if ((active as any).id === PLACEHOLDER_ID) setHasPlaceholder(false);
     fabricRef.current.remove(active);
     fabricRef.current.renderAll();
@@ -428,39 +438,6 @@ const CanvasEditor = ({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [deleteSelected, handleRedo, handleUndo, mode]);
-
-  // Export canvas as data URL for step 5
-  const exportAsDataURL = useCallback((): string | null => {
-    if (!fabricRef.current) return null;
-    const canvas = fabricRef.current;
-    const prevZoom = canvas.getZoom();
-    const prevVpt = [...(canvas.viewportTransform || [1, 0, 0, 1, 0, 0])];
-
-    canvas.setZoom(1);
-    canvas.viewportTransform = [1, 0, 0, 1, 0, 0];
-    canvas.renderAll();
-
-    const el = canvas.getElement() as HTMLCanvasElement;
-    // Create a temp canvas at full resolution
-    const tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width = width;
-    tmpCanvas.height = height;
-    const ctx = tmpCanvas.getContext('2d')!;
-    ctx.drawImage(el, 0, 0, displayW, displayH, 0, 0, width, height);
-
-    canvas.setZoom(prevZoom);
-    canvas.viewportTransform = prevVpt as any;
-    canvas.renderAll();
-
-    return tmpCanvas.toDataURL('image/png');
-  }, [width, height, displayW, displayH]);
-
-  // Expose export function via ref-like pattern
-  useEffect(() => {
-    if (canvasRef.current) {
-      (canvasRef.current as any).__exportAsDataURL = exportAsDataURL;
-    }
-  }, [exportAsDataURL]);
 
   // Checkerboard background style
   const checkerboardStyle = {
@@ -521,7 +498,7 @@ const CanvasEditor = ({
             <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => handleZoom('out')}>
               <ZoomOut className="w-3 h-3" />
             </Button>
-            <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(zoom * 100)}%</span>
+            <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(userZoom * 100)}%</span>
             <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => handleZoom('in')}>
               <ZoomIn className="w-3 h-3" />
             </Button>
@@ -538,7 +515,7 @@ const CanvasEditor = ({
       )}
 
       <div className="flex flex-col xl:flex-row gap-4">
-        {/* Left sidebar - tools (hidden on mobile unless toggled) */}
+        {/* Left sidebar - tools */}
         {mode === 'edit' && (
           <div className={`w-full xl:w-64 space-y-3 shrink-0 ${showSidebar ? 'block' : 'hidden xl:block'}`}>
             {/* Text tool */}
@@ -594,7 +571,7 @@ const CanvasEditor = ({
           </div>
         )}
 
-        {/* Canvas area with clear boundary */}
+        {/* Canvas area */}
         <div className="flex-1 min-w-0">
           <div
             ref={wrapperRef}
@@ -603,7 +580,7 @@ const CanvasEditor = ({
           >
             <div
               className="mx-auto rounded-md overflow-hidden shadow-lg shadow-primary/5"
-              style={{ width: `${displayW}px`, minWidth: `${Math.min(displayW, 280)}px`, ...checkerboardStyle }}
+              style={{ width: `${displayW}px`, height: `${displayH}px`, ...checkerboardStyle }}
             >
               <canvas ref={canvasRef} />
             </div>
