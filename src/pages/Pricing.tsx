@@ -45,7 +45,7 @@ const Pricing = () => {
                   </li>
                 ))}
               </ul>
-              <Link to="/signup">
+              <Link to="/campaign/new">
                 <Button variant="outline" className="w-full border-border hover:border-primary/50">{t.pricing.freeCta}</Button>
               </Link>
             </div>
@@ -75,7 +75,7 @@ const Pricing = () => {
                   </li>
                 ))}
               </ul>
-              <Link to="/signup">
+              <Link to="/campaign/new">
                 <Button className="w-full gold-glow font-semibold">{t.pricing.premiumCta}</Button>
               </Link>
             </div>

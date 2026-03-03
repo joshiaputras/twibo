@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Lock } from 'lucide-react';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Lock, AlertTriangle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 
 const ResetPassword = () => {
@@ -15,6 +15,24 @@ const ResetPassword = () => {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [validSession, setValidSession] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // Check if user arrived via a valid recovery link
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery')) {
+      setValidSession(true);
+      return;
+    }
+    // Also check if there's already a session (user clicked the link and was auto-logged in)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setValidSession(true);
+      } else {
+        setValidSession(false);
+      }
+    });
+  }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,10 +46,51 @@ const ResetPassword = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success('Password updated successfully!');
+      toast.success((t.auth as any).resetSuccess || 'Password updated successfully!');
+      await supabase.auth.signOut();
       navigate('/login');
     }
   };
+
+  // Loading state
+  if (validSession === null) {
+    return (
+      <Layout>
+        <section className="py-24 md:py-32 flex items-center justify-center min-h-[80vh]">
+          <div className="text-muted-foreground">Loading...</div>
+        </section>
+      </Layout>
+    );
+  }
+
+  // Invalid/expired link
+  if (validSession === false) {
+    return (
+      <Layout>
+        <section className="py-24 md:py-32 flex items-center justify-center min-h-[80vh]">
+          <div className="w-full max-w-md mx-auto px-4">
+            <div className="glass-strong rounded-2xl p-8 border-gold-subtle text-center">
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-destructive" />
+              </div>
+              <h1 className="font-display text-2xl font-bold text-foreground mb-2">Link Tidak Valid</h1>
+              <p className="text-muted-foreground text-sm mb-6">
+                Link reset password ini sudah kadaluarsa atau sudah digunakan. Silakan minta link baru.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Link to="/forgot-password">
+                  <Button className="gold-glow font-semibold">Minta Link Baru</Button>
+                </Link>
+                <Link to="/login">
+                  <Button variant="outline" className="border-border">Kembali ke Login</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

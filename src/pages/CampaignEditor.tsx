@@ -4,9 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
-import { Check, AlertTriangle, Square, RectangleVertical, Smartphone, Frame, Image, ChevronLeft, ChevronRight, Save, Upload as UploadIcon } from 'lucide-react';
+import { Check, AlertTriangle, Square, RectangleVertical, Smartphone, Frame, Image, ChevronLeft, ChevronRight, Save } from 'lucide-react';
+
+const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
 
 const steps = ['step1', 'step2', 'step3', 'step4', 'step5'] as const;
 
@@ -33,6 +35,8 @@ const CampaignEditor = () => {
     { key: 'frame', label: t.campaign.typeFrame, desc: t.campaign.typeFrameDesc, icon: Frame },
     { key: 'background', label: t.campaign.typeBg, desc: t.campaign.typeBgDesc, icon: Image },
   ];
+
+  const selectedSize = sizes.find(s => s.key === form.size)!;
 
   return (
     <Layout>
@@ -117,15 +121,13 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {/* Step 4: Canvas Editor placeholder */}
+            {/* Step 4: Canvas Editor */}
             {step === 3 && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step4}</h2>
-                <div className="aspect-square max-w-md mx-auto rounded-xl border-2 border-dashed border-border bg-secondary/20 flex flex-col items-center justify-center text-muted-foreground">
-                  <UploadIcon className="w-12 h-12 mb-3 text-primary/50" />
-                  <p className="text-sm">Canvas Editor</p>
-                  <p className="text-xs mt-1">Fabric.js editor will be integrated here</p>
-                </div>
+                <Suspense fallback={<div className="text-center text-muted-foreground py-12">Loading editor...</div>}>
+                  <CanvasEditor width={selectedSize.w} height={selectedSize.h} type={form.type} />
+                </Suspense>
               </div>
             )}
 
@@ -136,7 +138,7 @@ const CampaignEditor = () => {
                 <div className="glass rounded-xl p-6 border-gold-subtle max-w-sm mx-auto">
                   <p className="text-foreground font-semibold">{form.name || 'Untitled Campaign'}</p>
                   <p className="text-xs text-muted-foreground mt-1">twibo.id/c/{form.slug || '...'}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{sizes.find(s => s.key === form.size)?.label} • {form.type === 'frame' ? t.campaign.typeFrame : t.campaign.typeBg}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{selectedSize.label} • {form.type === 'frame' ? t.campaign.typeFrame : t.campaign.typeBg}</p>
                 </div>
                 <div className="flex gap-3 justify-center">
                   <Button variant="outline" className="border-border gap-2"><Save className="w-4 h-4" />{t.campaign.saveDraft}</Button>
