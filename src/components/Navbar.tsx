@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Globe, Menu, X, User, LogOut, LayoutDashboard } from 'lucide-react';
+import { Globe, Menu, X, User, LogOut, LayoutDashboard, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,7 +13,7 @@ import {
 
 const Navbar = () => {
   const { t, lang, toggleLang } = useLanguage();
-  const { user, profileName, signOut } = useAuth();
+  const { user, profileName, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -56,6 +56,11 @@ const Navbar = () => {
                 <DropdownMenuItem onClick={() => navigate('/profile')}>
                   <User className="w-4 h-4 mr-2" /> {t.nav.profile}
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/admin')}>
+                    <Shield className="w-4 h-4 mr-2" /> {t.nav.admin ?? 'Admin'}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="w-4 h-4 mr-2" /> {t.nav.logout}
                 </DropdownMenuItem>
@@ -100,6 +105,11 @@ const Navbar = () => {
               <Link to="/profile" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
                 {t.nav.profile}
               </Link>
+              {isAdmin && (
+                <Link to="/admin" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
+                  {t.nav.admin ?? 'Admin'}
+                </Link>
+              )}
               <button onClick={() => { handleSignOut(); setMobileOpen(false); }} className="text-sm text-muted-foreground text-left">
                 {t.nav.logout}
               </button>

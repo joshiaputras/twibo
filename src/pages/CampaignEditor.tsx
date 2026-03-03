@@ -4,14 +4,30 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Slider } from '@/components/ui/slider';
-import { useEffect, useState, lazy, Suspense, useCallback } from 'react';
+import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Check, AlertTriangle, Square, RectangleVertical, Smartphone, Frame, Image, ChevronLeft, ChevronRight, Save, Upload, Move, ZoomIn, Crown, CreditCard } from 'lucide-react';
+import {
+  Check,
+  AlertTriangle,
+  Square,
+  RectangleVertical,
+  Smartphone,
+  Frame,
+  Image,
+  ChevronLeft,
+  ChevronRight,
+  Save,
+  Upload,
+  Crown,
+  CreditCard,
+  Move,
+  ZoomIn,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
+import { removeBackgroundFromDataUrl } from '@/utils/removeBackground';
 
 const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
 
@@ -19,6 +35,7 @@ const steps = ['step1', 'step2', 'step3', 'step4', 'step5'] as const;
 
 type CampaignSize = 'square' | 'portrait' | 'story';
 type CampaignType = 'frame' | 'background';
+type SlugStatus = 'idle' | 'checking' | 'available' | 'taken';
 
 type FormState = {
   name: string;
@@ -28,6 +45,8 @@ type FormState = {
   size: CampaignSize;
   type: CampaignType;
 };
+
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 const CampaignEditor = () => {
   const { t } = useLanguage();
@@ -41,11 +60,14 @@ const CampaignEditor = () => {
   const [saving, setSaving] = useState(false);
   const [canvasState, setCanvasState] = useState<string>('');
   const [form, setForm] = useState<FormState>({
-    name: '', description: '', caption: '', slug: '',
-    size: 'square', type: 'frame',
+    name: '',
+    description: '',
+    caption: '',
+    slug: '',
+    size: 'square',
+    type: 'frame',
   });
 
-  // Step 5 simulation state
   const [templateImage, setTemplateImage] = useState<string>('');
   const [simulationPhoto, setSimulationPhoto] = useState<string>('');
   const [simScale, setSimScale] = useState(100);
@@ -53,6 +75,13 @@ const CampaignEditor = () => {
   const [simOffsetY, setSimOffsetY] = useState(0);
   const [previewResult, setPreviewResult] = useState<string>('');
   const [showPayment, setShowPayment] = useState(false);
+  const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle');
+  const [processingPhoto, setProcessingPhoto] = useState(false);
+
+  const composeVersionRef = useRef(0);
+  const previewInteractionRef = useRef<HTMLDivElement | null>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const gestureRef = useRef({ startScale: 100, startDistance: 0, startOffsetX: 0, startOffsetY: 0, startCenterX: 0, startCenterY: 0 });
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -68,41 +97,49 @@ const CampaignEditor = () => {
   ];
 
   const selectedSize = sizes.find(s => s.key === form.size)!;
+  const previewScale = Math.min(500 / selectedSize.w, 600 / selectedSize.h, 1);
 
   useEffect(() => {
     if (!isEdit || !id) return;
     const loadCampaign = async () => {
-      const { data, error }: { data: any; error: any } = await supabase
-        .from('campaigns' as any).select('*').eq('id', id).single();
-      if (error || !data) { toast.error(t.campaign.loadError); navigate('/dashboard'); return; }
+      const { data, error }: { data: any; error: any } = await supabase.from('campaigns' as any).select('*').eq('id', id).single();
+      if (error || !data) {
+        toast.error(t.campaign.loadError);
+        navigate('/dashboard');
+        return;
+      }
       setCampaignId(data.id);
       setForm({
-        name: data.name ?? '', description: data.description ?? '', caption: data.caption ?? '', slug: data.slug ?? '',
-        size: (data.size as CampaignSize) ?? 'square', type: (data.type as CampaignType) ?? 'frame',
+        name: data.name ?? '',
+        description: data.description ?? '',
+        caption: data.caption ?? '',
+        slug: data.slug ?? '',
+        size: (data.size as CampaignSize) ?? 'square',
+        type: (data.type as CampaignType) ?? 'frame',
       });
+      setSlugStatus('available');
       const loadedDesign = typeof data.design_json === 'string' ? data.design_json : JSON.stringify(data.design_json ?? {});
       setCanvasState(loadedDesign === '{}' ? '' : loadedDesign);
     };
     loadCampaign();
   }, [id, isEdit, navigate, t.campaign.loadError]);
 
-  // When entering step 5, render template PNG with transparent placeholder
   useEffect(() => {
     if (step !== 4 || !canvasState) return;
     const render = async () => {
       try {
-        const dataUrl = await renderTemplatePNG(canvasState, selectedSize.w, selectedSize.h);
+        const dataUrl = await renderTemplatePNG(canvasState, selectedSize.w, selectedSize.h, form.type);
         setTemplateImage(dataUrl);
       } catch (err) {
         console.error('Template render error:', err);
       }
     };
     render();
-  }, [step, canvasState, selectedSize.w, selectedSize.h]);
+  }, [step, canvasState, selectedSize.w, selectedSize.h, form.type]);
 
-  // Compose preview when template or simulation photo changes
   const updatePreview = useCallback(async () => {
     if (!templateImage) return;
+    const current = ++composeVersionRef.current;
     try {
       const result = await composeResult({
         templateDataUrl: templateImage,
@@ -113,47 +150,106 @@ const CampaignEditor = () => {
         photoOffsetX: simOffsetX,
         photoOffsetY: simOffsetY,
         addWatermark: false,
+        campaignType: form.type,
         previewMaxW: 500,
         previewMaxH: 600,
       });
-      setPreviewResult(result);
+      if (current === composeVersionRef.current) {
+        setPreviewResult(result);
+      }
     } catch (err) {
       console.error('Preview compose error:', err);
     }
-  }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h]);
+  }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h, form.type]);
 
-  useEffect(() => { updatePreview(); }, [updatePreview]);
+  useEffect(() => {
+    updatePreview();
+  }, [updatePreview]);
 
-  const validateRequired = () => {
-    if (!form.name.trim() || !form.slug.trim()) {
-      toast.error(t.campaign.requiredFields);
-      setStep(0);
+  const normalizeSlug = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+  const checkSlugAvailability = async (rawSlug: string): Promise<boolean> => {
+    const slug = normalizeSlug(rawSlug);
+    if (!slug) {
+      setSlugStatus('idle');
       return false;
     }
-    return true;
+
+    setSlugStatus('checking');
+
+    let query = supabase.from('campaigns' as any).select('id', { count: 'exact', head: true }).eq('slug', slug);
+    if (campaignId) query = query.neq('id', campaignId);
+
+    const { count, error } = await query;
+
+    if (error) {
+      setSlugStatus('idle');
+      toast.error(error.message);
+      return false;
+    }
+
+    const isAvailable = (count ?? 0) === 0;
+    setSlugStatus(isAvailable ? 'available' : 'taken');
+    return isAvailable;
+  };
+
+  const validateStep1 = async () => {
+    const normalized = normalizeSlug(form.slug);
+    update('slug', normalized);
+
+    if (!form.name.trim() || !normalized) {
+      toast.error(t.campaign.requiredFields);
+      return false;
+    }
+
+    return await checkSlugAvailability(normalized);
   };
 
   const saveCampaign = async (status: 'draft' | 'published') => {
     if (!user) return;
-    if (!validateRequired()) return;
+    if (!(await validateStep1())) return;
+
     setSaving(true);
 
     let parsedDesign: Record<string, unknown> = {};
-    try { parsedDesign = canvasState ? JSON.parse(canvasState) : {}; } catch { parsedDesign = {}; }
+    try {
+      parsedDesign = canvasState ? JSON.parse(canvasState) : {};
+    } catch {
+      parsedDesign = {};
+    }
 
     const payload = {
-      user_id: user.id, name: form.name.trim(), description: form.description.trim(),
-      caption: form.caption.trim(), slug: form.slug.trim().toLowerCase(),
-      size: form.size, type: form.type, status, design_json: parsedDesign,
+      user_id: user.id,
+      name: form.name.trim(),
+      description: form.description.trim(),
+      caption: form.caption.trim(),
+      slug: normalizeSlug(form.slug),
+      size: form.size,
+      type: form.type,
+      status,
+      design_json: parsedDesign,
     };
 
     if (campaignId) {
       const { error } = await supabase.from('campaigns' as any).update(payload).eq('id', campaignId);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      if (error) {
+        toast.error(error.message);
+        setSaving(false);
+        return;
+      }
     } else {
-      const { data, error }: { data: any; error: any } = await supabase
-        .from('campaigns' as any).insert(payload).select('id').single();
-      if (error) { toast.error(error.code === '23505' ? t.campaign.slugTaken : error.message); setSaving(false); return; }
+      const { data, error }: { data: any; error: any } = await supabase.from('campaigns' as any).insert(payload).select('id').single();
+      if (error) {
+        toast.error(error.code === '23505' ? t.campaign.slugTaken : error.message);
+        setSaving(false);
+        return;
+      }
       setCampaignId(data.id);
     }
 
@@ -166,16 +262,30 @@ const CampaignEditor = () => {
     }
   };
 
-  const handleSimulationUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSimulationUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setSimulationPhoto((e.target?.result as string) ?? '');
-      setSimScale(100);
-      setSimOffsetX(0);
-      setSimOffsetY(0);
+    reader.onload = async e => {
+      const rawDataUrl = (e.target?.result as string) ?? '';
+      if (!rawDataUrl) return;
+
+      try {
+        setProcessingPhoto(true);
+        const photoDataUrl = form.type === 'background' ? await removeBackgroundFromDataUrl(rawDataUrl) : rawDataUrl;
+        setSimulationPhoto(photoDataUrl);
+        setSimScale(100);
+        setSimOffsetX(0);
+        setSimOffsetY(0);
+      } catch {
+        setSimulationPhoto(rawDataUrl);
+        toast.error('Gagal remove background, memakai foto original.');
+      } finally {
+        setProcessingPhoto(false);
+      }
     };
+
     reader.readAsDataURL(file);
     event.target.value = '';
   };
@@ -194,20 +304,94 @@ const CampaignEditor = () => {
     navigate('/dashboard');
   };
 
+  const handleNext = async () => {
+    if (step === 0) {
+      const ok = await validateStep1();
+      if (!ok) {
+        toast.error(t.campaign.slugTaken);
+        return;
+      }
+    }
+    setStep(s => Math.min(s + 1, steps.length - 1));
+  };
+
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const el = previewInteractionRef.current;
+    if (!el) return;
+    el.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    const points = [...pointersRef.current.values()];
+    if (points.length === 2) {
+      const [a, b] = points;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      gestureRef.current.startDistance = Math.hypot(dx, dy);
+      gestureRef.current.startScale = simScale;
+      gestureRef.current.startOffsetX = simOffsetX;
+      gestureRef.current.startOffsetY = simOffsetY;
+      gestureRef.current.startCenterX = (a.x + b.x) / 2;
+      gestureRef.current.startCenterY = (a.y + b.y) / 2;
+    }
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+
+    const prev = pointersRef.current.get(event.pointerId)!;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const points = [...pointersRef.current.values()];
+
+    if (points.length === 2) {
+      const [a, b] = points;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const distance = Math.hypot(dx, dy);
+      if (gestureRef.current.startDistance > 0) {
+        const ratio = distance / gestureRef.current.startDistance;
+        setSimScale(clamp(gestureRef.current.startScale * ratio, 20, 400));
+      }
+
+      const centerX = (a.x + b.x) / 2;
+      const centerY = (a.y + b.y) / 2;
+      setSimOffsetX(gestureRef.current.startOffsetX + (centerX - gestureRef.current.startCenterX) / previewScale);
+      setSimOffsetY(gestureRef.current.startOffsetY + (centerY - gestureRef.current.startCenterY) / previewScale);
+      return;
+    }
+
+    if (points.length === 1) {
+      const dx = event.clientX - prev.x;
+      const dy = event.clientY - prev.y;
+      setSimOffsetX(v => v + dx / previewScale);
+      setSimOffsetY(v => v + dy / previewScale);
+    }
+  };
+
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(event.pointerId);
+  };
+
+  const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -6 : 6;
+    setSimScale(v => clamp(v + delta, 20, 400));
+  };
+
   return (
     <Layout>
       <section className="py-16 md:py-24">
         <div className={`container mx-auto px-4 ${step >= 3 ? 'max-w-7xl' : 'max-w-3xl'}`}>
-          {/* Steps indicator */}
           <div className="flex items-center justify-center gap-2 mb-8 overflow-x-auto pb-2">
             {steps.map((s, i) => (
               <div key={s} className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => i <= step && setStep(i)}
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
-                    i < step ? 'bg-primary text-primary-foreground' :
-                    i === step ? 'bg-primary/20 text-primary border-2 border-primary' :
-                    'bg-secondary text-muted-foreground'
+                    i < step
+                      ? 'bg-primary text-primary-foreground'
+                      : i === step
+                        ? 'bg-primary/20 text-primary border-2 border-primary'
+                        : 'bg-secondary text-muted-foreground'
                   }`}
                 >
                   {i < step ? <Check className="w-4 h-4" /> : i + 1}
@@ -218,13 +402,17 @@ const CampaignEditor = () => {
           </div>
 
           <div className="glass-strong rounded-2xl p-4 md:p-8 border-gold-subtle">
-            {/* Step 1: Details */}
             {step === 0 && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step1}</h2>
                 <div>
                   <Label className="text-sm text-muted-foreground">{t.campaign.nameLabel}</Label>
-                  <Input value={form.name} onChange={e => update('name', e.target.value)} className="mt-1 bg-secondary/50 border-border" required />
+                  <Input
+                    value={form.name}
+                    onChange={e => update('name', e.target.value)}
+                    className="mt-1 bg-secondary/50 border-border"
+                    required
+                  />
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">{t.campaign.descLabel}</Label>
@@ -238,36 +426,64 @@ const CampaignEditor = () => {
                   <Label className="text-sm text-muted-foreground">{t.campaign.slugLabel}</Label>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm text-muted-foreground">twibo.id/c/</span>
-                    <Input value={form.slug} onChange={e => update('slug', e.target.value)} className="bg-secondary/50 border-border" disabled={isEdit} />
+                    <Input
+                      value={form.slug}
+                      onChange={e => {
+                        update('slug', normalizeSlug(e.target.value));
+                        if (!isEdit) setSlugStatus('idle');
+                      }}
+                      onBlur={() => !isEdit && checkSlugAvailability(form.slug)}
+                      className="bg-secondary/50 border-border"
+                      disabled={isEdit}
+                      required
+                    />
                   </div>
-                  <p className="text-xs text-amber-400 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{t.campaign.slugWarning}</p>
+                  {!isEdit && slugStatus === 'checking' && <p className="text-xs text-muted-foreground mt-1">Checking slug...</p>}
+                  {!isEdit && slugStatus === 'available' && <p className="text-xs text-primary mt-1">Slug tersedia</p>}
+                  {!isEdit && slugStatus === 'taken' && <p className="text-xs text-destructive mt-1">{t.campaign.slugTaken}</p>}
+                  <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    {t.campaign.slugWarning}
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Step 2: Size */}
             {step === 1 && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step2}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {sizes.map(s => (
-                    <button key={s.key} onClick={() => update('size', s.key)} className={`p-6 rounded-xl border-2 transition-all text-center ${form.size === s.key ? 'border-primary bg-primary/10 gold-glow' : 'border-border hover:border-primary/30 bg-secondary/30'}`}>
+                    <button
+                      key={s.key}
+                      onClick={() => update('size', s.key)}
+                      className={`p-6 rounded-xl border-2 transition-all text-center ${
+                        form.size === s.key ? 'border-primary bg-primary/10 gold-glow' : 'border-border hover:border-primary/30 bg-secondary/30'
+                      }`}
+                    >
                       <s.icon className={`w-10 h-10 mx-auto mb-3 ${form.size === s.key ? 'text-primary' : 'text-muted-foreground'}`} />
                       <p className="font-semibold text-foreground text-sm">{s.label}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{s.w}×{s.h}px</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {s.w}×{s.h}px
+                      </p>
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Step 3: Type */}
             {step === 2 && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step3}</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {types.map(tp => (
-                    <button key={tp.key} onClick={() => update('type', tp.key)} className={`p-6 rounded-xl border-2 transition-all text-left ${form.type === tp.key ? 'border-primary bg-primary/10 gold-glow' : 'border-border hover:border-primary/30 bg-secondary/30'}`}>
+                    <button
+                      key={tp.key}
+                      onClick={() => update('type', tp.key)}
+                      className={`p-6 rounded-xl border-2 transition-all text-left ${
+                        form.type === tp.key ? 'border-primary bg-primary/10 gold-glow' : 'border-border hover:border-primary/30 bg-secondary/30'
+                      }`}
+                    >
                       <tp.icon className={`w-10 h-10 mb-3 ${form.type === tp.key ? 'text-primary' : 'text-muted-foreground'}`} />
                       <p className="font-semibold text-foreground">{tp.label}</p>
                       <p className="text-sm text-muted-foreground mt-1">{tp.desc}</p>
@@ -277,41 +493,40 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {/* Step 4: Canvas Editor */}
             {step === 3 && (
               <div className="space-y-4">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step4}</h2>
                 <Suspense fallback={<div className="text-center text-muted-foreground py-12">{t.campaign.editor.loading}</div>}>
-                  <CanvasEditor
-                    width={selectedSize.w}
-                    height={selectedSize.h}
-                    type={form.type}
-                    mode="edit"
-                    initialState={canvasState}
-                    onStateChange={setCanvasState}
-                  />
+                  <CanvasEditor width={selectedSize.w} height={selectedSize.h} type={form.type} mode="edit" initialState={canvasState} onStateChange={setCanvasState} />
                 </Suspense>
               </div>
             )}
 
-            {/* Step 5: Publish & Preview */}
             {step === 4 && !showPayment && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground text-center">{t.campaign.publishSettings}</h2>
 
-                {/* Campaign info */}
                 <div className="glass rounded-xl p-5 border-gold-subtle max-w-xl mx-auto text-center">
                   <p className="text-foreground font-semibold text-lg">{form.name || 'Untitled Campaign'}</p>
                   <p className="text-xs text-muted-foreground mt-1">twibo.id/c/{form.slug || '...'}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{selectedSize.label} • {form.type === 'frame' ? t.campaign.typeFrame : t.campaign.typeBg}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedSize.label} • {form.type === 'frame' ? t.campaign.typeFrame : t.campaign.typeBg}
+                  </p>
                 </div>
 
-                {/* Template preview as IMG (not canvas) */}
                 <div className="max-w-md mx-auto">
                   <p className="text-sm text-muted-foreground text-center mb-2">{t.campaign.templatePreview ?? 'Template Preview'}</p>
-                  <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2"
+                  <div
+                    ref={previewInteractionRef}
+                    onPointerDown={onPointerDown}
+                    onPointerMove={onPointerMove}
+                    onPointerUp={onPointerUp}
+                    onPointerCancel={onPointerUp}
+                    onWheel={onWheel}
+                    className="rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2 touch-none"
                     style={{
-                      backgroundImage: `linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)`,
+                      backgroundImage:
+                        'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
                       backgroundSize: '16px 16px',
                       backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
                       backgroundColor: 'hsl(0 0% 15%)',
@@ -327,7 +542,6 @@ const CampaignEditor = () => {
                   </div>
                 </div>
 
-                {/* Simulation photo upload */}
                 <div className="glass rounded-xl p-4 border-gold-subtle max-w-md mx-auto space-y-3">
                   <h3 className="font-semibold text-foreground text-sm text-center">{t.campaign.simulationTitle}</h3>
                   <p className="text-xs text-muted-foreground text-center">{t.campaign.simulationDesc}</p>
@@ -341,34 +555,25 @@ const CampaignEditor = () => {
                     </label>
                   </div>
 
+                  {processingPhoto && <p className="text-xs text-center text-muted-foreground">Processing photo...</p>}
+
                   {simulationPhoto && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <ZoomIn className="w-3 h-3 text-muted-foreground shrink-0" />
-                        <span className="text-xs text-muted-foreground w-12">{t.campaign.scale ?? 'Scale'}</span>
-                        <Slider value={[simScale]} onValueChange={v => setSimScale(v[0])} min={20} max={300} step={5} className="flex-1" />
-                        <span className="text-xs text-muted-foreground w-10">{simScale}%</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Move className="w-3 h-3 text-muted-foreground shrink-0" />
-                        <span className="text-xs text-muted-foreground w-12">X</span>
-                        <Slider value={[simOffsetX]} onValueChange={v => setSimOffsetX(v[0])} min={-500} max={500} step={5} className="flex-1" />
-                        <span className="text-xs text-muted-foreground w-10">{simOffsetX}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Move className="w-3 h-3 text-muted-foreground shrink-0" />
-                        <span className="text-xs text-muted-foreground w-12">Y</span>
-                        <Slider value={[simOffsetY]} onValueChange={v => setSimOffsetY(v[0])} min={-500} max={500} step={5} className="flex-1" />
-                        <span className="text-xs text-muted-foreground w-10">{simOffsetY}</span>
-                      </div>
+                    <div className="rounded-lg border border-border p-3 bg-secondary/30 space-y-1">
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Move className="w-3 h-3" /> Drag untuk geser
+                      </p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
+                      </p>
+                      <p className="text-xs text-muted-foreground">Scale: {Math.round(simScale)}% • X: {Math.round(simOffsetX)} • Y: {Math.round(simOffsetY)}</p>
                     </div>
                   )}
                 </div>
 
-                {/* Publish actions */}
                 <div className="flex gap-3 justify-center flex-wrap">
                   <Button variant="outline" className="border-border gap-2" onClick={() => saveCampaign('draft')} disabled={saving}>
-                    <Save className="w-4 h-4" />{t.campaign.saveDraft}
+                    <Save className="w-4 h-4" />
+                    {t.campaign.saveDraft}
                   </Button>
                   <Button className="gold-glow font-semibold" onClick={() => saveCampaign('published')} disabled={saving}>
                     {saving ? t.campaign.saving : t.campaign.publish}
@@ -377,7 +582,6 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {/* Payment prompt (after publish) */}
             {step === 4 && showPayment && (
               <div className="space-y-6 max-w-lg mx-auto text-center">
                 <Crown className="w-12 h-12 text-primary mx-auto" />
@@ -411,15 +615,16 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {/* Navigation */}
             {!showPayment && (
               <div className="flex justify-between mt-8 pt-6 border-t border-border/30">
                 <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 0} className="border-border gap-1">
-                  <ChevronLeft className="w-4 h-4" />{t.campaign.prev}
+                  <ChevronLeft className="w-4 h-4" />
+                  {t.campaign.prev}
                 </Button>
                 {step < steps.length - 1 && (
-                  <Button onClick={() => setStep(s => s + 1)} className="gold-glow gap-1">
-                    {t.campaign.next}<ChevronRight className="w-4 h-4" />
+                  <Button onClick={handleNext} className="gold-glow gap-1">
+                    {t.campaign.next}
+                    <ChevronRight className="w-4 h-4" />
                   </Button>
                 )}
               </div>

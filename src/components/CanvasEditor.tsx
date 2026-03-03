@@ -63,7 +63,7 @@ const CanvasEditor = ({
     size: 40,
     color: '#ffffff',
   });
-  const [shapeColor, setShapeColor] = useState('#d4af37');
+  const [shapeColor, setShapeColor] = useState('hsl(var(--primary))');
   const [placeholderShape, setPlaceholderShape] = useState<'circle' | 'square' | 'rounded'>('circle');
   const [hasPlaceholder, setHasPlaceholder] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -350,6 +350,11 @@ const CanvasEditor = ({
   }, [width, height, saveHistory, shapeColor, t.campaign.editor.circle, t.campaign.editor.rectangle]);
 
   const addPlaceholder = useCallback(() => {
+    if (type === 'background') {
+      toast.info(t.campaign.editor.placeholderNotNeeded ?? 'Mode Background tidak membutuhkan placeholder.');
+      return;
+    }
+
     if (!fabricRef.current || hasPlaceholder) {
       toast.error(t.campaign.editor.onePlaceholderOnly);
       return;
@@ -358,14 +363,30 @@ const CanvasEditor = ({
     let obj: any;
     if (placeholderShape === 'circle') {
       obj = new Circle({
-        radius: size / 2, left: width / 2, top: height / 2, originX: 'center', originY: 'center',
-        fill: 'rgba(255,255,255,0.08)', stroke: '#d4af37', strokeWidth: 3, strokeDashArray: [10, 6],
+        radius: size / 2,
+        left: width / 2,
+        top: height / 2,
+        originX: 'center',
+        originY: 'center',
+        fill: 'hsl(var(--background) / 0.08)',
+        stroke: 'hsl(var(--primary))',
+        strokeWidth: 3,
+        strokeDashArray: [10, 6],
       });
     } else {
       obj = new Rect({
-        width: size, height: size, left: width / 2, top: height / 2, originX: 'center', originY: 'center',
-        fill: 'rgba(255,255,255,0.08)', stroke: '#d4af37', strokeWidth: 3, strokeDashArray: [10, 6],
-        rx: placeholderShape === 'rounded' ? size * 0.15 : 0, ry: placeholderShape === 'rounded' ? size * 0.15 : 0,
+        width: size,
+        height: size,
+        left: width / 2,
+        top: height / 2,
+        originX: 'center',
+        originY: 'center',
+        fill: 'hsl(var(--background) / 0.08)',
+        stroke: 'hsl(var(--primary))',
+        strokeWidth: 3,
+        strokeDashArray: [10, 6],
+        rx: placeholderShape === 'rounded' ? size * 0.15 : 0,
+        ry: placeholderShape === 'rounded' ? size * 0.15 : 0,
       });
     }
     obj.id = PLACEHOLDER_ID;
@@ -376,7 +397,7 @@ const CanvasEditor = ({
     setHasPlaceholder(true);
     saveHistory();
     toast.success(t.campaign.editor.placeholderAdded);
-  }, [width, height, hasPlaceholder, placeholderShape, saveHistory, t.campaign.editor]);
+  }, [width, height, type, hasPlaceholder, placeholderShape, saveHistory, t.campaign.editor]);
 
   const deleteSelected = useCallback(() => {
     if (!fabricRef.current) return;
@@ -552,22 +573,23 @@ const CanvasEditor = ({
               </div>
             </div>
 
-            {/* Placeholder tool */}
-            <div className="glass rounded-xl p-3 border-gold-subtle space-y-2">
-              <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Crosshair className="w-3.5 h-3.5 text-primary" /> {t.campaign.editor.placeholderTool}</h3>
-              <p className="text-[10px] text-muted-foreground leading-tight">{t.campaign.editor.placeholderDesc}</p>
-              <Select value={placeholderShape} onValueChange={v => setPlaceholderShape(v as any)}>
-                <SelectTrigger className="bg-secondary/50 border-border text-xs h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="circle">{t.campaign.editor.circle}</SelectItem>
-                  <SelectItem value="square">{t.campaign.editor.square}</SelectItem>
-                  <SelectItem value="rounded">{t.campaign.editor.roundedSquare}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button size="sm" variant="outline" className="w-full gap-1 border-primary/30 text-primary h-8 text-xs" onClick={addPlaceholder} disabled={hasPlaceholder}>
-                <Crosshair className="w-3 h-3" /> {hasPlaceholder ? t.campaign.editor.placeholderExists : t.campaign.editor.addPlaceholder}
-              </Button>
-            </div>
+            {type === 'frame' && (
+              <div className="glass rounded-xl p-3 border-gold-subtle space-y-2">
+                <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Crosshair className="w-3.5 h-3.5 text-primary" /> {t.campaign.editor.placeholderTool}</h3>
+                <p className="text-[10px] text-muted-foreground leading-tight">{t.campaign.editor.placeholderDesc}</p>
+                <Select value={placeholderShape} onValueChange={v => setPlaceholderShape(v as any)}>
+                  <SelectTrigger className="bg-secondary/50 border-border text-xs h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="circle">{t.campaign.editor.circle}</SelectItem>
+                    <SelectItem value="square">{t.campaign.editor.square}</SelectItem>
+                    <SelectItem value="rounded">{t.campaign.editor.roundedSquare}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" className="w-full gap-1 border-primary/30 text-primary h-8 text-xs" onClick={addPlaceholder} disabled={hasPlaceholder}>
+                  <Crosshair className="w-3 h-3" /> {hasPlaceholder ? t.campaign.editor.placeholderExists : t.campaign.editor.addPlaceholder}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
