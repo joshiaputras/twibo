@@ -1,7 +1,7 @@
 import Layout from '@/components/Layout';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Upload, Download, Copy, MessageCircle, Move, ZoomIn, Crown } from 'lucide-react';
+import { Upload, Download, Copy, MessageCircle, Move, ZoomIn, Crown, Loader2 } from 'lucide-react';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl } from '@/utils/removeBackground';
+import { extractPreviewMeta } from '@/utils/campaignDesign';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -27,6 +28,7 @@ const CampaignPublic = () => {
   const [photoOffsetX, setPhotoOffsetX] = useState(0);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
   const [processingPhoto, setProcessingPhoto] = useState(false);
+  const [isComposingResult, setIsComposingResult] = useState(false);
 
   const isFree = campaign?.tier !== 'premium';
   const composeVersionRef = useRef(0);
@@ -62,6 +64,13 @@ const CampaignPublic = () => {
 
       setCampaign(data);
       if (user && data.user_id === user.id) setIsOwner(true);
+
+      const previewMeta = extractPreviewMeta(data.design_json);
+      setUserPhoto(previewMeta.photoDataUrl ?? '');
+      setPhotoScale(previewMeta.photoScale ?? 100);
+      setPhotoOffsetX(previewMeta.photoOffsetX ?? 0);
+      setPhotoOffsetY(previewMeta.photoOffsetY ?? 0);
+
       setLoading(false);
 
       try {
@@ -78,6 +87,7 @@ const CampaignPublic = () => {
   const updateResult = useCallback(async () => {
     if (!templateImage || !campaign) return;
     const current = ++composeVersionRef.current;
+    setIsComposingResult(true);
 
     try {
       const result = await composeResult({
@@ -98,6 +108,10 @@ const CampaignPublic = () => {
       }
     } catch (err) {
       console.error('Compose error:', err);
+    } finally {
+      if (current === composeVersionRef.current) {
+        setIsComposingResult(false);
+      }
     }
   }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree, fw, fh]);
 
@@ -177,7 +191,23 @@ const CampaignPublic = () => {
     toast.success(t.public?.watermarkRemoved ?? 'Watermark berhasil dihapus!');
   };
 
+  const isPreviewBusy = processingPhoto || isComposingResult;
+
+  useEffect(() => {
+    const el = previewInteractionRef.current;
+    if (!el) return;
+
+    const preventWheel = (event: WheelEvent) => {
+      event.preventDefault();
+    };
+
+    el.addEventListener('wheel', preventWheel, { passive: false });
+    return () => el.removeEventListener('wheel', preventWheel);
+  }, [resultImage, templateImage]);
+
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (isPreviewBusy) return;
+    event.preventDefault();
     const el = previewInteractionRef.current;
     if (!el) return;
     el.setPointerCapture(event.pointerId);
@@ -198,7 +228,8 @@ const CampaignPublic = () => {
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!pointersRef.current.has(event.pointerId)) return;
+    if (isPreviewBusy || !pointersRef.current.has(event.pointerId)) return;
+    event.preventDefault();
 
     const prev = pointersRef.current.get(event.pointerId)!;
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -231,10 +262,15 @@ const CampaignPublic = () => {
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     pointersRef.current.delete(event.pointerId);
+    if (previewInteractionRef.current?.hasPointerCapture(event.pointerId)) {
+      previewInteractionRef.current.releasePointerCapture(event.pointerId);
+    }
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (isPreviewBusy) return;
     event.preventDefault();
+    event.stopPropagation();
     const delta = event.deltaY > 0 ? -6 : 6;
     setPhotoScale(v => clamp(v + delta, 20, 400));
   };
@@ -302,8 +338,9 @@ const CampaignPublic = () => {
               onPointerMove={onPointerMove}
               onPointerUp={onPointerUp}
               onPointerCancel={onPointerUp}
+              onPointerLeave={onPointerUp}
               onWheel={onWheel}
-              className="rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2 touch-none"
+              className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2 touch-none"
               style={{
                 backgroundImage:
                   'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
@@ -313,9 +350,18 @@ const CampaignPublic = () => {
               }}
             >
               {resultImage ? (
-                <img src={resultImage} alt="Result" className="max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
+                <img src={resultImage} alt="Result" draggable={false} className="pointer-events-none select-none max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
               ) : (
                 <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
+              )}
+
+              {isPreviewBusy && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                  <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {processingPhoto ? 'Processing photo...' : 'Generating preview...'}
+                  </div>
+                </div>
               )}
             </div>
 

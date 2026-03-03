@@ -22,12 +22,14 @@ import {
   CreditCard,
   Move,
   ZoomIn,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl } from '@/utils/removeBackground';
+import { extractCanvasDesign, extractPreviewMeta, mergeDesignWithPreview } from '@/utils/campaignDesign';
 
 const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
 
@@ -77,6 +79,7 @@ const CampaignEditor = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle');
   const [processingPhoto, setProcessingPhoto] = useState(false);
+  const [isComposingPreview, setIsComposingPreview] = useState(false);
 
   const composeVersionRef = useRef(0);
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
@@ -118,8 +121,15 @@ const CampaignEditor = () => {
         type: (data.type as CampaignType) ?? 'frame',
       });
       setSlugStatus('available');
-      const loadedDesign = typeof data.design_json === 'string' ? data.design_json : JSON.stringify(data.design_json ?? {});
+
+      const canvasOnly = extractCanvasDesign(data.design_json);
+      const previewMeta = extractPreviewMeta(data.design_json);
+      const loadedDesign = JSON.stringify(canvasOnly ?? {});
       setCanvasState(loadedDesign === '{}' ? '' : loadedDesign);
+      setSimulationPhoto(previewMeta.photoDataUrl ?? '');
+      setSimScale(previewMeta.photoScale ?? 100);
+      setSimOffsetX(previewMeta.photoOffsetX ?? 0);
+      setSimOffsetY(previewMeta.photoOffsetY ?? 0);
     };
     loadCampaign();
   }, [id, isEdit, navigate, t.campaign.loadError]);
@@ -140,6 +150,8 @@ const CampaignEditor = () => {
   const updatePreview = useCallback(async () => {
     if (!templateImage) return;
     const current = ++composeVersionRef.current;
+    setIsComposingPreview(true);
+
     try {
       const result = await composeResult({
         templateDataUrl: templateImage,
@@ -159,6 +171,10 @@ const CampaignEditor = () => {
       }
     } catch (err) {
       console.error('Preview compose error:', err);
+    } finally {
+      if (current === composeVersionRef.current) {
+        setIsComposingPreview(false);
+      }
     }
   }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h, form.type]);
 
@@ -224,6 +240,13 @@ const CampaignEditor = () => {
       parsedDesign = {};
     }
 
+    const designWithPreview = mergeDesignWithPreview(parsedDesign, {
+      photoDataUrl: simulationPhoto,
+      photoScale: simScale,
+      photoOffsetX: simOffsetX,
+      photoOffsetY: simOffsetY,
+    });
+
     const payload = {
       user_id: user.id,
       name: form.name.trim(),
@@ -233,7 +256,7 @@ const CampaignEditor = () => {
       size: form.size,
       type: form.type,
       status,
-      design_json: parsedDesign,
+      design_json: designWithPreview,
     };
 
     if (campaignId) {
@@ -315,7 +338,23 @@ const CampaignEditor = () => {
     setStep(s => Math.min(s + 1, steps.length - 1));
   };
 
+  const isPreviewBusy = processingPhoto || isComposingPreview;
+
+  useEffect(() => {
+    const el = previewInteractionRef.current;
+    if (!el) return;
+
+    const preventWheel = (event: WheelEvent) => {
+      event.preventDefault();
+    };
+
+    el.addEventListener('wheel', preventWheel, { passive: false });
+    return () => el.removeEventListener('wheel', preventWheel);
+  }, [step, previewResult, templateImage]);
+
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (isPreviewBusy) return;
+    event.preventDefault();
     const el = previewInteractionRef.current;
     if (!el) return;
     el.setPointerCapture(event.pointerId);
@@ -336,7 +375,8 @@ const CampaignEditor = () => {
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!pointersRef.current.has(event.pointerId)) return;
+    if (isPreviewBusy || !pointersRef.current.has(event.pointerId)) return;
+    event.preventDefault();
 
     const prev = pointersRef.current.get(event.pointerId)!;
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
@@ -369,10 +409,15 @@ const CampaignEditor = () => {
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
     pointersRef.current.delete(event.pointerId);
+    if (previewInteractionRef.current?.hasPointerCapture(event.pointerId)) {
+      previewInteractionRef.current.releasePointerCapture(event.pointerId);
+    }
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (isPreviewBusy) return;
     event.preventDefault();
+    event.stopPropagation();
     const delta = event.deltaY > 0 ? -6 : 6;
     setSimScale(v => clamp(v + delta, 20, 400));
   };
@@ -522,8 +567,9 @@ const CampaignEditor = () => {
                     onPointerMove={onPointerMove}
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
+                    onPointerLeave={onPointerUp}
                     onWheel={onWheel}
-                    className="rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2 touch-none"
+                    className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2 touch-none"
                     style={{
                       backgroundImage:
                         'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
@@ -533,11 +579,20 @@ const CampaignEditor = () => {
                     }}
                   >
                     {previewResult ? (
-                      <img src={previewResult} alt="Preview" className="max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
+                      <img src={previewResult} alt="Preview" draggable={false} className="pointer-events-none select-none max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
                     ) : templateImage ? (
-                      <img src={templateImage} alt="Template" className="max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
+                      <img src={templateImage} alt="Template" draggable={false} className="pointer-events-none select-none max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
                     ) : (
                       <div className="py-12 text-muted-foreground text-sm">{t.campaign.editor.loading}</div>
+                    )}
+
+                    {isPreviewBusy && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                        <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {processingPhoto ? 'Processing photo...' : 'Generating preview...'}
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

@@ -1,4 +1,5 @@
 import { StaticCanvas } from 'fabric';
+import { extractCanvasDesign } from './campaignDesign';
 
 const PLACEHOLDER_ID = '__placeholder__';
 
@@ -12,7 +13,7 @@ export async function renderTemplatePNG(
   h: number,
   campaignType: 'frame' | 'background' = 'frame'
 ): Promise<string> {
-  const parsed = typeof designJson === 'string' ? JSON.parse(designJson) : designJson;
+  const parsed = extractCanvasDesign(designJson);
   if (!parsed || Object.keys(parsed).length === 0) return '';
 
   const tmpEl = document.createElement('canvas');
@@ -30,10 +31,12 @@ export async function renderTemplatePNG(
   if (campaignType === 'frame') {
     const placeholder = fc.getObjects().find((o: any) => o.id === PLACEHOLDER_ID);
     if (placeholder) {
+      fc.bringObjectToFront(placeholder as any);
       (placeholder as any).set({
         fill: '#000000',
         stroke: 'transparent',
         strokeWidth: 0,
+        opacity: 1,
         globalCompositeOperation: 'destination-out',
       });
     }
