@@ -30,6 +30,7 @@ const CampaignPublic = () => {
   const [processingPhoto, setProcessingPhoto] = useState(false);
 
   const isFree = campaign?.tier !== 'premium';
+  const isPublicPreviewLocked = true;
   const composeVersionRef = useRef(0);
   const supporterTrackedRef = useRef(false);
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
@@ -389,17 +390,17 @@ const CampaignPublic = () => {
 
             <div
               ref={previewInteractionRef}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-              onPointerLeave={onPointerUp}
-              onWheel={onWheel}
-              onWheelCapture={onWheel}
-              className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2 touch-none"
+              onPointerDown={isPublicPreviewLocked ? undefined : onPointerDown}
+              onPointerMove={isPublicPreviewLocked ? undefined : onPointerMove}
+              onPointerUp={isPublicPreviewLocked ? undefined : onPointerUp}
+              onPointerCancel={isPublicPreviewLocked ? undefined : onPointerUp}
+              onPointerLeave={isPublicPreviewLocked ? undefined : onPointerUp}
+              onWheel={isPublicPreviewLocked ? undefined : onWheel}
+              onWheelCapture={isPublicPreviewLocked ? undefined : onWheel}
+              className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2"
               onDragStart={event => event.preventDefault()}
               style={{
-                touchAction: 'none',
+                touchAction: isPublicPreviewLocked ? 'auto' : 'none',
                 overscrollBehavior: 'contain',
                 backgroundImage:
                   'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
@@ -440,13 +441,19 @@ const CampaignPublic = () => {
               <div className="space-y-4">
                 <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
                   <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Move className="w-3 h-3" /> Drag untuk geser
-                  </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
-                  </p>
-                  <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
+                  {isPublicPreviewLocked ? (
+                    <p className="text-xs text-muted-foreground">Preview campaign ini dikunci sebagai contoh PNG final.</p>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Move className="w-3 h-3" /> Drag untuk geser
+                      </p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
+                      </p>
+                      <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
+                    </>
+                  )}
                   <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
                     <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>

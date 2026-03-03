@@ -79,6 +79,7 @@ const CampaignEditor = () => {
   const [showPayment, setShowPayment] = useState(false);
   const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle');
   const [processingPhoto, setProcessingPhoto] = useState(false);
+  const [isInteractingPreview, setIsInteractingPreview] = useState(false);
 
   const composeVersionRef = useRef(0);
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
@@ -89,6 +90,7 @@ const CampaignEditor = () => {
   const transformRafRef = useRef<number | null>(null);
   const transformPendingRef = useRef<{ scale?: number; offsetX?: number; offsetY?: number }>({});
   const wheelPendingRef = useRef(0);
+  const wheelIdleTimerRef = useRef<number | null>(null);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -180,10 +182,10 @@ const CampaignEditor = () => {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       updatePreview();
-    }, 80);
+    }, isInteractingPreview ? 140 : 70);
 
     return () => window.clearTimeout(timer);
-  }, [updatePreview]);
+  }, [updatePreview, isInteractingPreview]);
 
   const normalizeSlug = (value: string) =>
     value
@@ -363,6 +365,7 @@ const CampaignEditor = () => {
     return () => {
       if (dragRafRef.current) window.cancelAnimationFrame(dragRafRef.current);
       if (transformRafRef.current) window.cancelAnimationFrame(transformRafRef.current);
+      if (wheelIdleTimerRef.current) window.clearTimeout(wheelIdleTimerRef.current);
     };
   }, []);
 
@@ -381,6 +384,7 @@ const CampaignEditor = () => {
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !simulationPhoto) return;
+    setIsInteractingPreview(true);
     event.preventDefault();
     event.stopPropagation();
     const el = previewInteractionRef.current;
@@ -460,13 +464,25 @@ const CampaignEditor = () => {
     if (pointersRef.current.size < 2) {
       gestureRef.current.startDistance = 0;
     }
+
+    if (pointersRef.current.size === 0) {
+      setIsInteractingPreview(false);
+      updatePreview();
+    }
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !simulationPhoto) return;
+    setIsInteractingPreview(true);
     event.preventDefault();
     event.stopPropagation();
     wheelPendingRef.current += -event.deltaY * 0.04;
+
+    if (wheelIdleTimerRef.current) window.clearTimeout(wheelIdleTimerRef.current);
+    wheelIdleTimerRef.current = window.setTimeout(() => {
+      setIsInteractingPreview(false);
+      updatePreview();
+    }, 140);
 
     if (transformRafRef.current) return;
     transformRafRef.current = window.requestAnimationFrame(() => {
