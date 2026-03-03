@@ -3,8 +3,26 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Megaphone, CreditCard, Settings, Crown, Ban } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Users,
+  Megaphone,
+  CreditCard,
+  Settings,
+  Crown,
+  Ban,
+  Shield,
+  Trash2,
+  Unlock,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -15,33 +33,36 @@ const Admin = () => {
   const [payments, setPayments] = useState<any[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [searchCampaign, setSearchCampaign] = useState('');
+  const [searchUser, setSearchUser] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+
+    const [{ data: cData }, { data: pData }, { data: txData }, { data: sData }, { data: rolesData }] = await Promise.all([
+      supabase.from('campaigns' as any).select('*').order('created_at', { ascending: false }),
+      supabase.from('profiles' as any).select('*').order('created_at', { ascending: false }),
+      supabase.from('payments' as any).select('*').order('created_at', { ascending: false }),
+      supabase.from('site_settings' as any).select('*'),
+      supabase.from('user_roles' as any).select('user_id, role'),
+    ]);
+
+    const adminSet = new Set(((rolesData as any[]) ?? []).filter(r => r.role === 'admin').map(r => r.user_id));
+
+    setCampaigns((cData as any[]) ?? []);
+    setPayments((txData as any[]) ?? []);
+    setUsers(((pData as any[]) ?? []).map((u: any) => ({ ...u, is_admin: adminSet.has(u.id) })));
+
+    const settingsMap: Record<string, string> = {};
+    ((sData as any[]) ?? []).forEach((s: any) => {
+      settingsMap[s.key] = s.value;
+    });
+    setSettings(settingsMap);
+
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-
-      // Load campaigns
-      const { data: cData } = await supabase.from('campaigns' as any).select('*').order('created_at', { ascending: false });
-
-      // Load profiles
-      const { data: pData } = await supabase.from('profiles' as any).select('*').order('created_at', { ascending: false });
-
-      // Load payments
-      const { data: txData } = await supabase.from('payments' as any).select('*').order('created_at', { ascending: false });
-
-      // Load settings
-      const { data: sData } = await supabase.from('site_settings' as any).select('*');
-
-      setCampaigns((cData as any[]) ?? []);
-      setUsers((pData as any[]) ?? []);
-      setPayments((txData as any[]) ?? []);
-
-      const settingsMap: Record<string, string> = {};
-      ((sData as any[]) ?? []).forEach((s: any) => { settingsMap[s.key] = s.value; });
-      setSettings(settingsMap);
-
-      setLoading(false);
-    };
     load();
   }, []);
 
@@ -49,17 +70,74 @@ const Admin = () => {
     .filter((p: any) => p.status === 'paid')
     .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
+  const filteredCampaigns = useMemo(() => {
+    const key = searchCampaign.toLowerCase().trim();
+    if (!key) return campaigns;
+    return campaigns.filter((c: any) => `${c.name} ${c.slug}`.toLowerCase().includes(key));
+  }, [campaigns, searchCampaign]);
+
+  const filteredUsers = useMemo(() => {
+    const key = searchUser.toLowerCase().trim();
+    if (!key) return users;
+    return users.filter((u: any) => `${u.name} ${u.email} ${u.phone}`.toLowerCase().includes(key));
+  }, [users, searchUser]);
+
   const handleSaveSettings = async () => {
     for (const [key, value] of Object.entries(settings)) {
-      await supabase.from('site_settings' as any).update({ value }).eq('key', key);
+      await supabase.from('site_settings' as any).upsert({ key, value }, { onConflict: 'key' });
     }
     toast.success(t.admin.settingsSaved ?? 'Pengaturan berhasil disimpan');
   };
 
-  const handleBlockCampaign = async (id: string) => {
-    await supabase.from('campaigns' as any).update({ status: 'blocked' }).eq('id', id);
-    setCampaigns(prev => prev.map(c => c.id === id ? { ...c, status: 'blocked' } : c));
-    toast.success(t.admin.campaignBlocked ?? 'Campaign diblokir');
+  const updateCampaign = async (id: string, patch: Record<string, any>, successMessage: string) => {
+    const { error } = await supabase.from('campaigns' as any).update(patch).eq('id', id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setCampaigns(prev => prev.map((c: any) => (c.id === id ? { ...c, ...patch } : c)));
+    toast.success(successMessage);
+  };
+
+  const deleteCampaign = async (id: string) => {
+    const { error } = await supabase.from('campaigns' as any).delete().eq('id', id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setCampaigns(prev => prev.filter((c: any) => c.id !== id));
+    toast.success('Campaign dihapus');
+  };
+
+  const toggleUserAdmin = async (userId: string, makeAdmin: boolean) => {
+    if (makeAdmin) {
+      const { error } = await supabase.from('user_roles' as any).insert({ user_id: userId, role: 'admin' });
+      if (error && error.code !== '23505') {
+        toast.error(error.message);
+        return;
+      }
+      setUsers(prev => prev.map((u: any) => (u.id === userId ? { ...u, is_admin: true } : u)));
+      toast.success('Role admin diberikan');
+      return;
+    }
+
+    const { error } = await supabase.from('user_roles' as any).delete().eq('user_id', userId).eq('role', 'admin');
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setUsers(prev => prev.map((u: any) => (u.id === userId ? { ...u, is_admin: false } : u)));
+    toast.success('Role admin dicabut');
+  };
+
+  const deleteUser = async (userId: string) => {
+    const { error } = await supabase.from('profiles' as any).delete().eq('id', userId);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setUsers(prev => prev.filter((u: any) => u.id !== userId));
+    toast.success('User dihapus dari profil');
   };
 
   if (loading) {
@@ -75,11 +153,10 @@ const Admin = () => {
   return (
     <Layout>
       <section className="py-24 md:py-32">
-        <div className="container mx-auto px-4">
-          <h1 className="font-display text-3xl font-bold text-gold-gradient mb-8">{t.admin.title}</h1>
+        <div className="container mx-auto px-4 space-y-6">
+          <h1 className="font-display text-3xl font-bold text-gold-gradient">{t.admin.title}</h1>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: t.admin.totalCampaigns, value: campaigns.length.toString(), icon: Megaphone },
               { label: t.admin.totalUsers, value: users.length.toString(), icon: Users },
@@ -100,112 +177,194 @@ const Admin = () => {
           </div>
 
           <Tabs defaultValue="campaigns" className="space-y-4">
-            <TabsList className="bg-secondary/50 border border-border">
-              <TabsTrigger value="campaigns" className="gap-1"><Megaphone className="w-3 h-3" />{t.admin.campaigns}</TabsTrigger>
-              <TabsTrigger value="users" className="gap-1"><Users className="w-3 h-3" />{t.admin.users}</TabsTrigger>
-              <TabsTrigger value="transactions" className="gap-1"><CreditCard className="w-3 h-3" />{t.admin.transactions}</TabsTrigger>
-              <TabsTrigger value="settings" className="gap-1"><Settings className="w-3 h-3" />{t.admin.settings}</TabsTrigger>
+            <TabsList className="bg-secondary/50 border border-border flex-wrap h-auto">
+              <TabsTrigger value="campaigns" className="gap-1">
+                <Megaphone className="w-3 h-3" />
+                {t.admin.campaigns}
+              </TabsTrigger>
+              <TabsTrigger value="users" className="gap-1">
+                <Users className="w-3 h-3" />
+                {t.admin.users}
+              </TabsTrigger>
+              <TabsTrigger value="transactions" className="gap-1">
+                <CreditCard className="w-3 h-3" />
+                {t.admin.transactions}
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-1">
+                <Settings className="w-3 h-3" />
+                {t.admin.settings}
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="campaigns">
+            <TabsContent value="campaigns" className="space-y-3">
+              <Input value={searchCampaign} onChange={e => setSearchCampaign(e.target.value)} placeholder="Cari campaign" className="max-w-sm bg-secondary/50 border-border" />
+
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border/50">
-                      <th className="text-left p-4 text-muted-foreground font-medium">Campaign</th>
-                      <th className="p-4 text-muted-foreground font-medium">Slug</th>
-                      <th className="p-4 text-muted-foreground font-medium">{t.admin.tier ?? 'Tier'}</th>
-                      <th className="p-4 text-muted-foreground font-medium">Status</th>
-                      <th className="p-4 text-muted-foreground font-medium">{t.admin.actions ?? 'Actions'}</th>
-                    </tr></thead>
-                    <tbody>
-                      {campaigns.map((c: any) => (
-                        <tr key={c.id} className="border-b border-border/30">
-                          <td className="p-4 text-foreground">{c.name}</td>
-                          <td className="p-4 text-muted-foreground">{c.slug}</td>
-                          <td className="p-4">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${c.tier === 'premium' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                              {c.tier === 'premium' && <Crown className="w-3 h-3 inline mr-1" />}{c.tier || 'free'}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              c.status === 'published' ? 'bg-green-500/20 text-green-400' :
-                              c.status === 'blocked' ? 'bg-destructive/20 text-destructive' :
-                              'bg-muted text-muted-foreground'
-                            }`}>{c.status}</span>
-                          </td>
-                          <td className="p-4">
-                            <Button variant="outline" size="sm" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => handleBlockCampaign(c.id)}>
-                              <Ban className="w-3 h-3" />{t.admin.block}
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Campaign</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead>{t.admin.tier ?? 'Tier'}</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-[360px]">{t.admin.actions ?? 'Actions'}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCampaigns.map((c: any) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="font-medium">{c.name}</TableCell>
+                        <TableCell className="text-muted-foreground">{c.slug}</TableCell>
+                        <TableCell>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${c.tier === 'premium' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                            {c.tier === 'premium' && <Crown className="w-3 h-3 inline mr-1" />}
+                            {c.tier || 'free'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded-full ${
+                              c.status === 'published'
+                                ? 'bg-green-500/20 text-green-400'
+                                : c.status === 'blocked'
+                                  ? 'bg-destructive/20 text-destructive'
+                                  : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {c.status}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-2">
+                            {c.status !== 'published' && (
+                              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, 'Campaign dipublish')}>
+                                Publish
+                              </Button>
+                            )}
+                            {c.status !== 'draft' && (
+                              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'draft' }, 'Campaign jadi draft')}>
+                                Draft
+                              </Button>
+                            )}
+                            {c.status !== 'blocked' ? (
+                              <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'blocked' }, t.admin.campaignBlocked ?? 'Campaign diblokir')}>
+                                <Ban className="w-3 h-3" /> {t.admin.block}
+                              </Button>
+                            ) : (
+                              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, 'Campaign dibuka')}>
+                                <Unlock className="w-3 h-3" /> {t.admin.unblock ?? 'Unblock'}
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => updateCampaign(c.id, { tier: c.tier === 'premium' ? 'free' : 'premium' }, 'Tier campaign diperbarui')}
+                            >
+                              {c.tier === 'premium' ? 'Set Free' : 'Set Premium'}
                             </Button>
-                          </td>
-                        </tr>
-                      ))}
-                      {campaigns.length === 0 && (
-                        <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                            <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteCampaign(c.id)}>
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredCampaigns.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="p-8 text-center text-muted-foreground">
+                          {t.admin.noData ?? 'Belum ada data'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </TabsContent>
 
-            <TabsContent value="users">
+            <TabsContent value="users" className="space-y-3">
+              <Input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder="Cari user" className="max-w-sm bg-secondary/50 border-border" />
+
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border/50">
-                      <th className="text-left p-4 text-muted-foreground font-medium">{t.admin.name ?? 'Name'}</th>
-                      <th className="p-4 text-muted-foreground font-medium">Email</th>
-                      <th className="p-4 text-muted-foreground font-medium">{t.admin.phone ?? 'Phone'}</th>
-                      <th className="p-4 text-muted-foreground font-medium">{t.admin.joined ?? 'Joined'}</th>
-                    </tr></thead>
-                    <tbody>
-                      {users.map((u: any) => (
-                        <tr key={u.id} className="border-b border-border/30">
-                          <td className="p-4 text-foreground">{u.name || '-'}</td>
-                          <td className="p-4 text-muted-foreground">{u.email}</td>
-                          <td className="p-4 text-muted-foreground">{u.phone || '-'}</td>
-                          <td className="p-4 text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString('id-ID')}</td>
-                        </tr>
-                      ))}
-                      {users.length === 0 && (
-                        <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.admin.name ?? 'Name'}</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>{t.admin.phone ?? 'Phone'}</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>{t.admin.joined ?? 'Joined'}</TableHead>
+                      <TableHead className="w-[220px]">{t.admin.actions ?? 'Actions'}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((u: any) => (
+                      <TableRow key={u.id}>
+                        <TableCell className="font-medium">{u.name || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                        <TableCell className="text-muted-foreground">{u.phone || '-'}</TableCell>
+                        <TableCell>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${u.is_admin ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                            {u.is_admin && <Shield className="w-3 h-3 inline mr-1" />}
+                            {u.is_admin ? 'admin' : 'user'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString('id-ID')}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => toggleUserAdmin(u.id, !u.is_admin)}>
+                              {u.is_admin ? 'Set User' : 'Set Admin'}
+                            </Button>
+                            <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteUser(u.id)}>
+                              <Trash2 className="w-3 h-3" /> Delete
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredUsers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="p-8 text-center text-muted-foreground">
+                          {t.admin.noData ?? 'Belum ada data'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </TabsContent>
 
             <TabsContent value="transactions">
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead><tr className="border-b border-border/50">
-                      <th className="text-left p-4 text-muted-foreground font-medium">{t.admin.date ?? 'Date'}</th>
-                      <th className="p-4 text-muted-foreground font-medium">Campaign</th>
-                      <th className="p-4 text-muted-foreground font-medium">{t.admin.amount ?? 'Amount'}</th>
-                      <th className="p-4 text-muted-foreground font-medium">Status</th>
-                    </tr></thead>
-                    <tbody>
-                      {payments.map((tx: any) => (
-                        <tr key={tx.id} className="border-b border-border/30">
-                          <td className="p-4 text-foreground text-xs">{new Date(tx.created_at).toLocaleDateString('id-ID')}</td>
-                          <td className="p-4 text-muted-foreground">{tx.campaign_id}</td>
-                          <td className="p-4 text-primary font-semibold">Rp {(tx.amount || 0).toLocaleString('id-ID')}</td>
-                          <td className="p-4">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>{tx.status}</span>
-                          </td>
-                        </tr>
-                      ))}
-                      {payments.length === 0 && (
-                        <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t.admin.date ?? 'Date'}</TableHead>
+                      <TableHead>Campaign</TableHead>
+                      <TableHead>{t.admin.amount ?? 'Amount'}</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {payments.map((tx: any) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="text-xs">{new Date(tx.created_at).toLocaleDateString('id-ID')}</TableCell>
+                        <TableCell className="text-muted-foreground">{tx.campaign_id}</TableCell>
+                        <TableCell className="text-primary font-semibold">Rp {(tx.amount || 0).toLocaleString('id-ID')}</TableCell>
+                        <TableCell>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>{tx.status}</span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {payments.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="p-8 text-center text-muted-foreground">
+                          {t.admin.noData ?? 'Belum ada data'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </TabsContent>
 
@@ -223,12 +382,7 @@ const Admin = () => {
                   ].map(item => (
                     <div key={item.key}>
                       <label className="text-sm text-muted-foreground">{item.label}</label>
-                      <Input
-                        value={settings[item.key] || ''}
-                        onChange={e => setSettings(prev => ({ ...prev, [item.key]: e.target.value }))}
-                        className="mt-1 bg-secondary/50 border-border text-sm"
-                        placeholder={item.label}
-                      />
+                      <Input value={settings[item.key] || ''} onChange={e => setSettings(prev => ({ ...prev, [item.key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-sm" placeholder={item.label} />
                     </div>
                   ))}
                 </div>

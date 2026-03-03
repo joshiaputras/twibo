@@ -1,14 +1,16 @@
 import Layout from '@/components/Layout';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import { Upload, Download, Copy, MessageCircle, Move, ZoomIn, Crown } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
+import { removeBackgroundFromDataUrl } from '@/utils/removeBackground';
+
+const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
 const CampaignPublic = () => {
   const { slug } = useParams();
@@ -18,17 +20,30 @@ const CampaignPublic = () => {
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
 
-  // Photo upload & result
   const [userPhoto, setUserPhoto] = useState<string>('');
   const [templateImage, setTemplateImage] = useState<string>('');
   const [resultImage, setResultImage] = useState<string>('');
   const [photoScale, setPhotoScale] = useState(100);
   const [photoOffsetX, setPhotoOffsetX] = useState(0);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
 
   const isFree = campaign?.tier !== 'premium';
+  const composeVersionRef = useRef(0);
+  const supporterTrackedRef = useRef(false);
+  const previewInteractionRef = useRef<HTMLDivElement | null>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const gestureRef = useRef({ startScale: 100, startDistance: 0, startOffsetX: 0, startOffsetY: 0, startCenterX: 0, startCenterY: 0 });
 
-  // Load campaign
+  const sizeMap: Record<string, [number, number]> = {
+    square: [1080, 1080],
+    portrait: [1080, 1350],
+    story: [1080, 1920],
+  };
+
+  const [fw, fh] = sizeMap[campaign?.size] || [1080, 1080];
+  const previewScale = Math.min(500 / fw, 600 / fh, 1);
+
   useEffect(() => {
     if (!slug) return;
     const load = async () => {
@@ -40,32 +55,29 @@ const CampaignPublic = () => {
         .eq('status', 'published')
         .single();
 
-      if (error || !data) { setLoading(false); return; }
+      if (error || !data) {
+        setLoading(false);
+        return;
+      }
+
       setCampaign(data);
       if (user && data.user_id === user.id) setIsOwner(true);
       setLoading(false);
 
-      // Render template to PNG with transparent placeholder
-      const sizeMap: Record<string, [number, number]> = {
-        square: [1080, 1080], portrait: [1080, 1350], story: [1080, 1920],
-      };
-      const [w, h] = sizeMap[data.size] || [1080, 1080];
       try {
-        const tplDataUrl = await renderTemplatePNG(data.design_json, w, h);
+        const [w, h] = sizeMap[data.size] || [1080, 1080];
+        const tplDataUrl = await renderTemplatePNG(data.design_json, w, h, data.type ?? 'frame');
         setTemplateImage(tplDataUrl);
-      } catch (err) { console.error('Template render error:', err); }
+      } catch (err) {
+        console.error('Template render error:', err);
+      }
     };
     load();
   }, [slug, user]);
 
-  // Compose result when photo or adjustments change
   const updateResult = useCallback(async () => {
     if (!templateImage || !campaign) return;
-
-    const sizeMap: Record<string, [number, number]> = {
-      square: [1080, 1080], portrait: [1080, 1350], story: [1080, 1920],
-    };
-    const [fw, fh] = sizeMap[campaign.size] || [1080, 1080];
+    const current = ++composeVersionRef.current;
 
     try {
       const result = await composeResult({
@@ -77,35 +89,69 @@ const CampaignPublic = () => {
         photoOffsetX,
         photoOffsetY,
         addWatermark: isFree,
+        campaignType: campaign.type ?? 'frame',
         previewMaxW: 500,
         previewMaxH: 600,
       });
-      setResultImage(result);
+      if (current === composeVersionRef.current) {
+        setResultImage(result);
+      }
     } catch (err) {
       console.error('Compose error:', err);
     }
-  }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree]);
+  }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree, fw, fh]);
 
-  useEffect(() => { updateResult(); }, [updateResult]);
+  useEffect(() => {
+    updateResult();
+  }, [updateResult]);
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const trackSupporter = async () => {
+    if (!slug || supporterTrackedRef.current) return;
+    supporterTrackedRef.current = true;
+    await supabase.rpc('increment_campaign_stats' as any, { _slug: slug, _event: 'supporter' });
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
     const reader = new FileReader();
-    reader.onload = (ev) => {
-      setUserPhoto((ev.target?.result as string) ?? '');
-      setPhotoScale(100); setPhotoOffsetX(0); setPhotoOffsetY(0);
+    reader.onload = async ev => {
+      const rawDataUrl = (ev.target?.result as string) ?? '';
+      if (!rawDataUrl) return;
+
+      try {
+        setProcessingPhoto(true);
+        const photoDataUrl = campaign?.type === 'background' ? await removeBackgroundFromDataUrl(rawDataUrl) : rawDataUrl;
+        setUserPhoto(photoDataUrl);
+      } catch {
+        setUserPhoto(rawDataUrl);
+        toast.error('Gagal remove background, memakai foto original.');
+      } finally {
+        setProcessingPhoto(false);
+      }
+
+      setPhotoScale(100);
+      setPhotoOffsetX(0);
+      setPhotoOffsetY(0);
+      await trackSupporter();
     };
+
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (!resultImage) return;
+
     const a = document.createElement('a');
     a.href = resultImage;
     a.download = `twibbon-${slug}.png`;
     a.click();
+
+    if (slug) {
+      await supabase.rpc('increment_campaign_stats' as any, { _slug: slug, _event: 'download' });
+    }
   };
 
   const handleCopyCaption = () => {
@@ -129,6 +175,68 @@ const CampaignPublic = () => {
     await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaign.id);
     setCampaign((prev: any) => ({ ...prev, tier: 'premium' }));
     toast.success(t.public?.watermarkRemoved ?? 'Watermark berhasil dihapus!');
+  };
+
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const el = previewInteractionRef.current;
+    if (!el) return;
+    el.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    const points = [...pointersRef.current.values()];
+    if (points.length === 2) {
+      const [a, b] = points;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      gestureRef.current.startDistance = Math.hypot(dx, dy);
+      gestureRef.current.startScale = photoScale;
+      gestureRef.current.startOffsetX = photoOffsetX;
+      gestureRef.current.startOffsetY = photoOffsetY;
+      gestureRef.current.startCenterX = (a.x + b.x) / 2;
+      gestureRef.current.startCenterY = (a.y + b.y) / 2;
+    }
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(event.pointerId)) return;
+
+    const prev = pointersRef.current.get(event.pointerId)!;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const points = [...pointersRef.current.values()];
+
+    if (points.length === 2) {
+      const [a, b] = points;
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const distance = Math.hypot(dx, dy);
+      if (gestureRef.current.startDistance > 0) {
+        const ratio = distance / gestureRef.current.startDistance;
+        setPhotoScale(clamp(gestureRef.current.startScale * ratio, 20, 400));
+      }
+
+      const centerX = (a.x + b.x) / 2;
+      const centerY = (a.y + b.y) / 2;
+      setPhotoOffsetX(gestureRef.current.startOffsetX + (centerX - gestureRef.current.startCenterX) / previewScale);
+      setPhotoOffsetY(gestureRef.current.startOffsetY + (centerY - gestureRef.current.startCenterY) / previewScale);
+      return;
+    }
+
+    if (points.length === 1) {
+      const dx = event.clientX - prev.x;
+      const dy = event.clientY - prev.y;
+      setPhotoOffsetX(v => v + dx / previewScale);
+      setPhotoOffsetY(v => v + dy / previewScale);
+    }
+  };
+
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(event.pointerId);
+  };
+
+  const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const delta = event.deltaY > 0 ? -6 : 6;
+    setPhotoScale(v => clamp(v + delta, 20, 400));
   };
 
   if (loading) {
@@ -158,7 +266,6 @@ const CampaignPublic = () => {
     <Layout>
       <section className="py-20 md:py-28">
         <div className="container mx-auto px-4 max-w-2xl">
-          {/* Google Ads placeholder (free only) */}
           {isFree && (
             <div className="mb-6 rounded-xl border border-dashed border-border bg-secondary/20 p-4 text-center">
               <p className="text-xs text-muted-foreground">— {t.public?.adSpace ?? 'Advertisement'} —</p>
@@ -169,16 +276,13 @@ const CampaignPublic = () => {
           )}
 
           <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle">
-            {/* Title & description */}
             <h1 className="font-display text-2xl font-bold text-gold-gradient mb-1">{campaign.name}</h1>
-            {campaign.description && (
+            {campaign.description ? (
               <p className="text-muted-foreground text-sm mb-6">{campaign.description}</p>
-            )}
-            {!campaign.description && (
+            ) : (
               <p className="text-muted-foreground text-sm mb-6">{t.public?.uploadPrompt ?? 'Upload foto kamu untuk membuat twibbon'}</p>
             )}
 
-            {/* Owner watermark notice */}
             {isOwner && isFree && (
               <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center gap-3">
                 <Crown className="w-5 h-5 text-primary shrink-0" />
@@ -192,8 +296,22 @@ const CampaignPublic = () => {
               </div>
             )}
 
-            {/* Result preview */}
-            <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2">
+            <div
+              ref={previewInteractionRef}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              onWheel={onWheel}
+              className="rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2 touch-none"
+              style={{
+                backgroundImage:
+                  'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
+                backgroundSize: '16px 16px',
+                backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                backgroundColor: 'hsl(0 0% 15%)',
+              }}
+            >
               {resultImage ? (
                 <img src={resultImage} alt="Result" className="max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
               ) : (
@@ -202,55 +320,45 @@ const CampaignPublic = () => {
             </div>
 
             {!userPhoto ? (
-              /* Upload area */
               <div className="space-y-4">
                 <label className="block cursor-pointer">
                   <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors text-center">
                     <Upload className="w-10 h-10 text-primary/50 mx-auto mb-2" />
                     <p className="text-foreground font-medium">{t.public?.uploadPhoto ?? 'Upload foto kamu'}</p>
                     <p className="text-xs text-muted-foreground mt-1">{t.public?.clickOrDrag ?? 'Klik atau drag untuk upload'}</p>
+                    {processingPhoto && <p className="text-xs text-muted-foreground mt-2">Processing photo...</p>}
                   </div>
                   <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                 </label>
               </div>
             ) : (
-              /* After upload - adjust & download */
               <div className="space-y-4">
-                {/* Adjustment controls */}
-                <div className="glass rounded-xl p-4 border-gold-subtle space-y-2">
+                <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
                   <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
-                  <div className="flex items-center gap-2">
-                    <ZoomIn className="w-3 h-3 text-muted-foreground shrink-0" />
-                    <span className="text-xs text-muted-foreground w-10">{t.campaign?.scale ?? 'Scale'}</span>
-                    <Slider value={[photoScale]} onValueChange={v => setPhotoScale(v[0])} min={20} max={300} step={5} className="flex-1" />
-                    <span className="text-xs text-muted-foreground w-10">{photoScale}%</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Move className="w-3 h-3 text-muted-foreground shrink-0" />
-                    <span className="text-xs text-muted-foreground w-10">X</span>
-                    <Slider value={[photoOffsetX]} onValueChange={v => setPhotoOffsetX(v[0])} min={-500} max={500} step={5} className="flex-1" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Move className="w-3 h-3 text-muted-foreground shrink-0" />
-                    <span className="text-xs text-muted-foreground w-10">Y</span>
-                    <Slider value={[photoOffsetY]} onValueChange={v => setPhotoOffsetY(v[0])} min={-500} max={500} step={5} className="flex-1" />
-                  </div>
-                  <label className="inline-flex cursor-pointer">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Move className="w-3 h-3" /> Drag untuk geser
+                  </p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
+                  </p>
+                  <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
+                  <label className="inline-flex cursor-pointer mt-1">
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
                     <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>
                   </label>
                 </div>
 
                 <Button className="gold-glow font-semibold gap-2 w-full" onClick={handleDownload}>
-                  <Download className="w-4 h-4" />{t.public?.downloadResult ?? 'Download Hasil'}
+                  <Download className="w-4 h-4" />
+                  {t.public?.downloadResult ?? 'Download Hasil'}
                 </Button>
 
-                {/* Caption & share */}
                 {campaign.caption && (
                   <div className="glass rounded-xl p-4 border-gold-subtle text-left">
                     <p className="text-sm text-foreground mb-2">{campaign.caption}</p>
                     <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleCopyCaption}>
-                      <Copy className="w-3 h-3" />{t.public?.copyCaption ?? 'Salin Caption'}
+                      <Copy className="w-3 h-3" />
+                      {t.public?.copyCaption ?? 'Salin Caption'}
                     </Button>
                   </div>
                 )}
@@ -267,7 +375,6 @@ const CampaignPublic = () => {
             )}
           </div>
 
-          {/* Bottom ad space (free only) */}
           {isFree && (
             <div className="mt-6 rounded-xl border border-dashed border-border bg-secondary/20 p-4 text-center">
               <p className="text-xs text-muted-foreground">— {t.public?.adSpace ?? 'Advertisement'} —</p>

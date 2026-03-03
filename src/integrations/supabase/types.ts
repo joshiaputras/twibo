@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_stats: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          downloads_count: number
+          id: string
+          supporters_count: number
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          downloads_count?: number
+          id?: string
+          supporters_count?: number
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          downloads_count?: number
+          id?: string
+          supporters_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           caption: string
@@ -195,6 +222,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_campaign_stats: {
+        Args: { _event: string; _slug: string }
+        Returns: undefined
       }
     }
     Enums: {
