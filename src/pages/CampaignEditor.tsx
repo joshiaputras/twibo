@@ -28,7 +28,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
-import { removeBackgroundFromDataUrl } from '@/utils/removeBackground';
+import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { extractCanvasDesign, extractPreviewMeta, mergeDesignWithPreview } from '@/utils/campaignDesign';
 
 const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
@@ -136,6 +136,7 @@ const CampaignEditor = () => {
       setSimScale(previewMeta.photoScale ?? 100);
       setSimOffsetX(previewMeta.photoOffsetX ?? 0);
       setSimOffsetY(previewMeta.photoOffsetY ?? 0);
+      setPreviewResult(previewMeta.previewImageDataUrl ?? '');
     };
     loadCampaign();
   }, [id, isEdit, navigate, t.campaign.loadError]);
@@ -152,6 +153,11 @@ const CampaignEditor = () => {
     };
     render();
   }, [step, canvasState, selectedSize.w, selectedSize.h, form.type]);
+
+  useEffect(() => {
+    if (form.type !== 'background') return;
+    void warmupBackgroundRemoval();
+  }, [form.type]);
 
   const updatePreview = useCallback(async () => {
     if (!templateImage) return;
@@ -250,6 +256,7 @@ const CampaignEditor = () => {
       photoScale: simScale,
       photoOffsetX: simOffsetX,
       photoOffsetY: simOffsetY,
+      previewImageDataUrl: previewResult,
     });
 
     const payload = {
