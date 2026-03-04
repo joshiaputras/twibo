@@ -40,7 +40,6 @@ const CampaignPublic = () => {
   const [isInteractingPreview, setIsInteractingPreview] = useState(false);
   const [rawRemovedBg, setRawRemovedBg] = useState<string>('');
   const [bgThreshold, setBgThreshold] = useState(50);
-  const [bgFeather, setBgFeather] = useState(3);
   const [applyingThreshold, setApplyingThreshold] = useState(false);
 
   const { pay, paying } = useMidtransPayment();
@@ -228,8 +227,7 @@ const CampaignPublic = () => {
           const removedBgDataUrl = await removeBackgroundFromDataUrl(rawDataUrl);
           setRawRemovedBg(removedBgDataUrl);
           setBgThreshold(50);
-          setBgFeather(3);
-          const processed = await applyAlphaThreshold(removedBgDataUrl, 50, 3);
+          const processed = await applyAlphaThreshold(removedBgDataUrl, 50);
           const initialTransform = await getInitialPhotoTransform(processed);
           setUserPhoto(processed);
           setPhotoScale(initialTransform.scale);
@@ -357,11 +355,11 @@ const CampaignPublic = () => {
     toast.success(t.public?.linkCopied ?? 'Link disalin!');
   };
 
-  const applyBgProcessing = useCallback(async (threshold: number, feather: number) => {
+  const applyBgProcessing = useCallback(async (threshold: number) => {
     if (!rawRemovedBg) return;
     setApplyingThreshold(true);
     try {
-      const processed = await applyAlphaThreshold(rawRemovedBg, threshold, feather);
+      const processed = await applyAlphaThreshold(rawRemovedBg, threshold);
       setUserPhoto(processed);
     } catch {
       // keep current
@@ -373,14 +371,8 @@ const CampaignPublic = () => {
   const handleThresholdChange = useCallback(async (values: number[]) => {
     const newThreshold = values[0];
     setBgThreshold(newThreshold);
-    await applyBgProcessing(newThreshold, bgFeather);
-  }, [bgFeather, applyBgProcessing]);
-
-  const handleFeatherChange = useCallback(async (values: number[]) => {
-    const newFeather = values[0];
-    setBgFeather(newFeather);
-    await applyBgProcessing(bgThreshold, newFeather);
-  }, [bgThreshold, applyBgProcessing]);
+    await applyBgProcessing(newThreshold);
+  }, [applyBgProcessing]);
 
   const handleRemoveWatermark = async () => {
     if (!campaign) return;
@@ -710,24 +702,6 @@ const CampaignPublic = () => {
                           step={5}
                           className="w-full"
                         />
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>{t.public?.feather ?? 'Edge Blur'}</span>
-                          <span>{bgFeather}px</span>
-                        </div>
-                        <Slider
-                          value={[bgFeather]}
-                          onValueChange={handleFeatherChange}
-                          min={0}
-                          max={20}
-                          step={1}
-                          className="w-full"
-                        />
-                        <div className="flex justify-between text-[10px] text-muted-foreground/60">
-                          <span>Sharp</span>
-                          <span>Smooth</span>
-                        </div>
                       </div>
                     </div>
                   )}
