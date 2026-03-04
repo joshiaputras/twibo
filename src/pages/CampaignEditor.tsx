@@ -331,7 +331,7 @@ const CampaignEditor = () => {
         const photo = await loadImage(photoDataUrl);
         const targetW = Math.max(1, placeholderMeta.width * placeholderMeta.scaleX);
         const targetH = Math.max(1, placeholderMeta.height * placeholderMeta.scaleY);
-        const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height));
+        const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height)) * 1.02;
 
         return {
           scale: clamp(coverScale * 100, 20, 400),
