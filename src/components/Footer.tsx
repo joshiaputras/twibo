@@ -9,6 +9,9 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
+            <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center mb-3 overflow-hidden">
+              <img src="/placeholder.svg" alt="TWIBO.id logo" className="w-full h-full object-cover" />
+            </div>
             <h3 className="font-display text-xl font-bold text-gold-gradient mb-3">TWIBO.id</h3>
             <p className="text-sm text-muted-foreground max-w-xs">{t.footer.tagline}</p>
           </div>

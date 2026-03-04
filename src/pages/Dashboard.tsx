@@ -302,7 +302,7 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={(id) => { handleRemoveWatermark(id).then(() => setStatsDialog(null)); }} />
+      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={async (id) => { await handleRemoveWatermark(id); setStatsDialog(null); }} />
     </Layout>
   );
 };
@@ -366,8 +366,8 @@ const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: Camp
   }));
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!upgrading) onClose(); }}>
-      <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={(v) => { if (!v && !upgrading) onClose(); }}>
+      <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => { if (upgrading) e.preventDefault(); }} onEscapeKeyDown={(e) => { if (upgrading) e.preventDefault(); }}>
         <DialogHeader>
           <DialogTitle className="font-display text-gold-gradient">
             {t.dashboard.statsTitle ?? 'Statistics'}: {campaign.name}

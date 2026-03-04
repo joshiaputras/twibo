@@ -90,7 +90,6 @@ const CampaignEditor = () => {
   const [loadingCampaign, setLoadingCampaign] = useState(isEdit);
   const [rawRemovedBg, setRawRemovedBg] = useState<string>('');
   const [bgThreshold, setBgThreshold] = useState(50);
-  const [bgFeather, setBgFeather] = useState(3);
   const [applyingThreshold, setApplyingThreshold] = useState(false);
 
   const composeVersionRef = useRef(0);
@@ -373,11 +372,11 @@ const CampaignEditor = () => {
     [form.type, placeholderMeta, selectedSize.w, selectedSize.h]
   );
 
-  const applyBgProcessing = useCallback(async (threshold: number, feather: number) => {
+  const applyBgProcessing = useCallback(async (threshold: number) => {
     if (!rawRemovedBg) return;
     setApplyingThreshold(true);
     try {
-      const processed = await applyAlphaThreshold(rawRemovedBg, threshold, feather);
+      const processed = await applyAlphaThreshold(rawRemovedBg, threshold);
       setSimulationPhoto(processed);
     } catch { /* ignore */ }
     setApplyingThreshold(false);
@@ -386,14 +385,8 @@ const CampaignEditor = () => {
   const handleThresholdChange = useCallback(async (values: number[]) => {
     const v = values[0];
     setBgThreshold(v);
-    await applyBgProcessing(v, bgFeather);
-  }, [bgFeather, applyBgProcessing]);
-
-  const handleFeatherChange = useCallback(async (values: number[]) => {
-    const v = values[0];
-    setBgFeather(v);
-    await applyBgProcessing(bgThreshold, v);
-  }, [bgThreshold, applyBgProcessing]);
+    await applyBgProcessing(v);
+  }, [applyBgProcessing]);
 
   const handleSimulationUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -410,8 +403,7 @@ const CampaignEditor = () => {
           const removedBgDataUrl = await removeBackgroundFromDataUrl(rawDataUrl);
           setRawRemovedBg(removedBgDataUrl);
           setBgThreshold(50);
-          setBgFeather(3);
-          const processed = await applyAlphaThreshold(removedBgDataUrl, 50, 3);
+          const processed = await applyAlphaThreshold(removedBgDataUrl, 50);
           const initialTransform = await getInitialSimulationTransform(processed);
           setSimulationPhoto(processed);
           setSimScale(initialTransform.scale);
@@ -858,13 +850,6 @@ const CampaignEditor = () => {
                           <span>{bgThreshold}%</span>
                         </div>
                         <Slider value={[bgThreshold]} onValueChange={handleThresholdChange} min={0} max={100} step={1} disabled={applyingThreshold} />
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Edge Blur</span>
-                          <span>{bgFeather}px</span>
-                        </div>
-                        <Slider value={[bgFeather]} onValueChange={handleFeatherChange} min={0} max={20} step={1} disabled={applyingThreshold} />
                       </div>
                     </div>
                   )}
