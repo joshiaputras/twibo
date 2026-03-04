@@ -247,7 +247,9 @@
     "ownerWatermarkDesc": "Upgrade to Premium to remove watermark and ads.",
     "removeWatermark": "Remove Watermark",
     "watermarkRemoved": "Watermark removed successfully!",
-    "scale": "Scale"
+    "scale": "Scale",
+    "shareUniversal": "Share",
+    "instagramHint": "Caption copied! Open Instagram and paste it when posting."
   },
   "admin": {
     "title": "Admin Dashboard",
