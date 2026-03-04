@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Lock, Camera, Loader2 } from 'lucide-react';
+import { Lock, Camera, Loader2, RotateCcw } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import AvatarCropDialog from '@/components/AvatarCropDialog';
 
 const Profile = () => {
   const { t } = useLanguage();
@@ -20,7 +21,12 @@ const Profile = () => {
   const [savingName, setSavingName] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [resettingAvatar, setResettingAvatar] = useState(false);
   const loadedRef = useRef(false);
+
+  // Crop dialog state
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
 
   useEffect(() => {
     if (!user || loadedRef.current) return;
@@ -34,18 +40,23 @@ const Profile = () => {
       });
   }, [user]);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
+    setCropFile(file);
+    setCropOpen(true);
+    e.target.value = '';
+  };
 
+  const handleCroppedUpload = async (blob: Blob) => {
+    if (!user) return;
     setUploadingAvatar(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const filePath = `${user.id}/avatar.${ext}`;
+      const filePath = `${user.id}/avatar.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' });
 
       if (uploadError) throw uploadError;
 
@@ -56,13 +67,35 @@ const Profile = () => {
       if (updateError) throw updateError;
 
       await refreshProfile();
+      setCropOpen(false);
+      setCropFile(null);
       toast.success(t.profile.avatarUpdated ?? 'Avatar updated!');
     } catch (err: any) {
       console.error('Avatar upload error:', err);
       toast.error(err.message || 'Upload failed');
     } finally {
       setUploadingAvatar(false);
-      e.target.value = '';
+    }
+  };
+
+  const handleResetAvatar = async () => {
+    if (!user) return;
+    setResettingAvatar(true);
+    try {
+      // Try to remove the file from storage
+      await supabase.storage.from('avatars').remove([`${user.id}/avatar.jpg`]);
+
+      // Set avatar_url to null
+      const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id);
+      if (error) throw error;
+
+      await refreshProfile();
+      toast.success(t.profile?.avatarReset ?? 'Avatar reset!');
+    } catch (err: any) {
+      console.error('Avatar reset error:', err);
+      toast.error(err.message || 'Reset failed');
+    } finally {
+      setResettingAvatar(false);
     }
   };
 
@@ -137,7 +170,7 @@ const Profile = () => {
             <h2 className="font-display font-semibold text-foreground mb-4">{t.profile.avatar}</h2>
             <div className="flex items-center gap-4">
               <label className="cursor-pointer relative group">
-                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} disabled={uploadingAvatar} />
                 <Avatar className="w-20 h-20">
                   {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
                   <AvatarFallback className="text-lg bg-primary/10 text-primary">
@@ -148,13 +181,23 @@ const Profile = () => {
                   <Camera className="w-5 h-5 text-white" />
                 </div>
               </label>
-              <div>
+              <div className="flex gap-2">
                 <label className="cursor-pointer">
-                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} disabled={uploadingAvatar} />
                   <Button variant="outline" size="sm" className="border-border" asChild>
                     <span>{uploadingAvatar ? '...' : (t.profile.uploadAvatar ?? 'Upload')}</span>
                   </Button>
                 </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-destructive/30 text-destructive gap-1"
+                  onClick={handleResetAvatar}
+                  disabled={resettingAvatar || !avatarUrl}
+                >
+                  {resettingAvatar ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                  Reset
+                </Button>
               </div>
             </div>
           </div>
@@ -196,6 +239,15 @@ const Profile = () => {
           </div>
         </div>
       </section>
+
+      {/* Crop Dialog */}
+      <AvatarCropDialog
+        file={cropFile}
+        open={cropOpen}
+        onClose={() => { setCropOpen(false); setCropFile(null); }}
+        onCropped={handleCroppedUpload}
+        uploading={uploadingAvatar}
+      />
     </Layout>
   );
 };
