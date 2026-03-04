@@ -13,7 +13,7 @@ export const useMidtransPayment = () => {
   const [paying, setPaying] = useState(false);
   const [initializing, setInitializing] = useState(false);
 
-  const pay = useCallback(async (campaignId: string): Promise<PaymentResult> => {
+  const pay = useCallback(async (campaignId: string, voucherCode?: string): Promise<PaymentResult> => {
     setPaying(true);
     setInitializing(true);
     try {
@@ -24,7 +24,7 @@ export const useMidtransPayment = () => {
       }
 
       const { data, error } = await supabase.functions.invoke('create-payment', {
-        body: { campaign_id: campaignId },
+        body: { campaign_id: campaignId, voucher_code: voucherCode || undefined },
       });
 
       if (error || !data?.snap_token) {
@@ -51,13 +51,12 @@ export const useMidtransPayment = () => {
         document.head.appendChild(script);
       });
 
-      // Open Snap popup — remove initializing overlay so user can interact
+      // Open Snap popup
       setInitializing(false);
       return new Promise<PaymentResult>((resolve) => {
         (window as any).snap.pay(snap_token, {
           onSuccess: async () => {
             toast.success('Pembayaran berhasil! Campaign di-upgrade ke Premium.');
-            // Poll briefly to let webhook process, then force-upgrade client-side
             for (let i = 0; i < 5; i++) {
               await sleep(2000);
               const { data: pData } = await supabase

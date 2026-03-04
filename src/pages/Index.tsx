@@ -2,7 +2,7 @@ import Layout from '@/components/Layout';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight } from 'lucide-react';
+import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart } from 'lucide-react';
 
 const FloatingCard = ({ className, children }: { className?: string; children: React.ReactNode }) => (
   <div className={`absolute glass rounded-xl p-3 gold-glow opacity-70 ${className}`}>
@@ -33,11 +33,16 @@ const Index = () => {
     { icon: Lock, text: t.privacy.point4 },
   ];
 
+  const useCases = [
+    { icon: Heart, title: 'Komunitas & Organisasi', desc: 'Buat campaign branding untuk anggota komunitas, alumni, atau organisasi sosial.' },
+    { icon: Star, title: 'Event & Acara', desc: 'Frame foto untuk konferensi, seminar, wisuda, atau perayaan spesial.' },
+    { icon: Sparkles, title: 'Brand & Marketing', desc: 'Tingkatkan brand awareness dengan frame campaign yang dibagikan oleh supporter.' },
+  ];
+
   return (
     <Layout>
       {/* Hero */}
       <section className="relative overflow-hidden py-24 md:py-36">
-        {/* Animated floating twibbon examples */}
         <FloatingCard className="top-20 left-[8%] animate-float hidden lg:block">
           <div className="w-16 h-16 rounded-lg bg-primary/20 flex items-center justify-center">
             <Paintbrush className="w-8 h-8 text-primary" />
@@ -57,7 +62,6 @@ const Index = () => {
           </div>
         </FloatingCard>
 
-        {/* Gold glow orbs */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse-gold" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-primary/3 rounded-full blur-3xl animate-pulse-gold" style={{ animationDelay: '2s' }} />
 
@@ -72,12 +76,19 @@ const Index = () => {
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
             {t.hero.subtitle}
           </p>
-          <Link to="/signup">
-            <Button size="lg" className="gold-glow-strong font-display font-semibold text-lg px-8 py-6 rounded-xl">
-              {t.hero.cta}
-              <ArrowRight className="w-5 h-5 ml-1" />
-            </Button>
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/signup">
+              <Button size="lg" className="gold-glow-strong font-display font-semibold text-lg px-8 py-6 rounded-xl">
+                {t.hero.cta}
+                <ArrowRight className="w-5 h-5 ml-1" />
+              </Button>
+            </Link>
+            <Link to="/pricing">
+              <Button size="lg" variant="outline" className="font-display font-semibold text-lg px-8 py-6 rounded-xl border-border hover:border-primary/50">
+                {t.pricing?.title ?? 'Lihat Harga'}
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -124,6 +135,92 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Use Cases */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-14">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">
+              Cocok Untuk Siapa?
+            </h2>
+            <p className="text-muted-foreground">TWIBO.id digunakan oleh ribuan komunitas dan organisasi</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {useCases.map((uc, i) => (
+              <div key={i} className="glass rounded-2xl p-6 border-gold-subtle hover:gold-glow transition-shadow text-center">
+                <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <uc.icon className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="font-display font-semibold text-lg mb-2 text-foreground">{uc.title}</h3>
+                <p className="text-sm text-muted-foreground">{uc.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section className="py-20" id="pricing">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-14">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">{t.pricing.title}</h2>
+            <p className="text-muted-foreground">{t.pricing.subtitle}</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+            {/* Free */}
+            <div className="glass rounded-2xl p-8 border-gold-subtle flex flex-col">
+              <div className="flex items-center gap-2 mb-4">
+                <Zap className="w-5 h-5 text-muted-foreground" />
+                <h3 className="font-display font-bold text-lg text-foreground">{t.pricing.free}</h3>
+              </div>
+              <div className="mb-6">
+                <span className="font-display text-4xl font-bold text-foreground">{t.pricing.freePrice}</span>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                {Object.values(t.pricing.freeFeatures).map((f, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Check className="w-4 h-4 text-primary shrink-0" /> {String(f)}
+                  </li>
+                ))}
+              </ul>
+              <Link to="/campaign/new">
+                <Button variant="outline" className="w-full border-border hover:border-primary/50">{t.pricing.freeCta}</Button>
+              </Link>
+            </div>
+
+            {/* Premium */}
+            <div className="glass-strong rounded-2xl p-8 border-gold-subtle gold-glow-strong flex flex-col relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-lg">
+                SALE
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <Crown className="w-5 h-5 text-primary" />
+                <h3 className="font-display font-bold text-lg text-foreground">{t.pricing.premium}</h3>
+              </div>
+              <div className="mb-6">
+                <div className="mb-1">
+                  <span className="text-sm text-muted-foreground line-through">{t.pricing.premiumOriginal}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-display text-4xl font-bold text-gold-gradient">{t.pricing.premiumPrice}</span>
+                  <span className="text-sm text-muted-foreground">{t.pricing.perCampaign}</span>
+                </div>
+              </div>
+              <ul className="space-y-3 mb-8 flex-1">
+                {Object.values(t.pricing.premiumFeatures).map((f, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm text-foreground">
+                    <Check className="w-4 h-4 text-primary shrink-0" /> {String(f)}
+                  </li>
+                ))}
+              </ul>
+              <Link to="/campaign/new">
+                <Button className="w-full gold-glow font-semibold">{t.pricing.premiumCta}</Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Privacy / Why TWIBO.id */}
       <section className="py-20">
         <div className="container mx-auto px-4">
@@ -142,6 +239,31 @@ const Index = () => {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="py-20">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-4">
+            Siap Buat Campaign Pertamamu?
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
+            Bergabung dengan ribuan kreator yang sudah menggunakan TWIBO.id untuk membuat twibbon campaign profesional.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/signup">
+              <Button size="lg" className="gold-glow-strong font-display font-semibold text-lg px-8 py-6 rounded-xl">
+                Mulai Gratis Sekarang
+                <ArrowRight className="w-5 h-5 ml-1" />
+              </Button>
+            </Link>
+            <Link to="/pricing">
+              <Button size="lg" variant="outline" className="font-display font-semibold text-lg px-8 py-6 rounded-xl border-border hover:border-primary/50">
+                Lihat Paket Premium
+              </Button>
+            </Link>
           </div>
         </div>
       </section>

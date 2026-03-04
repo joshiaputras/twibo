@@ -37,7 +37,7 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
     const userEmail = userData.user.email ?? "";
 
-    const { campaign_id } = await req.json();
+    const { campaign_id, voucher_code } = await req.json();
     if (!campaign_id) {
       return new Response(
         JSON.stringify({ error: "campaign_id is required" }),
@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Read Midtrans settings from site_settings using service role
+    // Read Midtrans settings using service role
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -120,9 +120,45 @@ Deno.serve(async (req) => {
         : "https://app.sandbox.midtrans.com";
 
     const orderId = `TWIBO-${campaign_id.substring(0, 8)}-${Date.now()}`;
-    const amount = 50000;
+    let amount = 50000;
+    let discountAmount = 0;
+    let appliedVoucherCode: string | null = null;
 
-    // Delete old pending/failed payments for this campaign before creating a new one
+    // Validate voucher if provided
+    if (voucher_code) {
+      const { data: voucher } = await adminClient
+        .from("vouchers")
+        .select("*")
+        .eq("code", voucher_code.toUpperCase())
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (voucher) {
+        const v = voucher as any;
+        const now = new Date();
+        const valid = (!v.max_uses || v.used_count < v.max_uses) &&
+          (!v.valid_until || new Date(v.valid_until) > now) &&
+          (!v.valid_from || new Date(v.valid_from) <= now);
+
+        if (valid) {
+          if (v.discount_type === 'percentage') {
+            discountAmount = Math.round(amount * v.discount_value / 100);
+          } else {
+            discountAmount = v.discount_value;
+          }
+          amount = Math.max(1, amount - discountAmount); // Midtrans min 1
+          appliedVoucherCode = v.code;
+
+          // Increment used_count
+          await adminClient
+            .from("vouchers")
+            .update({ used_count: v.used_count + 1 })
+            .eq("id", v.id);
+        }
+      }
+    }
+
+    // Delete old pending/failed payments for this campaign
     await adminClient
       .from("payments")
       .delete()
@@ -137,6 +173,8 @@ Deno.serve(async (req) => {
       amount,
       midtrans_order_id: orderId,
       status: "pending",
+      voucher_code: appliedVoucherCode,
+      discount_amount: discountAmount,
     });
 
     if (insertErr) {
