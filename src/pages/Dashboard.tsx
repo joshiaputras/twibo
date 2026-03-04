@@ -302,7 +302,7 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={async (id) => { await handleRemoveWatermark(id); setStatsDialog(null); }} />
+      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={(id) => { setStatsDialog(null); handleRemoveWatermark(id); }} />
     </Layout>
   );
 };
@@ -311,19 +311,13 @@ const Dashboard = () => {
 const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: CampaignItem | null; open: boolean; onClose: () => void; t: any; onUpgrade: (id: string) => void }) => {
   const [dailyData, setDailyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [upgrading, setUpgrading] = useState(false);
   const isFree = campaign?.tier === 'free';
 
-  const handleUpgradeClick = async () => {
+  const handleUpgradeClick = () => {
     if (!campaign) return;
-    setUpgrading(true);
     onUpgrade(campaign.id);
   };
 
-  // Reset upgrading state when dialog closes
-  useEffect(() => {
-    if (!open) setUpgrading(false);
-  }, [open]);
 
   useEffect(() => {
     if (!campaign || !open || isFree) return;
@@ -366,8 +360,8 @@ const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: Camp
   }));
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v && !upgrading) onClose(); }}>
-      <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => { if (upgrading) e.preventDefault(); }} onEscapeKeyDown={(e) => { if (upgrading) e.preventDefault(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-gold-gradient">
             {t.dashboard.statsTitle ?? 'Statistics'}: {campaign.name}
@@ -377,27 +371,15 @@ const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: Camp
         <div className="relative">
           {isFree && (
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/60 backdrop-blur-md rounded-xl">
-              {upgrading ? (
-                <>
-                  <Loader2 className="w-8 h-8 text-primary mb-3 animate-spin" />
-                  <p className="text-foreground font-semibold text-lg mb-1">Memproses Pembayaran...</p>
-                  <p className="text-muted-foreground text-sm text-center max-w-xs">
-                    Mohon tunggu, sedang menyiapkan halaman pembayaran.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Lock className="w-8 h-8 text-primary mb-3" />
-                  <p className="text-foreground font-semibold text-lg mb-1">Statistik Terkunci</p>
-                  <p className="text-muted-foreground text-sm text-center mb-4 max-w-xs">
-                    Upgrade ke Premium untuk melihat statistik lengkap campaign kamu.
-                  </p>
-                  <Button className="gold-glow font-semibold gap-2" onClick={handleUpgradeClick}>
-                    <Crown className="w-4 h-4" />
-                    Remove Watermark & Unlock Statistics
-                  </Button>
-                </>
-              )}
+              <Lock className="w-8 h-8 text-primary mb-3" />
+              <p className="text-foreground font-semibold text-lg mb-1">Statistik Terkunci</p>
+              <p className="text-muted-foreground text-sm text-center mb-4 max-w-xs">
+                Upgrade ke Premium untuk melihat statistik lengkap campaign kamu.
+              </p>
+              <Button className="gold-glow font-semibold gap-2" onClick={handleUpgradeClick}>
+                <Crown className="w-4 h-4" />
+                Remove Watermark & Unlock Statistics
+              </Button>
             </div>
           )}
 
