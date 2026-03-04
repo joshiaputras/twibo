@@ -153,7 +153,7 @@ const CampaignPublic = () => {
         ctx.drawImage(img, 0, 0);
 
         // Draw "PREVIEW" text
-        const pvFontSize = Math.max(36, Math.round(img.width * 0.16));
+        const pvFontSize = Math.max(28, Math.round(img.width * 0.13));
         ctx.save();
         ctx.translate(img.width / 2, img.height / 2);
         ctx.rotate(-20 * Math.PI / 180);
@@ -169,10 +169,10 @@ const CampaignPublic = () => {
 
         // Draw watermark badge
         const label = 'Made with TWIBO.id';
-        const fontSize = Math.max(14, Math.round(img.width * 0.042));
-        const padX = Math.max(14, Math.round(fontSize * 1.0));
-        const padY = Math.max(6, Math.round(fontSize * 0.45));
-        const margin = Math.max(12, Math.round(img.width * 0.03));
+        const fontSize = Math.max(10, Math.round(img.width * 0.034));
+        const padX = Math.max(10, Math.round(fontSize * 0.9));
+        const padY = Math.max(4, Math.round(fontSize * 0.38));
+        const margin = Math.max(8, Math.round(img.width * 0.025));
         ctx.save();
         ctx.font = `700 ${fontSize}px "Space Grotesk", "Segoe UI", sans-serif`;
         const tw = ctx.measureText(label).width;
@@ -181,6 +181,12 @@ const CampaignPublic = () => {
         const bx = img.width - margin - badgeW;
         const by = img.height - margin - badgeH;
         const radius = badgeH / 2;
+        // Badge shadow
+        ctx.shadowColor = 'rgba(0,0,0,0.25)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
+
         ctx.fillStyle = 'rgba(255,255,255,0.94)';
         ctx.beginPath();
         if (typeof (ctx as any).roundRect === 'function') {
@@ -198,6 +204,12 @@ const CampaignPublic = () => {
         }
         ctx.closePath();
         ctx.fill();
+
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
         ctx.fillStyle = 'hsl(46, 95%, 48%)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';

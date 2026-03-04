@@ -93,30 +93,11 @@ const PhotoComposerPreview = ({
       {campaignType === 'frame' && <img src={templateImage} alt="Template" draggable={false} className="absolute inset-0 h-full w-full select-none object-contain pointer-events-none" />}
 
       {showWatermark && (
-        <>
-          {/* PREVIEW diagonal text */}
-          <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center overflow-hidden">
-          <span
-              className="font-black select-none"
-              style={{
-                fontSize: `${Math.max(28, Math.round(scaledWidth * 0.18))}px`,
-                color: 'rgba(255,255,255,0.35)',
-                transform: 'rotate(-20deg)',
-                textShadow: '0 3px 12px rgba(0,0,0,0.4)',
-                fontFamily: '"Inter", "Segoe UI", sans-serif',
-                letterSpacing: '0.05em',
-              }}
-            >
-              PREVIEW
-            </span>
+        <div className="absolute bottom-2 right-2 z-20 pointer-events-none" style={{ margin: `${Math.max(4, Math.round(scaledWidth * 0.025))}px` }}>
+          <div className="bg-white/95 rounded-full flex items-center justify-center" style={{ padding: `${Math.max(3, Math.round(scaledWidth * 0.008))}px ${Math.max(8, Math.round(scaledWidth * 0.02))}px`, boxShadow: '0 2px 8px rgba(0,0,0,0.25)' }}>
+            <span className="font-bold tracking-wide leading-none" style={{ fontSize: `${Math.max(7, Math.round(scaledWidth * 0.027))}px`, color: 'hsl(46 95% 48%)', fontFamily: '"Space Grotesk", "Segoe UI", sans-serif' }}>Made with TWIBO.id</span>
           </div>
-          {/* Watermark badge */}
-          <div className="absolute bottom-2 right-2 z-20 pointer-events-none" style={{ margin: `${Math.max(6, Math.round(scaledWidth * 0.03))}px` }}>
-            <div className="bg-white/95 rounded-full shadow-md flex items-center justify-center" style={{ padding: `${Math.max(5, Math.round(scaledWidth * 0.012))}px ${Math.max(12, Math.round(scaledWidth * 0.028))}px` }}>
-              <span className="font-bold tracking-wide leading-none" style={{ fontSize: `${Math.max(10, Math.round(scaledWidth * 0.034))}px`, color: 'hsl(46 95% 48%)', fontFamily: '"Space Grotesk", "Segoe UI", sans-serif' }}>Made with TWIBO.id</span>
-            </div>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );
