@@ -652,6 +652,7 @@ const CampaignPublic = () => {
                         placeholderMeta={placeholderMeta}
                         bgOverlayImage={bgOverlayImage}
                         bgUnderImage={bgUnderImage}
+                        showWatermark={isFree}
                       />
                     ) : (
                       <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
