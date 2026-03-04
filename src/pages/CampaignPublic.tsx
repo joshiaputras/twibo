@@ -245,7 +245,8 @@ const CampaignPublic = () => {
 
     const a = document.createElement('a');
     a.href = downloadableImage;
-    a.download = `twibbon-${slug}.png`;
+    const safeName = (campaign.name || slug || 'twibbon').replace(/[^a-zA-Z0-9_-]/g, '_');
+    a.download = `${safeName}-twibo.id.png`;
     a.click();
 
     if (slug) {
@@ -529,12 +530,8 @@ const CampaignPublic = () => {
                 )}
 
                 {campaign.caption && (
-                  <div className="rounded-xl border border-border bg-secondary/20 p-4 text-left space-y-3">
+                  <div className="rounded-xl border border-border bg-secondary/20 p-4 text-left">
                     <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
-                    <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleCopyCaption}>
-                      <Copy className="w-3 h-3" />
-                      {t.public?.copyCaption ?? 'Salin Caption'}
-                    </Button>
                   </div>
                 )}
               </div>
