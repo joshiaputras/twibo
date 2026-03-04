@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { extractPreviewMeta } from '@/utils/campaignDesign';
+import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -52,7 +53,7 @@ const CampaignPublic = () => {
 
   const [fw, fh] = sizeMap[campaign?.size] || [1080, 1080];
   const previewScale = Math.min(500 / fw, 600 / fh, 1);
-  const exampleImage = previewImage || templateImage;
+  const exampleImage = previewImage;
 
   useEffect(() => {
     if (!slug) return;
@@ -451,8 +452,18 @@ const CampaignPublic = () => {
                 backgroundColor: 'hsl(0 0% 15%)',
               }}
             >
-              {resultImage ? (
-                <img src={resultImage} alt="Result" draggable={false} className="pointer-events-none select-none max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
+              {resultImage || templateImage ? (
+                <PhotoComposerPreview
+                  templateImage={templateImage}
+                  userPhoto={userPhoto}
+                  campaignType={(campaign?.type ?? 'frame') as 'frame' | 'background'}
+                  width={fw}
+                  height={fh}
+                  previewScale={previewScale}
+                  photoScale={photoScale}
+                  photoOffsetX={photoOffsetX}
+                  photoOffsetY={photoOffsetY}
+                />
               ) : (
                 <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
               )}

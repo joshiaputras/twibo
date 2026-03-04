@@ -30,6 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { extractCanvasDesign, extractPreviewMeta, mergeDesignWithPreview } from '@/utils/campaignDesign';
+import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 
 const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
 
@@ -660,10 +661,18 @@ const CampaignEditor = () => {
                       backgroundColor: 'hsl(0 0% 15%)',
                     }}
                   >
-                    {previewResult ? (
-                      <img src={previewResult} alt="Preview" draggable={false} className="pointer-events-none select-none max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
-                    ) : templateImage ? (
-                      <img src={templateImage} alt="Template" draggable={false} className="pointer-events-none select-none max-w-full h-auto rounded" style={{ maxHeight: 500 }} />
+                    {templateImage ? (
+                      <PhotoComposerPreview
+                        templateImage={templateImage}
+                        userPhoto={simulationPhoto}
+                        campaignType={form.type}
+                        width={selectedSize.w}
+                        height={selectedSize.h}
+                        previewScale={previewScale}
+                        photoScale={simScale}
+                        photoOffsetX={simOffsetX}
+                        photoOffsetY={simOffsetY}
+                      />
                     ) : (
                       <div className="py-12 text-muted-foreground text-sm">{t.campaign.editor.loading}</div>
                     )}

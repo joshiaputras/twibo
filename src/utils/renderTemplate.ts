@@ -148,6 +148,23 @@ export async function composeResult(opts: {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
+  const drawBlurFill = async () => {
+    if (!userPhotoDataUrl || campaignType !== 'frame') return;
+    const photo = await loadImage(userPhotoDataUrl);
+
+    const coverScale = Math.max(pw / photo.width, ph / photo.height) * 1.08;
+    const blurW = photo.width * coverScale;
+    const blurH = photo.height * coverScale;
+    const blurX = (pw - blurW) / 2;
+    const blurY = (ph - blurH) / 2;
+
+    ctx.save();
+    ctx.filter = `blur(${Math.max(16, Math.round(24 * previewScale))}px)`;
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(photo, blurX, blurY, blurW, blurH);
+    ctx.restore();
+  };
+
   const drawPhoto = async () => {
     if (!userPhotoDataUrl) return;
     const photo = await loadImage(userPhotoDataUrl);
@@ -165,6 +182,7 @@ export async function composeResult(opts: {
     ctx.drawImage(tpl, 0, 0, pw, ph);
     await drawPhoto();
   } else {
+    await drawBlurFill();
     await drawPhoto();
     ctx.drawImage(tpl, 0, 0, pw, ph);
   }
