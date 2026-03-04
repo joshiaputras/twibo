@@ -229,7 +229,7 @@ const CampaignPublic = () => {
           setRawRemovedBg(removedBgDataUrl);
           setBgThreshold(50);
           setBgFeather(3);
-          const processed = await applyAlphaThreshold(removedBgDataUrl, 50);
+          const processed = await applyAlphaThreshold(removedBgDataUrl, 50, 3);
           const initialTransform = await getInitialPhotoTransform(processed);
           setUserPhoto(processed);
           setPhotoScale(initialTransform.scale);

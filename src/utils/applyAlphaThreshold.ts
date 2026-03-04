@@ -10,13 +10,14 @@
  *   0   = no feathering (hard edges)
  *   1-5 = subtle softening
  *   5-20 = smooth, feathered edges
+ * 
+ * Uses multi-pass Gaussian-approximated blur for professional smooth edges.
  */
 export async function applyAlphaThreshold(
   dataUrl: string,
   threshold: number,
   feather: number = 3
 ): Promise<string> {
-  // threshold 0 and no feather means no processing
   if (threshold <= 0 && feather <= 0) return dataUrl;
 
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -54,104 +55,147 @@ export async function applyAlphaThreshold(
     }
   }
 
-  // Apply feathering (Gaussian-like blur on alpha channel edges)
+  // Apply feathering using multi-pass Gaussian-approximated blur on alpha edges
   if (feather > 0) {
+    const radius = Math.min(feather, 20);
+
     // Extract alpha channel
     const alpha = new Float32Array(w * h);
     for (let i = 0; i < w * h; i++) {
       alpha[i] = data[i * 4 + 3] / 255;
     }
 
-    // Find edge pixels (alpha boundary)
-    const isEdge = new Uint8Array(w * h);
-    for (let y = 1; y < h - 1; y++) {
-      for (let x = 1; x < w - 1; x++) {
+    // Find edge zone: pixels within `radius` distance of an alpha boundary
+    const edgeDistance = new Float32Array(w * h);
+    edgeDistance.fill(radius + 1);
+
+    // BFS from boundary pixels to mark edge zones
+    const queue: number[] = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
         const idx = y * w + x;
         const a = alpha[idx];
-        if (a > 0 && a < 1) {
-          isEdge[idx] = 1;
-          continue;
-        }
-        // Check if this is at the boundary (opaque pixel next to transparent)
+        let isBoundary = false;
+
         if (a > 0) {
-          const neighbors = [
-            alpha[idx - 1], alpha[idx + 1],
-            alpha[idx - w], alpha[idx + w],
-          ];
-          if (neighbors.some(n => n === 0)) {
-            isEdge[idx] = 1;
-          }
+          // Check 4-neighbors for transparency
+          if (x > 0 && alpha[idx - 1] === 0) isBoundary = true;
+          else if (x < w - 1 && alpha[idx + 1] === 0) isBoundary = true;
+          else if (y > 0 && alpha[idx - w] === 0) isBoundary = true;
+          else if (y < h - 1 && alpha[idx + w] === 0) isBoundary = true;
+        } else {
+          if (x > 0 && alpha[idx - 1] > 0) isBoundary = true;
+          else if (x < w - 1 && alpha[idx + 1] > 0) isBoundary = true;
+          else if (y > 0 && alpha[idx - w] > 0) isBoundary = true;
+          else if (y < h - 1 && alpha[idx + w] > 0) isBoundary = true;
+        }
+
+        if (isBoundary) {
+          edgeDistance[idx] = 0;
+          queue.push(idx);
         }
       }
     }
 
-    // Blur alpha channel near edges using box blur approximation
-    const radius = Math.min(feather, 20);
-    const blurredAlpha = new Float32Array(alpha);
+    // BFS expand edge zone
+    let head = 0;
+    while (head < queue.length) {
+      const idx = queue[head++];
+      const dist = edgeDistance[idx];
+      if (dist >= radius) continue;
 
-    // Two-pass separable box blur (horizontal then vertical)
-    const temp = new Float32Array(w * h);
-    
-    // Horizontal pass
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const idx = y * w + x;
-        // Only blur near edges
-        let nearEdge = false;
-        for (let dx = -radius; dx <= radius && !nearEdge; dx++) {
-          const nx = x + dx;
-          if (nx >= 0 && nx < w && isEdge[y * w + nx]) nearEdge = true;
+      const x = idx % w;
+      const y = (idx - x) / w;
+      const nd = dist + 1;
+
+      const neighbors = [
+        y > 0 ? idx - w : -1,
+        y < h - 1 ? idx + w : -1,
+        x > 0 ? idx - 1 : -1,
+        x < w - 1 ? idx + 1 : -1,
+      ];
+
+      for (const ni of neighbors) {
+        if (ni >= 0 && edgeDistance[ni] > nd) {
+          edgeDistance[ni] = nd;
+          queue.push(ni);
         }
-        if (!nearEdge) {
-          temp[idx] = alpha[idx];
-          continue;
-        }
-        
-        let sum = 0;
-        let count = 0;
-        for (let dx = -radius; dx <= radius; dx++) {
-          const nx = x + dx;
-          if (nx >= 0 && nx < w) {
-            sum += alpha[y * w + nx];
-            count++;
-          }
-        }
-        temp[idx] = sum / count;
       }
     }
 
-    // Vertical pass
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const idx = y * w + x;
-        let nearEdge = false;
-        for (let dy = -radius; dy <= radius && !nearEdge; dy++) {
-          const ny = y + dy;
-          if (ny >= 0 && ny < h && isEdge[ny * w + x]) nearEdge = true;
-        }
-        if (!nearEdge) {
-          blurredAlpha[idx] = temp[idx];
-          continue;
-        }
+    // 3-pass box blur (approximates Gaussian) only in edge zone
+    // Each pass uses radius/3 for a tighter, smoother Gaussian approximation
+    const passes = 3;
+    const passRadius = Math.max(1, Math.round(radius / passes));
 
+    let src = new Float32Array(alpha);
+    let dst = new Float32Array(w * h);
+
+    for (let pass = 0; pass < passes; pass++) {
+      const temp = new Float32Array(w * h);
+
+      // Horizontal pass
+      for (let y = 0; y < h; y++) {
+        // Sliding window sum for efficiency
         let sum = 0;
         let count = 0;
-        for (let dy = -radius; dy <= radius; dy++) {
-          const ny = y + dy;
-          if (ny >= 0 && ny < h) {
-            sum += temp[ny * w + x];
-            count++;
-          }
+
+        // Initialize window
+        for (let x = 0; x <= passRadius && x < w; x++) {
+          sum += src[y * w + x];
+          count++;
         }
-        blurredAlpha[idx] = sum / count;
+
+        for (let x = 0; x < w; x++) {
+          const idx = y * w + x;
+          if (edgeDistance[idx] <= radius) {
+            temp[idx] = sum / count;
+          } else {
+            temp[idx] = src[idx];
+          }
+
+          // Slide window right
+          const addX = x + passRadius + 1;
+          const removeX = x - passRadius;
+          if (addX < w) { sum += src[y * w + addX]; count++; }
+          if (removeX >= 0) { sum -= src[y * w + removeX]; count--; }
+        }
       }
+
+      // Vertical pass
+      for (let x = 0; x < w; x++) {
+        let sum = 0;
+        let count = 0;
+
+        for (let y = 0; y <= passRadius && y < h; y++) {
+          sum += temp[y * w + x];
+          count++;
+        }
+
+        for (let y = 0; y < h; y++) {
+          const idx = y * w + x;
+          if (edgeDistance[idx] <= radius) {
+            dst[idx] = sum / count;
+          } else {
+            dst[idx] = temp[idx];
+          }
+
+          const addY = y + passRadius + 1;
+          const removeY = y - passRadius;
+          if (addY < h) { sum += temp[addY * w + x]; count++; }
+          if (removeY >= 0) { sum -= temp[removeY * w + x]; count--; }
+        }
+      }
+
+      // Swap for next pass
+      src = dst;
+      dst = new Float32Array(w * h);
     }
 
     // Apply blurred alpha back to image data
     for (let i = 0; i < w * h; i++) {
-      const newAlpha = Math.round(blurredAlpha[i] * 255);
+      const newAlpha = Math.round(src[i] * 255);
       data[i * 4 + 3] = newAlpha;
-      // Pre-multiply alpha for transparent pixels
       if (newAlpha === 0) {
         data[i * 4] = 0;
         data[i * 4 + 1] = 0;
