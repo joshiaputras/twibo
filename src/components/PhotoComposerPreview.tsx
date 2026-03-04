@@ -40,8 +40,8 @@ const PhotoComposerPreview = ({
   const clipStyles = (() => {
     if (campaignType !== 'frame' || !placeholderMeta) return {} as CSSProperties;
 
-    // Add a small bleed (expand) so the clip fully covers the template hole
-    const bleed = 2;
+    // Add generous bleed (expand) so the clip fully covers the template hole – prevents any gap
+    const bleed = 8;
     const left = Math.max(0, placeholderMeta.left * previewScale - bleed);
     const top = Math.max(0, placeholderMeta.top * previewScale - bleed);
     const boxWidth = placeholderMeta.width * placeholderMeta.scaleX * previewScale + bleed * 2;
@@ -57,7 +57,7 @@ const PhotoComposerPreview = ({
   })();
 
   return (
-    <div className={cn('relative overflow-hidden rounded-lg', className)} style={{ width: scaledWidth, height: scaledHeight }}>
+    <div className={cn('relative overflow-hidden rounded-lg', campaignType === 'frame' && 'bg-black', className)} style={{ width: scaledWidth, height: scaledHeight }}>
       {campaignType === 'background' && (
         <img src={templateImage} alt="Template" draggable={false} className="absolute inset-0 h-full w-full select-none object-contain pointer-events-none" />
       )}
