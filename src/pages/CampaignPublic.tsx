@@ -572,16 +572,13 @@ const CampaignPublic = () => {
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
                     onWheelCapture={onWheel}
-                    className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-2 flex items-center justify-center"
+                    className="relative rounded-xl overflow-hidden border border-border mb-2 mx-auto"
                     onDragStart={event => event.preventDefault()}
                     style={{
                       touchAction: 'none',
                       overscrollBehavior: 'contain',
-                      backgroundImage:
-                        'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
-                      backgroundSize: '16px 16px',
-                      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-                      backgroundColor: 'hsl(0 0% 15%)',
+                      width: Math.max(1, Math.round(fw * previewScale)),
+                      height: Math.max(1, Math.round(fh * previewScale)),
                     }}
                   >
                     {resultImage || templateImage ? (
