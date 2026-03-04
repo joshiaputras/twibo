@@ -38,6 +38,7 @@ const CampaignPublic = () => {
   const [isInteractingPreview, setIsInteractingPreview] = useState(false);
   const [rawRemovedBg, setRawRemovedBg] = useState<string>('');
   const [bgThreshold, setBgThreshold] = useState(50);
+  const [bgFeather, setBgFeather] = useState(3);
   const [applyingThreshold, setApplyingThreshold] = useState(false);
 
   const { pay, paying } = useMidtransPayment();
@@ -211,6 +212,7 @@ const CampaignPublic = () => {
           const removedBgDataUrl = await removeBackgroundFromDataUrl(rawDataUrl);
           setRawRemovedBg(removedBgDataUrl);
           setBgThreshold(50);
+          setBgFeather(3);
           const processed = await applyAlphaThreshold(removedBgDataUrl, 50);
           const initialTransform = await getInitialPhotoTransform(processed);
           setUserPhoto(processed);
@@ -337,13 +339,11 @@ const CampaignPublic = () => {
     toast.success(t.public?.linkCopied ?? 'Link disalin!');
   };
 
-  const handleThresholdChange = useCallback(async (values: number[]) => {
-    const newThreshold = values[0];
-    setBgThreshold(newThreshold);
+  const applyBgProcessing = useCallback(async (threshold: number, feather: number) => {
     if (!rawRemovedBg) return;
     setApplyingThreshold(true);
     try {
-      const processed = await applyAlphaThreshold(rawRemovedBg, newThreshold);
+      const processed = await applyAlphaThreshold(rawRemovedBg, threshold, feather);
       setUserPhoto(processed);
     } catch {
       // keep current
@@ -351,6 +351,18 @@ const CampaignPublic = () => {
       setApplyingThreshold(false);
     }
   }, [rawRemovedBg]);
+
+  const handleThresholdChange = useCallback(async (values: number[]) => {
+    const newThreshold = values[0];
+    setBgThreshold(newThreshold);
+    await applyBgProcessing(newThreshold, bgFeather);
+  }, [bgFeather, applyBgProcessing]);
+
+  const handleFeatherChange = useCallback(async (values: number[]) => {
+    const newFeather = values[0];
+    setBgFeather(newFeather);
+    await applyBgProcessing(bgThreshold, newFeather);
+  }, [bgThreshold, applyBgProcessing]);
 
   const handleRemoveWatermark = async () => {
     if (!campaign) return;
@@ -637,7 +649,7 @@ const CampaignPublic = () => {
                       <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
                         <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Processing photo...
+                          {t.public?.processingPhoto ?? 'Processing photo...'}
                         </div>
                       </div>
                     )}
@@ -646,10 +658,10 @@ const CampaignPublic = () => {
                   <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
                     <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Move className="w-3 h-3" /> Drag untuk geser
+                      <Move className="w-3 h-3" /> {t.campaign?.dragToMove ?? 'Drag to move'}
                     </p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
+                      <ZoomIn className="w-3 h-3" /> {t.campaign?.scrollToZoom ?? 'Scroll / pinch to zoom'}
                     </p>
                     <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
                     <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
@@ -662,12 +674,12 @@ const CampaignPublic = () => {
                     <div className="glass rounded-xl p-4 border-gold-subtle space-y-3">
                       <div className="flex items-center gap-2">
                         <SlidersHorizontal className="w-4 h-4 text-primary" />
-                        <h3 className="text-sm font-semibold text-foreground">Background Removal</h3>
+                        <h3 className="text-sm font-semibold text-foreground">{t.public?.bgSettings ?? 'Background Settings'}</h3>
                         {applyingThreshold && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Toleransi</span>
+                          <span>{t.public?.tolerance ?? 'Tolerance'}</span>
                           <span>{bgThreshold}%</span>
                         </div>
                         <Slider
@@ -678,9 +690,23 @@ const CampaignPublic = () => {
                           step={5}
                           className="w-full"
                         />
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>{t.public?.feather ?? 'Feather'}</span>
+                          <span>{bgFeather}px</span>
+                        </div>
+                        <Slider
+                          value={[bgFeather]}
+                          onValueChange={handleFeatherChange}
+                          min={0}
+                          max={20}
+                          step={1}
+                          className="w-full"
+                        />
                         <div className="flex justify-between text-[10px] text-muted-foreground/60">
-                          <span>Lembut</span>
-                          <span>Agresif</span>
+                          <span>Sharp</span>
+                          <span>Smooth</span>
                         </div>
                       </div>
                     </div>

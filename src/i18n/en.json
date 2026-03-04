@@ -5,7 +5,8 @@
     "signup": "Sign Up",
     "dashboard": "Dashboard",
     "profile": "Profile",
-    "logout": "Logout"
+    "logout": "Logout",
+    "admin": "Admin"
   },
   "hero": {
     "title": "Create Twibbon & Campaign Frames Online — Free & Easy",
@@ -123,6 +124,7 @@
     "noCampaignsDesc": "Create your first twibbon campaign and share it with your community.",
     "draft": "Draft",
     "published": "Published",
+    "blocked": "Blocked",
     "free": "Free",
     "premium": "Premium",
     "supporters": "Supporters",
@@ -131,6 +133,7 @@
     "edit": "Edit",
     "delete": "Delete",
     "viewStats": "View Stats",
+    "viewPublic": "View",
     "upgradeForStats": "Upgrade to Premium for statistics",
     "removeWatermark": "Remove Watermark",
     "watermarkRemoved": "Watermark removed successfully!",
@@ -140,7 +143,9 @@
     "statsTitle": "Statistics",
     "filter": "Filter",
     "all": "All",
-    "search": "Search campaigns..."
+    "search": "Search campaigns...",
+    "linkCopied": "Link copied!",
+    "campaignDeleted": "Campaign deleted"
   },
   "profile": {
     "title": "Profile Settings",
@@ -150,7 +155,12 @@
     "currentPassword": "Current Password",
     "newPassword": "New Password",
     "saveChanges": "Save Changes",
-    "avatar": "Avatar"
+    "avatar": "Avatar",
+    "uploadAvatar": "Upload",
+    "avatarUpdated": "Avatar updated!",
+    "enterCurrentPassword": "Enter current password",
+    "newPasswordMinLength": "New password must be at least 6 characters",
+    "wrongCurrentPassword": "Current password is incorrect"
   },
   "campaign": {
     "step1": "Details",
@@ -196,6 +206,10 @@
     "premiumPlan": "Premium Access",
     "skipForNow": "Skip, Try Free",
     "payNow": "Pay Now",
+    "processingPhoto": "Processing photo...",
+    "bgRemoveFailed": "Failed to remove background, using original photo.",
+    "dragToMove": "Drag to move",
+    "scrollToZoom": "Scroll / pinch to zoom",
     "editor": {
       "loading": "Loading editor...",
       "select": "Select",
@@ -250,7 +264,11 @@
     "watermarkRemoved": "Watermark removed successfully!",
     "scale": "Scale",
     "shareUniversal": "Share",
-    "instagramHint": "Caption copied! Open Instagram and paste it when posting."
+    "instagramHint": "Caption copied! Open Instagram and paste it when posting.",
+    "tolerance": "Tolerance",
+    "feather": "Feather",
+    "bgSettings": "Background Settings",
+    "processingPhoto": "Processing photo..."
   },
   "admin": {
     "title": "Admin Dashboard",
@@ -298,6 +316,11 @@
     "adminGranted": "Admin role granted",
     "adminRevoked": "Admin role revoked",
     "userDeleted": "User profile deleted",
-    "saveSettings": "Save Settings"
+    "saveSettings": "Save Settings",
+    "orderId": "Order ID",
+    "user": "User",
+    "paymentMethod": "Payment Method",
+    "paidAt": "Paid At",
+    "sendInvoice": "Send Invoice"
   }
 }
