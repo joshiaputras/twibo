@@ -247,7 +247,9 @@
     "ownerWatermarkDesc": "Upgrade ke Premium untuk menghapus watermark dan iklan.",
     "removeWatermark": "Hapus Watermark",
     "watermarkRemoved": "Watermark berhasil dihapus!",
-    "scale": "Skala"
+    "scale": "Skala",
+    "shareUniversal": "Bagikan",
+    "instagramHint": "Caption disalin! Buka Instagram dan paste caption saat posting."
   },
   "admin": {
     "title": "Admin Dashboard",
