@@ -67,8 +67,8 @@ const PhotoComposerPreview = ({
               src={userPhoto}
               alt="Blur fill"
               draggable={false}
-              className="absolute inset-0 h-full w-full select-none object-cover scale-110 blur-xl"
-              style={{ opacity: 0.88 }}
+              className="absolute inset-0 h-full w-full select-none object-cover blur-xl"
+              style={{ opacity: 0.88, transform: 'scale(1.2)' }}
             />
           )}
           {userPhoto && (

@@ -192,9 +192,15 @@ const CanvasEditor = ({
           }
 
           if (String(selected?.type).toLowerCase() === 'rect') {
-            const size = Math.max(1, Math.min(selected.width ?? 1, selected.height ?? 1));
-            const rx = selected.rx ?? 0;
-            const normalized = clamp((rx / (size / 2)) * 100, 0, 100);
+            const w = Math.max(1, selected.width ?? 1);
+            const h = Math.max(1, selected.height ?? 1);
+            const sx = Math.abs(selected.scaleX ?? 1) || 1;
+            const sy = Math.abs(selected.scaleY ?? 1) || 1;
+            const visualW = w * sx;
+            const visualH = h * sy;
+            const minDim = Math.min(visualW, visualH);
+            const rx = (selected.rx ?? 0) * sx;
+            const normalized = minDim > 0 ? clamp((rx / (minDim / 2)) * 100, 0, 100) : 0;
             setShapeRoundness(normalized);
           } else {
             setShapeRoundness(100);
@@ -208,6 +214,15 @@ const CanvasEditor = ({
       if (obj && String(obj.type).toLowerCase() === 'text') {
         setTextStrokeColor(typeof obj.stroke === 'string' && obj.stroke.startsWith('#') ? obj.stroke : '#000000');
         setTextStrokeWidth(Number(obj.strokeWidth ?? 0));
+        // Sync text settings from selected text object
+        setTextSettings(prev => ({
+          ...prev,
+          text: obj.text ?? prev.text,
+          font: obj.fontFamily ?? prev.font,
+          weight: String(obj.fontWeight ?? prev.weight),
+          size: Number(obj.fontSize ?? prev.size),
+          color: typeof obj.fill === 'string' && obj.fill.startsWith('#') ? obj.fill : prev.color,
+        }));
       }
     };
 
@@ -378,6 +393,8 @@ const CanvasEditor = ({
     const text = new FabricText(textSettings.text, {
       left: width / 2, top: height / 2, originX: 'center', originY: 'center',
       fontFamily: textSettings.font, fontWeight: textSettings.weight, fontSize: textSettings.size, fill: textSettings.color, editable: true,
+      stroke: textStrokeWidth > 0 ? textStrokeColor : undefined,
+      strokeWidth: textStrokeWidth,
     });
     (text as any).id = `text-${Date.now()}`;
     (text as any).name = textSettings.text.substring(0, 15) || t.campaign.editor.textLayer;
@@ -385,7 +402,17 @@ const CanvasEditor = ({
     fabricRef.current.setActiveObject(text);
     fabricRef.current.renderAll();
     saveHistory();
-  }, [width, height, saveHistory, t.campaign.editor.textLayer, textSettings]);
+  }, [width, height, saveHistory, t.campaign.editor.textLayer, textSettings, textStrokeColor, textStrokeWidth]);
+
+  // Update selected text object when text settings change
+  const updateSelectedTextProp = useCallback((prop: string, value: any) => {
+    if (!fabricRef.current) return;
+    const active = fabricRef.current.getActiveObject() as any;
+    if (!active || String(active.type).toLowerCase() !== 'text') return;
+    active.set(prop, value);
+    fabricRef.current.renderAll();
+    saveHistory();
+  }, [saveHistory]);
 
   const addShape = useCallback((shape: 'rect' | 'circle') => {
     if (!fabricRef.current) return;
@@ -430,9 +457,13 @@ const CanvasEditor = ({
 
     const w = Math.max(1, active.width ?? 1);
     const h = Math.max(1, active.height ?? 1);
-    const minDim = Math.min(w, h);
-    const cornerRadius = (minDim / 2) * (clamp(roundness, 0, 100) / 100);
-    active.set({ rx: cornerRadius, ry: cornerRadius });
+    const sx = Math.abs(active.scaleX ?? 1) || 1;
+    const sy = Math.abs(active.scaleY ?? 1) || 1;
+    const visualW = w * sx;
+    const visualH = h * sy;
+    const minDim = Math.min(visualW, visualH);
+    const visualRadius = (minDim / 2) * (clamp(roundness, 0, 100) / 100);
+    active.set({ rx: visualRadius / sx, ry: visualRadius / sy });
     fabricRef.current?.renderAll();
     saveHistory();
   }, [saveHistory]);
@@ -485,9 +516,15 @@ const CanvasEditor = ({
     const placeholder = fabricRef.current.getObjects().find((o: any) => isPlaceholderObject(o)) as any;
     if (!placeholder) return;
 
-    const size = Math.max(1, placeholder.width ?? 1);
-    const cornerRadius = (size / 2) * (clamp(roundness, 0, 100) / 100);
-    placeholder.set({ rx: cornerRadius, ry: cornerRadius });
+    const w = Math.max(1, placeholder.width ?? 1);
+    const h = Math.max(1, placeholder.height ?? 1);
+    const sx = Math.abs(placeholder.scaleX ?? 1) || 1;
+    const sy = Math.abs(placeholder.scaleY ?? 1) || 1;
+    const visualW = w * sx;
+    const visualH = h * sy;
+    const minDim = Math.min(visualW, visualH);
+    const visualRadius = (minDim / 2) * (clamp(roundness, 0, 100) / 100);
+    placeholder.set({ rx: visualRadius / sx, ry: visualRadius / sy });
     fabricRef.current.renderAll();
     saveHistory();
   }, [saveHistory]);
@@ -669,22 +706,22 @@ const CanvasEditor = ({
             {/* Text tool */}
             <div className="glass rounded-xl p-3 border-gold-subtle space-y-2">
               <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5"><Type className="w-3.5 h-3.5 text-primary" /> {t.campaign.editor.textTool}</h3>
-              <Input value={textSettings.text} onChange={e => setTextSettings(s => ({ ...s, text: e.target.value }))} placeholder={t.campaign.editor.textPlaceholder} className="bg-secondary/50 border-border text-xs h-8" />
-              <Select value={textSettings.font} onValueChange={v => setTextSettings(s => ({ ...s, font: v }))}>
+              <Input value={textSettings.text} onChange={e => { setTextSettings(s => ({ ...s, text: e.target.value })); updateSelectedTextProp('text', e.target.value); }} placeholder={t.campaign.editor.textPlaceholder} className="bg-secondary/50 border-border text-xs h-8" />
+              <Select value={textSettings.font} onValueChange={v => { setTextSettings(s => ({ ...s, font: v })); updateSelectedTextProp('fontFamily', v); }}>
                 <SelectTrigger className="bg-secondary/50 border-border text-xs h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {FONTS.map(font => <SelectItem key={font} value={font} style={{ fontFamily: font }}>{font}</SelectItem>)}
                 </SelectContent>
               </Select>
               <div className="grid grid-cols-3 gap-1.5">
-                <Input type="number" value={textSettings.size} onChange={e => setTextSettings(s => ({ ...s, size: Number(e.target.value) || 16 }))} min={8} max={220} className="bg-secondary/50 border-border text-xs h-8" />
-                <Select value={textSettings.weight} onValueChange={v => setTextSettings(s => ({ ...s, weight: v }))}>
+                <Input type="number" value={textSettings.size} onChange={e => { const v = Number(e.target.value) || 16; setTextSettings(s => ({ ...s, size: v })); updateSelectedTextProp('fontSize', v); }} min={8} max={220} className="bg-secondary/50 border-border text-xs h-8" />
+                <Select value={textSettings.weight} onValueChange={v => { setTextSettings(s => ({ ...s, weight: v })); updateSelectedTextProp('fontWeight', v); }}>
                   <SelectTrigger className="bg-secondary/50 border-border text-xs h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {FONT_WEIGHTS.map(w => <SelectItem key={w} value={w}>{w}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input type="color" value={textSettings.color} onChange={e => setTextSettings(s => ({ ...s, color: e.target.value }))} className="h-8 p-0.5 bg-secondary/50 border-border" />
+                <Input type="color" value={textSettings.color} onChange={e => { setTextSettings(s => ({ ...s, color: e.target.value })); updateSelectedTextProp('fill', e.target.value); }} className="h-8 p-0.5 bg-secondary/50 border-border" />
               </div>
               <Button size="sm" className="w-full gap-1 h-8 text-xs" onClick={addText}>
                 <Type className="w-3 h-3" /> {t.campaign.editor.addText}
