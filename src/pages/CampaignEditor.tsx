@@ -379,7 +379,9 @@ const CampaignEditor = () => {
     if (!el) return;
 
     const preventNativeScroll = (event: Event) => {
-      event.preventDefault();
+      if (event.cancelable) {
+        event.preventDefault();
+      }
       event.stopPropagation();
     };
 
@@ -414,7 +416,7 @@ const CampaignEditor = () => {
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !simulationPhoto) return;
     setIsInteractingPreview(true);
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
     const el = previewInteractionRef.current;
     if (!el) return;
@@ -437,7 +439,7 @@ const CampaignEditor = () => {
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !simulationPhoto || !pointersRef.current.has(event.pointerId)) return;
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
 
     const prev = pointersRef.current.get(event.pointerId)!;
@@ -483,7 +485,7 @@ const CampaignEditor = () => {
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
     pointersRef.current.delete(event.pointerId);
     if (previewInteractionRef.current?.hasPointerCapture(event.pointerId)) {
@@ -503,7 +505,7 @@ const CampaignEditor = () => {
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !simulationPhoto) return;
     setIsInteractingPreview(true);
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
     wheelPendingRef.current += -event.deltaY * 0.04;
 

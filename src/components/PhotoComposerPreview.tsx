@@ -34,7 +34,7 @@ const PhotoComposerPreview = ({
 
   const tx = photoOffsetX * previewScale;
   const ty = photoOffsetY * previewScale;
-  const zoom = Math.max(0.05, photoScale / 100);
+  const zoom = Math.max(0.02, (photoScale / 100) * previewScale);
   const photoTransform = `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(${zoom})`;
 
   const clipStyles = (() => {
