@@ -1,0 +1,257 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+// Simple SMTP email sender using raw TCP via Deno
+async function sendSmtpEmail(opts: {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  from: string;
+  to: string;
+  subject: string;
+  html: string;
+}) {
+  const { host, port, username, password, from, to, subject, html } = opts;
+
+  // Use Deno's native TLS connection for port 465, or STARTTLS for 587
+  let conn: Deno.Conn;
+
+  if (port === 465) {
+    conn = await Deno.connectTls({ hostname: host, port });
+  } else {
+    conn = await Deno.connect({ hostname: host, port });
+  }
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+
+  async function read(): Promise<string> {
+    const buf = new Uint8Array(4096);
+    const n = await conn.read(buf);
+    return n ? decoder.decode(buf.subarray(0, n)) : "";
+  }
+
+  async function write(cmd: string) {
+    await conn.write(encoder.encode(cmd + "\r\n"));
+  }
+
+  async function command(cmd: string): Promise<string> {
+    await write(cmd);
+    return await read();
+  }
+
+  // Read greeting
+  await read();
+
+  // EHLO
+  await command(`EHLO localhost`);
+
+  // STARTTLS for port 587
+  if (port === 587) {
+    await command("STARTTLS");
+    conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: host });
+    await command(`EHLO localhost`);
+  }
+
+  // AUTH LOGIN
+  await command("AUTH LOGIN");
+  await command(btoa(username));
+  const authRes = await command(btoa(password));
+
+  if (!authRes.startsWith("235")) {
+    conn.close();
+    throw new Error("SMTP Auth failed: " + authRes);
+  }
+
+  await command(`MAIL FROM:<${from}>`);
+  await command(`RCPT TO:<${to}>`);
+  await command("DATA");
+
+  const boundary = "----=_Part_" + Date.now();
+  const message = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    ``,
+    `--${boundary}`,
+    `Content-Type: text/html; charset=UTF-8`,
+    `Content-Transfer-Encoding: 7bit`,
+    ``,
+    html,
+    ``,
+    `--${boundary}--`,
+    `.`,
+  ].join("\r\n");
+
+  await command(message);
+  await command("QUIT");
+  conn.close();
+}
+
+function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string) {
+  const amount = `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
+  const paidAt = payment.paid_at
+    ? new Date(payment.paid_at).toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "-";
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
+  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5; overflow: hidden;">
+    <div style="background: #111; color: #fff; padding: 24px 32px;">
+      <h1 style="margin: 0; font-size: 20px;">✅ Pembayaran Berhasil</h1>
+      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.7;">Twibbo Creator Hub</p>
+    </div>
+    <div style="padding: 32px;">
+      <p style="margin: 0 0 16px; color: #333;">Halo <strong>${profile?.name || "Customer"}</strong>,</p>
+      <p style="margin: 0 0 24px; color: #555; line-height: 1.6;">
+        Terima kasih! Pembayaran upgrade premium untuk campaign 
+        <strong>"${campaign?.name || "-"}"</strong> telah berhasil dikonfirmasi.
+      </p>
+      
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 8px 0; color: #888;">Order ID</td>
+          <td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 12px;">${payment.midtrans_order_id}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 8px 0; color: #888;">Metode</td>
+          <td style="padding: 8px 0; text-align: right; text-transform: capitalize;">${payment.payment_method || "-"}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 8px 0; color: #888;">Tanggal Bayar</td>
+          <td style="padding: 8px 0; text-align: right;">${paidAt}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 0; color: #333; font-weight: bold; font-size: 16px;">Total</td>
+          <td style="padding: 12px 0; text-align: right; color: #333; font-weight: bold; font-size: 16px;">${amount}</td>
+        </tr>
+      </table>
+
+      <div style="margin-top: 24px; text-align: center;">
+        <a href="${invoiceUrl}" style="display: inline-block; padding: 12px 28px; background: #111; color: #fff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
+          Lihat Invoice
+        </a>
+      </div>
+    </div>
+    <div style="padding: 16px 32px; background: #fafafa; text-align: center; font-size: 11px; color: #aaa;">
+      Twibbo Creator Hub — Invoice otomatis
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { order_id, app_url } = await req.json();
+
+    if (!order_id) {
+      return new Response(JSON.stringify({ error: "Missing order_id" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Get SMTP settings
+    const { data: smtpRows } = await adminClient
+      .from("site_settings")
+      .select("key, value")
+      .in("key", [
+        "smtp_host",
+        "smtp_port",
+        "smtp_username",
+        "smtp_password",
+        "smtp_from_email",
+        "smtp_from_name",
+      ]);
+
+    const smtp: Record<string, string> = {};
+    (smtpRows ?? []).forEach((r: any) => {
+      smtp[r.key] = r.value;
+    });
+
+    if (!smtp.smtp_host || !smtp.smtp_username || !smtp.smtp_password) {
+      return new Response(
+        JSON.stringify({ error: "SMTP not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get payment data
+    const { data: payment } = await adminClient
+      .from("payments")
+      .select("*")
+      .eq("midtrans_order_id", order_id)
+      .single();
+
+    if (!payment) {
+      return new Response(
+        JSON.stringify({ error: "Payment not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const [{ data: campaign }, { data: profile }] = await Promise.all([
+      adminClient.from("campaigns").select("name, slug").eq("id", (payment as any).campaign_id).single(),
+      adminClient.from("profiles").select("name, email, phone").eq("id", (payment as any).user_id).single(),
+    ]);
+
+    if (!(profile as any)?.email) {
+      return new Response(
+        JSON.stringify({ error: "No customer email" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const invoiceUrl = `${app_url || "https://twibbo-creator-hub.lovable.app"}/invoice/${order_id}`;
+    const html = buildInvoiceHtml(payment, campaign, profile, invoiceUrl);
+    const fromEmail = smtp.smtp_from_email || smtp.smtp_username;
+    const fromDisplay = smtp.smtp_from_name ? `${smtp.smtp_from_name} <${fromEmail}>` : fromEmail;
+
+    await sendSmtpEmail({
+      host: smtp.smtp_host,
+      port: parseInt(smtp.smtp_port || "587"),
+      username: smtp.smtp_username,
+      password: smtp.smtp_password,
+      from: fromEmail,
+      to: (profile as any).email,
+      subject: `Invoice Pembayaran - ${(payment as any).midtrans_order_id}`,
+      html,
+    });
+
+    return new Response(JSON.stringify({ status: "sent" }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err: any) {
+    console.error("send-invoice-email error:", err);
+    return new Response(
+      JSON.stringify({ error: err.message || "Failed to send email" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});

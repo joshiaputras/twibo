@@ -3,7 +3,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2 } from 'lucide-react';
+import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2, FileText } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -30,6 +30,7 @@ type CampaignItem = {
   tier: 'free' | 'premium';
   supporters: number;
   downloads: number;
+  paidOrderId?: string;
 };
 
 const Dashboard = () => {
@@ -61,10 +62,22 @@ const Dashboard = () => {
 
     const ids = (data ?? []).map(row => row.id);
 
-    const { data: statsData } = await supabase
-      .from('campaign_stats' as any)
-      .select('campaign_id,supporters_count,downloads_count')
-      .in('campaign_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']);
+    const [{ data: statsData }, { data: paymentsData }] = await Promise.all([
+      supabase
+        .from('campaign_stats' as any)
+        .select('campaign_id,supporters_count,downloads_count')
+        .in('campaign_id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
+      supabase
+        .from('payments' as any)
+        .select('campaign_id,midtrans_order_id,status')
+        .eq('user_id', user.id)
+        .eq('status', 'paid'),
+    ]);
+
+    const paidOrderMap = new Map<string, string>();
+    ((paymentsData as any[]) ?? []).forEach((p: any) => {
+      paidOrderMap.set(p.campaign_id, p.midtrans_order_id);
+    });
 
     const statsMap = new Map<string, { supporters: number; downloads: number }>();
     (statsData ?? []).forEach((row: any) => {
@@ -84,6 +97,7 @@ const Dashboard = () => {
         tier: row.tier === 'premium' ? 'premium' : 'free',
         supporters: stat?.supporters ?? 0,
         downloads: stat?.downloads ?? 0,
+        paidOrderId: paidOrderMap.get(row.id),
       };
     });
 
@@ -246,6 +260,15 @@ const Dashboard = () => {
                         {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
                         {paying ? 'Processing...' : (t.dashboard.removeWatermark ?? 'Upgrade Premium')}
                       </Button>
+                    )}
+
+                    {c.paidOrderId && (
+                      <a href={`/invoice/${c.paidOrderId}`} target="_blank" rel="noreferrer">
+                        <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 text-xs">
+                          <FileText className="w-3 h-3" />
+                          Invoice
+                        </Button>
+                      </a>
                     )}
 
                     <AlertDialog>

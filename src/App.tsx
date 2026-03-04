@@ -20,6 +20,7 @@ import CampaignPublic from "./pages/CampaignPublic";
 import Admin from "./pages/Admin";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/NotFound";
+import Invoice from "./pages/Invoice";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/campaign/new" element={<ProtectedRoute><CampaignEditor /></ProtectedRoute>} />
               <Route path="/campaign/:id/edit" element={<ProtectedRoute><CampaignEditor /></ProtectedRoute>} />
               <Route path="/c/:slug" element={<CampaignPublic />} />
+              <Route path="/invoice/:orderId" element={<Invoice />} />
               <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
               <Route path="/unauthorized" element={<Unauthorized />} />
               <Route path="*" element={<NotFound />} />
