@@ -7,10 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
-import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
+import { renderTemplatePNG, composeResult, loadImage } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { extractPlaceholderMeta, extractPreviewMeta } from '@/utils/campaignDesign';
-import PhotoComposerPreview from '@/components/PhotoComposerPreview';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -51,10 +51,14 @@ const CampaignPublic = () => {
     story: [1080, 1920],
   };
 
-  const [fw, fh] = sizeMap[campaign?.size] || [1080, 1080];
-  const previewScale = Math.min(500 / fw, 600 / fh, 1);
-  const exampleImage = previewImage;
+  const isMobile = useIsMobile();
+  const previewMeta = extractPreviewMeta(campaign?.design_json);
   const placeholderMeta = extractPlaceholderMeta(campaign?.design_json);
+  const [fw, fh] = sizeMap[campaign?.size] || [1080, 1080];
+  const previewMaxW = isMobile ? 320 : 500;
+  const previewMaxH = isMobile ? 420 : 600;
+  const previewScale = Math.min(previewMaxW / fw, previewMaxH / fh, 1);
+  const exampleImage = previewImage;
 
   useEffect(() => {
     if (!slug) return;
@@ -155,6 +159,34 @@ const CampaignPublic = () => {
     await supabase.rpc('increment_campaign_stats' as any, { _slug: slug, _event: 'supporter' });
   };
 
+  const getInitialPhotoTransform = useCallback(
+    async (photoDataUrl: string) => {
+      if (!photoDataUrl) {
+        return { scale: 100, offsetX: 0, offsetY: 0 };
+      }
+
+      if (campaign?.type === 'frame' && placeholderMeta) {
+        const photo = await loadImage(photoDataUrl);
+        const targetW = Math.max(1, placeholderMeta.width * placeholderMeta.scaleX);
+        const targetH = Math.max(1, placeholderMeta.height * placeholderMeta.scaleY);
+        const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height));
+
+        return {
+          scale: clamp(coverScale * 100, 20, 400),
+          offsetX: placeholderMeta.left + targetW / 2 - fw / 2,
+          offsetY: placeholderMeta.top + targetH / 2 - fh / 2,
+        };
+      }
+
+      return {
+        scale: clamp(previewMeta.photoScale ?? 100, 20, 400),
+        offsetX: previewMeta.photoOffsetX ?? 0,
+        offsetY: previewMeta.photoOffsetY ?? 0,
+      };
+    },
+    [campaign?.type, placeholderMeta, fw, fh, previewMeta.photoScale, previewMeta.photoOffsetX, previewMeta.photoOffsetY]
+  );
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -167,17 +199,22 @@ const CampaignPublic = () => {
       try {
         setProcessingPhoto(true);
         const photoDataUrl = campaign?.type === 'background' ? await removeBackgroundFromDataUrl(rawDataUrl) : rawDataUrl;
+        const initialTransform = await getInitialPhotoTransform(photoDataUrl);
         setUserPhoto(photoDataUrl);
+        setPhotoScale(initialTransform.scale);
+        setPhotoOffsetX(initialTransform.offsetX);
+        setPhotoOffsetY(initialTransform.offsetY);
       } catch {
+        const initialTransform = await getInitialPhotoTransform(rawDataUrl);
         setUserPhoto(rawDataUrl);
+        setPhotoScale(initialTransform.scale);
+        setPhotoOffsetX(initialTransform.offsetX);
+        setPhotoOffsetY(initialTransform.offsetY);
         toast.error('Gagal remove background, memakai foto original.');
       } finally {
         setProcessingPhoto(false);
       }
 
-      setPhotoScale(100);
-      setPhotoOffsetX(0);
-      setPhotoOffsetY(0);
       await trackSupporter();
     };
 
@@ -438,7 +475,7 @@ const CampaignPublic = () => {
 
                 {exampleImage && (
                   <div className="pt-1">
-                    <div className="mx-auto w-[72%] sm:w-[64%] rounded-xl border border-border bg-secondary/20 p-2">
+                    <div className="mx-auto w-[70%] max-w-[320px] rounded-xl border border-border bg-secondary/20 p-2">
                       <img src={exampleImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
                     </div>
                   </div>
@@ -456,9 +493,9 @@ const CampaignPublic = () => {
               </div>
             </div>
 
-            <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle">
+            <div className="glass-strong rounded-2xl p-4 sm:p-6 md:p-8 border-gold-subtle min-w-0">
               {isOwner && isFree && (
-                <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center gap-3">
+                <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
                   <Crown className="w-5 h-5 text-primary shrink-0" />
                   <div className="flex-1">
                     <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>

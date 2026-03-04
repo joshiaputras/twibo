@@ -5,25 +5,32 @@ type Attempt = {
   config: RemoveConfig;
 };
 
-const STATICIMGLY_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
-const JSDELIVR_PUBLIC_PATH = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.7.0/dist/';
-const UNPKG_PUBLIC_PATH = 'https://unpkg.com/@imgly/background-removal-data@1.7.0/dist/';
+const STATICIMGLY_V17_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
+const STATICIMGLY_V145_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.4.5/dist/';
 
 const baseConfig: RemoveConfig = {
   output: { format: 'image/png' },
   device: 'cpu',
 };
 
-const PATH_FALLBACKS = [STATICIMGLY_PUBLIC_PATH, JSDELIVR_PUBLIC_PATH, UNPKG_PUBLIC_PATH] as const;
+const PATH_FALLBACKS = [STATICIMGLY_V17_PATH, STATICIMGLY_V145_PATH] as const;
 
 const buildAttempts = (): Attempt[] => {
   const canUseWorker = typeof window !== 'undefined' && window.crossOriginIsolated;
 
-  return PATH_FALLBACKS.flatMap(publicPath => [
+  const defaultAttempts: Attempt[] = [
+    { key: 'default-quint8-main', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false } },
+    ...(canUseWorker ? [{ key: 'default-quint8-worker', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true } }] : []),
+    { key: 'default-fp16-main', config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false } },
+  ];
+
+  const cdnAttempts = PATH_FALLBACKS.flatMap(publicPath => [
     { key: `quint8-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath } },
     ...(canUseWorker ? [{ key: `quint8-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath } }] : []),
     { key: `fp16-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath } },
   ]);
+
+  return [...defaultAttempts, ...cdnAttempts];
 };
 
 const ATTEMPTS: Attempt[] = buildAttempts();
@@ -40,7 +47,7 @@ const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
   try {
     return await Promise.race([promise, timeoutPromise]);
   } finally {
-    if (timeoutId) window.clearTimeout(timeoutId);
+    if (timeoutId !== null) window.clearTimeout(timeoutId);
   }
 };
 
@@ -51,37 +58,14 @@ const getOrderedAttempts = () => {
   return [preferred, ...ATTEMPTS.filter(attempt => attempt.key !== preferredAttemptKey)];
 };
 
-const resolveReachablePaths = async () => {
-  const checks = await Promise.all(
-    PATH_FALLBACKS.map(async publicPath => {
-      try {
-        const res = await fetch(`${publicPath}resources.json`, { cache: 'no-store' });
-        if (!res.ok) return null;
-        return publicPath;
-      } catch {
-        return null;
-      }
-    })
-  );
-
-  const reachable = checks.filter(Boolean) as string[];
-  return reachable.length > 0 ? reachable : [STATICIMGLY_PUBLIC_PATH];
-};
-
 async function ensureBackgroundModelReady() {
   if (preloadPromise) return preloadPromise;
 
   preloadPromise = (async () => {
     const { preload } = await import('@imgly/background-removal');
-    const reachablePaths = await resolveReachablePaths();
-    const candidates = getOrderedAttempts().filter(attempt => {
-      const publicPath = String((attempt.config.publicPath as string) ?? '');
-      return reachablePaths.includes(publicPath);
-    });
-
     let lastError: unknown = null;
 
-    for (const attempt of (candidates.length ? candidates : getOrderedAttempts())) {
+    for (const attempt of getOrderedAttempts()) {
       try {
         await withTimeout(preload(attempt.config as any), 90000);
         preferredAttemptKey = attempt.key;

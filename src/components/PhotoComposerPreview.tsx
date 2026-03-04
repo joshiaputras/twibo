@@ -61,7 +61,7 @@ const PhotoComposerPreview = ({
       )}
 
       {campaignType === 'frame' ? (
-        <div className="absolute inset-0 pointer-events-none" style={clipStyles}>
+        <div className="absolute inset-0 pointer-events-none overflow-hidden" style={clipStyles}>
           {userPhoto && (
             <img
               src={userPhoto}

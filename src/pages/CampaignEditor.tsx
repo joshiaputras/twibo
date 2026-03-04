@@ -27,10 +27,10 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
+import { renderTemplatePNG, composeResult, loadImage } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { extractCanvasDesign, extractPlaceholderMeta, extractPreviewMeta, mergeDesignWithPreview } from '@/utils/campaignDesign';
-import PhotoComposerPreview from '@/components/PhotoComposerPreview';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
 
@@ -107,7 +107,8 @@ const CampaignEditor = () => {
   ];
 
   const selectedSize = sizes.find(s => s.key === form.size)!;
-  const previewScale = Math.min(500 / selectedSize.w, 600 / selectedSize.h, 1);
+  const isMobile = useIsMobile();
+  const previewScale = Math.min((isMobile ? 320 : 500) / selectedSize.w, (isMobile ? 420 : 600) / selectedSize.h, 1);
   const placeholderMeta = extractPlaceholderMeta(canvasState);
 
   useEffect(() => {
@@ -319,6 +320,30 @@ const CampaignEditor = () => {
     }
   };
 
+  const getInitialSimulationTransform = useCallback(
+    async (photoDataUrl: string) => {
+      if (!photoDataUrl) {
+        return { scale: 100, offsetX: 0, offsetY: 0 };
+      }
+
+      if (form.type === 'frame' && placeholderMeta) {
+        const photo = await loadImage(photoDataUrl);
+        const targetW = Math.max(1, placeholderMeta.width * placeholderMeta.scaleX);
+        const targetH = Math.max(1, placeholderMeta.height * placeholderMeta.scaleY);
+        const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height));
+
+        return {
+          scale: clamp(coverScale * 100, 20, 400),
+          offsetX: placeholderMeta.left + targetW / 2 - selectedSize.w / 2,
+          offsetY: placeholderMeta.top + targetH / 2 - selectedSize.h / 2,
+        };
+      }
+
+      return { scale: 100, offsetX: 0, offsetY: 0 };
+    },
+    [form.type, placeholderMeta, selectedSize.w, selectedSize.h]
+  );
+
   const handleSimulationUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -331,12 +356,17 @@ const CampaignEditor = () => {
       try {
         setProcessingPhoto(true);
         const photoDataUrl = form.type === 'background' ? await removeBackgroundFromDataUrl(rawDataUrl) : rawDataUrl;
+        const initialTransform = await getInitialSimulationTransform(photoDataUrl);
         setSimulationPhoto(photoDataUrl);
-        setSimScale(100);
-        setSimOffsetX(0);
-        setSimOffsetY(0);
+        setSimScale(initialTransform.scale);
+        setSimOffsetX(initialTransform.offsetX);
+        setSimOffsetY(initialTransform.offsetY);
       } catch {
+        const initialTransform = await getInitialSimulationTransform(rawDataUrl);
         setSimulationPhoto(rawDataUrl);
+        setSimScale(initialTransform.scale);
+        setSimOffsetX(initialTransform.offsetX);
+        setSimOffsetY(initialTransform.offsetY);
         toast.error('Gagal remove background, memakai foto original.');
       } finally {
         setProcessingPhoto(false);
@@ -661,7 +691,7 @@ const CampaignEditor = () => {
                   </p>
                 </div>
 
-                <div className="max-w-md mx-auto">
+                <div className="max-w-md w-full mx-auto">
                   <p className="text-sm text-muted-foreground text-center mb-2">{t.campaign.templatePreview ?? 'Template Preview'}</p>
                   <div
                     ref={previewInteractionRef}
@@ -670,7 +700,7 @@ const CampaignEditor = () => {
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
                     onWheelCapture={onWheel}
-                    className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2 touch-none"
+                    className="relative w-full rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2 touch-none"
                     onDragStart={event => event.preventDefault()}
                     style={{
                       touchAction: 'none',
