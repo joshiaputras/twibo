@@ -13,6 +13,7 @@ interface LanguageContextType {
   toggleLang: () => void;
 }
 
+
 const translations: Record<Language, Translations> = { id, en };
 
 const LanguageContext = createContext<LanguageContextType | null>(null);
