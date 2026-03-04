@@ -5,20 +5,28 @@ type Attempt = {
   config: RemoveConfig;
 };
 
-const STATICIMGLY_LATEST_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
+const STATICIMGLY_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
+const JSDELIVR_PUBLIC_PATH = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.7.0/dist/';
+const UNPKG_PUBLIC_PATH = 'https://unpkg.com/@imgly/background-removal-data@1.7.0/dist/';
 
 const baseConfig: RemoveConfig = {
   output: { format: 'image/png' },
   device: 'cpu',
 };
 
-const PATH_FALLBACKS = [STATICIMGLY_LATEST_PUBLIC_PATH] as const;
+const PATH_FALLBACKS = [STATICIMGLY_PUBLIC_PATH, JSDELIVR_PUBLIC_PATH, UNPKG_PUBLIC_PATH] as const;
 
-const ATTEMPTS: Attempt[] = PATH_FALLBACKS.flatMap(publicPath => [
-  { key: `quint8-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath } },
-  { key: `quint8-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath } },
-  { key: `fp16-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath } },
-]);
+const buildAttempts = (): Attempt[] => {
+  const canUseWorker = typeof window !== 'undefined' && window.crossOriginIsolated;
+
+  return PATH_FALLBACKS.flatMap(publicPath => [
+    { key: `quint8-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath } },
+    ...(canUseWorker ? [{ key: `quint8-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath } }] : []),
+    { key: `fp16-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath } },
+  ]);
+};
+
+const ATTEMPTS: Attempt[] = buildAttempts();
 
 let preloadPromise: Promise<void> | null = null;
 let preferredAttemptKey: string | null = null;
@@ -57,7 +65,7 @@ const resolveReachablePaths = async () => {
   );
 
   const reachable = checks.filter(Boolean) as string[];
-  return reachable.length > 0 ? reachable : [STATICIMGLY_LATEST_PUBLIC_PATH];
+  return reachable.length > 0 ? reachable : [STATICIMGLY_PUBLIC_PATH];
 };
 
 async function ensureBackgroundModelReady() {
@@ -73,9 +81,9 @@ async function ensureBackgroundModelReady() {
 
     let lastError: unknown = null;
 
-    for (const attempt of candidates) {
+    for (const attempt of (candidates.length ? candidates : getOrderedAttempts())) {
       try {
-        await withTimeout(preload(attempt.config as any), 60000);
+        await withTimeout(preload(attempt.config as any), 90000);
         preferredAttemptKey = attempt.key;
         return;
       } catch (error) {
@@ -146,7 +154,7 @@ async function removeWithFallback(source: Blob | string): Promise<Blob> {
   let lastError: unknown;
   for (const attempt of getOrderedAttempts()) {
     try {
-      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 90000);
+      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 120000);
       if (resultBlob && resultBlob.size > 0) {
         preferredAttemptKey = attempt.key;
         return resultBlob;

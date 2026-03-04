@@ -186,10 +186,27 @@ const CampaignPublic = () => {
   };
 
   const handleDownload = async () => {
-    if (!resultImage) return;
+    if (!campaign || !templateImage) return;
+
+    const downloadableImage = await composeResult({
+      templateDataUrl: templateImage,
+      userPhotoDataUrl: userPhoto || undefined,
+      fullWidth: fw,
+      fullHeight: fh,
+      photoScale,
+      photoOffsetX,
+      photoOffsetY,
+      addWatermark: isFree,
+      campaignType: campaign.type ?? 'frame',
+      placeholderMeta,
+      previewMaxW: fw,
+      previewMaxH: fh,
+    }).catch(() => resultImage);
+
+    if (!downloadableImage) return;
 
     const a = document.createElement('a');
-    a.href = resultImage;
+    a.href = downloadableImage;
     a.download = `twibbon-${slug}.png`;
     a.click();
 
@@ -228,7 +245,9 @@ const CampaignPublic = () => {
     if (!el) return;
 
     const preventNativeScroll = (event: Event) => {
-      event.preventDefault();
+      if (event.cancelable) {
+        event.preventDefault();
+      }
       event.stopPropagation();
     };
 
@@ -263,7 +282,7 @@ const CampaignPublic = () => {
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !userPhoto) return;
     setIsInteractingPreview(true);
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
     const el = previewInteractionRef.current;
     if (!el) return;
@@ -286,7 +305,7 @@ const CampaignPublic = () => {
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !userPhoto || !pointersRef.current.has(event.pointerId)) return;
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
 
     const prev = pointersRef.current.get(event.pointerId)!;
@@ -332,7 +351,7 @@ const CampaignPublic = () => {
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
     pointersRef.current.delete(event.pointerId);
     if (previewInteractionRef.current?.hasPointerCapture(event.pointerId)) {
@@ -352,7 +371,7 @@ const CampaignPublic = () => {
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     if (isPreviewBusy || !userPhoto) return;
     setIsInteractingPreview(true);
-    event.preventDefault();
+    if (event.cancelable) event.preventDefault();
     event.stopPropagation();
     wheelPendingRef.current += -event.deltaY * 0.04;
 
@@ -407,32 +426,34 @@ const CampaignPublic = () => {
             </div>
           )}
 
-          <div className="grid gap-6 md:grid-cols-2 md:items-start">
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
             <div className="space-y-4">
-              {exampleImage && (
-                <div className="rounded-xl border border-border bg-secondary/20 p-2">
-                  <img src={exampleImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
-                </div>
-              )}
-
-              <div className="glass-strong rounded-2xl p-6 border-gold-subtle">
-                <h1 className="font-display text-2xl font-bold text-gold-gradient mb-2">{campaign.name}</h1>
+              <div className="glass-strong rounded-2xl p-6 border-gold-subtle space-y-4">
+                <h1 className="font-display text-2xl font-bold text-gold-gradient">{campaign.name}</h1>
                 {campaign.description ? (
                   <p className="text-muted-foreground text-sm">{campaign.description}</p>
                 ) : (
                   <p className="text-muted-foreground text-sm">{t.public?.uploadPrompt ?? 'Upload foto kamu untuk membuat twibbon'}</p>
                 )}
-              </div>
 
-              {campaign.caption && (
-                <div className="glass rounded-xl p-4 border-gold-subtle text-left space-y-3">
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
-                  <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleCopyCaption}>
-                    <Copy className="w-3 h-3" />
-                    {t.public?.copyCaption ?? 'Salin Caption'} / Copy Caption
-                  </Button>
-                </div>
-              )}
+                {exampleImage && (
+                  <div className="pt-1">
+                    <div className="mx-auto w-[72%] sm:w-[64%] rounded-xl border border-border bg-secondary/20 p-2">
+                      <img src={exampleImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
+                    </div>
+                  </div>
+                )}
+
+                {campaign.caption && (
+                  <div className="rounded-xl border border-border bg-secondary/20 p-4 text-left space-y-3">
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
+                    <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleCopyCaption}>
+                      <Copy className="w-3 h-3" />
+                      {t.public?.copyCaption ?? 'Salin Caption'} / Copy Caption
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle">
