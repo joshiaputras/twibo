@@ -1,8 +1,9 @@
 import Layout from '@/components/Layout';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2, SlidersHorizontal } from 'lucide-react';
+import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2, SlidersHorizontal, Users, Link2, MoreHorizontal, Ticket } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +27,8 @@ const CampaignPublic = () => {
   const [campaign, setCampaign] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [creatorName, setCreatorName] = useState('');
+  const [supportersCount, setSupportersCount] = useState(0);
 
   const [userPhoto, setUserPhoto] = useState<string>('');
   const [templateImage, setTemplateImage] = useState<string>('');
@@ -42,6 +45,11 @@ const CampaignPublic = () => {
   const [rawRemovedBg, setRawRemovedBg] = useState<string>('');
   const [bgThreshold, setBgThreshold] = useState(50);
   const [applyingThreshold, setApplyingThreshold] = useState(false);
+
+  // Voucher state
+  const [voucherCode, setVoucherCode] = useState('');
+  const [voucherValidating, setVoucherValidating] = useState(false);
+  const [voucherDiscount, setVoucherDiscount] = useState<{ type: string; value: number; code: string } | null>(null);
 
   const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
   const isFree = campaign?.tier !== 'premium';
@@ -95,6 +103,22 @@ const CampaignPublic = () => {
 
       setCampaign(data);
 
+      // Fetch creator name
+      const { data: profile } = await supabase
+        .from('profiles' as any)
+        .select('name')
+        .eq('id', data.user_id)
+        .maybeSingle();
+      if (!cancelled && profile) setCreatorName((profile as any).name || '');
+
+      // Fetch stats
+      const { data: stats } = await supabase
+        .from('campaign_stats' as any)
+        .select('supporters_count')
+        .eq('campaign_id', data.id)
+        .maybeSingle();
+      if (!cancelled && stats) setSupportersCount((stats as any).supporters_count || 0);
+
       const previewMeta = extractPreviewMeta(data.design_json);
       setPreviewImage(previewMeta.previewImageDataUrl ?? '');
       setUserPhoto('');
@@ -135,7 +159,7 @@ const CampaignPublic = () => {
     setIsOwner(!!user?.id && !!campaign?.user_id && campaign.user_id === user.id);
   }, [user?.id, campaign?.user_id]);
 
-  // Bake watermark + PREVIEW text into the example preview image so users can't save-as clean
+  // Bake watermark into the example preview image
   useEffect(() => {
     if (!previewImage) { setBakedPreviewImage(''); return; }
     if (!isFree) { setBakedPreviewImage(previewImage); return; }
@@ -181,7 +205,6 @@ const CampaignPublic = () => {
         const bx = img.width - margin - badgeW;
         const by = img.height - margin - badgeH;
         const radius = badgeH / 2;
-        // Badge shadow
         ctx.shadowColor = 'rgba(0,0,0,0.25)';
         ctx.shadowBlur = 6;
         ctx.shadowOffsetX = 0;
@@ -417,7 +440,6 @@ const CampaignPublic = () => {
       url,
     };
 
-    // Try to include the result image as a file if available
     if (resultImage && navigator.canShare) {
       try {
         const res = await fetch(resultImage);
@@ -465,9 +487,56 @@ const CampaignPublic = () => {
     await applyBgProcessing(newThreshold);
   }, [applyBgProcessing]);
 
+  const handleValidateVoucher = async () => {
+    if (!voucherCode.trim()) return;
+    setVoucherValidating(true);
+    try {
+      const { data, error } = await supabase
+        .from('vouchers' as any)
+        .select('*')
+        .eq('code', voucherCode.trim().toUpperCase())
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (error || !data) {
+        toast.error('Kode voucher tidak valid');
+        setVoucherDiscount(null);
+        setVoucherValidating(false);
+        return;
+      }
+
+      const v = data as any;
+      if (v.max_uses && v.used_count >= v.max_uses) {
+        toast.error('Voucher sudah habis digunakan');
+        setVoucherDiscount(null);
+        setVoucherValidating(false);
+        return;
+      }
+      if (v.valid_until && new Date(v.valid_until) < new Date()) {
+        toast.error('Voucher sudah kadaluarsa');
+        setVoucherDiscount(null);
+        setVoucherValidating(false);
+        return;
+      }
+      if (v.valid_from && new Date(v.valid_from) > new Date()) {
+        toast.error('Voucher belum berlaku');
+        setVoucherDiscount(null);
+        setVoucherValidating(false);
+        return;
+      }
+
+      setVoucherDiscount({ type: v.discount_type, value: v.discount_value, code: v.code });
+      toast.success(`Voucher "${v.code}" berhasil diterapkan!`);
+    } catch {
+      toast.error('Gagal memvalidasi voucher');
+    } finally {
+      setVoucherValidating(false);
+    }
+  };
+
   const handleRemoveWatermark = async () => {
     if (!campaign) return;
-    const result = await pay(campaign.id);
+    const result = await pay(campaign.id, voucherDiscount?.code);
     if (result.success) {
       setCampaign((prev: any) => ({ ...prev, tier: 'premium' }));
     }
@@ -625,6 +694,15 @@ const CampaignPublic = () => {
     });
   };
 
+  // Calculate price with voucher
+  const basePrice = 50000;
+  const discountAmount = voucherDiscount
+    ? voucherDiscount.type === 'percentage'
+      ? Math.round(basePrice * voucherDiscount.value / 100)
+      : voucherDiscount.value
+    : 0;
+  const finalPrice = Math.max(0, basePrice - discountAmount);
+
   if (loading) {
     return (
       <Layout>
@@ -658,43 +736,108 @@ const CampaignPublic = () => {
             </div>
           )}
 
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            <div className="space-y-4">
-              <div className="glass-strong rounded-2xl p-6 border-gold-subtle space-y-4">
-                <h1 className="font-display text-2xl font-bold text-gold-gradient">{campaign.name}</h1>
-                {campaign.description ? (
-                  <p className="text-muted-foreground text-sm">{campaign.description}</p>
-                ) : (
-                  <p className="text-muted-foreground text-sm">{t.public?.uploadPrompt ?? 'Upload foto kamu untuk membuat twibbon'}</p>
-                )}
+          {/* Campaign Header - Redesigned */}
+          <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle mb-6 space-y-4">
+            <h1 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient">{campaign.name}</h1>
 
-                {bakedPreviewImage && (
-                  <div className="pt-1">
-                    <div className="relative mx-auto w-[70%] max-w-[320px] rounded-xl border border-border bg-secondary/20 p-2">
-                      <img src={bakedPreviewImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
-                    </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {creatorName && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Users className="w-3 h-3 text-primary" />
                   </div>
-                )}
-
-                {campaign.caption && (
-                  <div className="rounded-xl border border-border bg-secondary/20 p-4 text-left">
-                    <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
-                  </div>
-                )}
-              </div>
+                  <span className="text-foreground font-medium">{creatorName}</span>
+                </div>
+              )}
+              {supportersCount > 0 && (
+                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Users className="w-4 h-4" />
+                  <span>{supportersCount.toLocaleString('id-ID')} supporters</span>
+                </div>
+              )}
+              {campaign.tier === 'premium' && (
+                <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-primary/20 text-primary font-semibold">
+                  <Crown className="w-3 h-3" />
+                  Premium Creator
+                </span>
+              )}
             </div>
 
+            {campaign.description && (
+              <p className="text-muted-foreground text-sm">{campaign.description}</p>
+            )}
+
+            {/* Share bar */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex-1 min-w-0 flex items-center gap-2 glass rounded-lg px-3 py-2 text-xs text-muted-foreground">
+                <Link2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{window.location.origin}/c/{slug}</span>
+              </div>
+              <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleShareUniversal}>
+                <Share2 className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleCopyLink}>
+                <Copy className="w-3.5 h-3.5" />
+              </Button>
+            </div>
+
+            {campaign.caption && (
+              <div className="rounded-xl border border-border bg-secondary/20 p-4 text-left">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+            {/* Left column: preview image */}
+            <div className="space-y-4">
+              {bakedPreviewImage && (
+                <div className="glass-strong rounded-2xl p-4 border-gold-subtle">
+                  <div className="relative mx-auto max-w-[400px] rounded-xl border border-border bg-secondary/20 p-2">
+                    <img src={bakedPreviewImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right column: upload & compose */}
             <div className="glass-strong rounded-2xl p-4 sm:p-6 md:p-8 border-gold-subtle min-w-0">
               {isOwner && isFree && (
-                <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 flex flex-col sm:flex-row sm:items-center gap-3">
-                  <Crown className="w-5 h-5 text-primary shrink-0" />
-                  <div className="flex-1">
-                    <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>
-                    <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
+                <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <Crown className="w-5 h-5 text-primary shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>
+                      <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
+                    </div>
                   </div>
-                  <Button size="sm" className="gold-glow text-xs gap-1 shrink-0" onClick={handleRemoveWatermark} disabled={paying}>
+
+                  {/* Voucher Code Input */}
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Ticket className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Kode voucher (opsional)"
+                        value={voucherCode}
+                        onChange={e => setVoucherCode(e.target.value.toUpperCase())}
+                        className="pl-9 bg-secondary/50 border-border text-sm uppercase"
+                      />
+                    </div>
+                    <Button size="sm" variant="outline" className="text-xs shrink-0" onClick={handleValidateVoucher} disabled={voucherValidating || !voucherCode.trim()}>
+                      {voucherValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
+                    </Button>
+                  </div>
+                  {voucherDiscount && (
+                    <div className="text-xs text-green-400 flex items-center gap-1">
+                      <Ticket className="w-3 h-3" />
+                      Diskon {voucherDiscount.type === 'percentage' ? `${voucherDiscount.value}%` : `Rp ${voucherDiscount.value.toLocaleString('id-ID')}`} diterapkan!
+                      {discountAmount > 0 && <span className="ml-1">(Bayar: Rp {finalPrice.toLocaleString('id-ID')})</span>}
+                    </div>
+                  )}
+
+                  <Button size="sm" className="gold-glow text-xs gap-1 w-full" onClick={handleRemoveWatermark} disabled={paying}>
                     {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
-                    {paying ? 'Processing...' : (t.public?.removeWatermark ?? 'Upgrade Premium')}
+                    {paying ? 'Processing...' : `Upgrade Premium${finalPrice < basePrice ? ` — Rp ${finalPrice.toLocaleString('id-ID')}` : ''}`}
                   </Button>
                 </div>
               )}

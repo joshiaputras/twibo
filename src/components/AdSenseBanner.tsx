@@ -9,7 +9,7 @@ const AdSenseBanner = () => {
       .from('site_settings' as any)
       .select('value')
       .eq('key', 'adsense_id')
-      .single()
+      .maybeSingle()
       .then(({ data }: any) => {
         if (data?.value) setAdId(data.value);
       });
