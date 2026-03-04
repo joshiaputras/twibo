@@ -5,7 +5,8 @@
     "signup": "Daftar",
     "dashboard": "Dashboard",
     "profile": "Profil",
-    "logout": "Keluar"
+    "logout": "Keluar",
+    "admin": "Admin"
   },
   "hero": {
     "title": "Buat Twibbon & Frame Campaign Online — Gratis & Mudah",
@@ -123,6 +124,7 @@
     "noCampaignsDesc": "Buat campaign twibbon pertamamu dan bagikan ke komunitasmu.",
     "draft": "Draft",
     "published": "Published",
+    "blocked": "Diblokir",
     "free": "Gratis",
     "premium": "Premium",
     "supporters": "Supporter",
@@ -131,6 +133,7 @@
     "edit": "Edit",
     "delete": "Hapus",
     "viewStats": "Lihat Statistik",
+    "viewPublic": "Lihat",
     "upgradeForStats": "Upgrade ke Premium untuk statistik",
     "removeWatermark": "Hapus Watermark",
     "watermarkRemoved": "Watermark berhasil dihapus!",
@@ -140,7 +143,9 @@
     "statsTitle": "Statistik",
     "filter": "Filter",
     "all": "Semua",
-    "search": "Cari campaign..."
+    "search": "Cari campaign...",
+    "linkCopied": "Link berhasil disalin!",
+    "campaignDeleted": "Campaign berhasil dihapus"
   },
   "profile": {
     "title": "Pengaturan Profil",
@@ -150,7 +155,12 @@
     "currentPassword": "Password Saat Ini",
     "newPassword": "Password Baru",
     "saveChanges": "Simpan Perubahan",
-    "avatar": "Avatar"
+    "avatar": "Avatar",
+    "uploadAvatar": "Unggah",
+    "avatarUpdated": "Avatar berhasil diperbarui!",
+    "enterCurrentPassword": "Masukkan password saat ini",
+    "newPasswordMinLength": "Password baru minimal 6 karakter",
+    "wrongCurrentPassword": "Password saat ini salah"
   },
   "campaign": {
     "step1": "Detail",
@@ -196,6 +206,10 @@
     "premiumPlan": "Premium Access",
     "skipForNow": "Lewati, Coba Gratis",
     "payNow": "Bayar Sekarang",
+    "processingPhoto": "Memproses foto...",
+    "bgRemoveFailed": "Gagal hapus background, menggunakan foto asli.",
+    "dragToMove": "Drag untuk geser",
+    "scrollToZoom": "Scroll / pinch untuk zoom",
     "editor": {
       "loading": "Loading...",
       "select": "Pilih",
@@ -250,7 +264,11 @@
     "watermarkRemoved": "Watermark berhasil dihapus!",
     "scale": "Skala",
     "shareUniversal": "Bagikan",
-    "instagramHint": "Caption disalin! Buka Instagram dan paste caption saat posting."
+    "instagramHint": "Caption disalin! Buka Instagram dan paste caption saat posting.",
+    "tolerance": "Toleransi",
+    "feather": "Feather",
+    "bgSettings": "Pengaturan Background",
+    "processingPhoto": "Memproses foto..."
   },
   "admin": {
     "title": "Admin Dashboard",
@@ -298,6 +316,11 @@
     "adminGranted": "Role admin diberikan",
     "adminRevoked": "Role admin dicabut",
     "userDeleted": "User dihapus dari profil",
-    "saveSettings": "Simpan Pengaturan"
+    "saveSettings": "Simpan Pengaturan",
+    "orderId": "Order ID",
+    "user": "User",
+    "paymentMethod": "Metode Pembayaran",
+    "paidAt": "Tanggal Bayar",
+    "sendInvoice": "Kirim Invoice"
   }
 }

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Globe, Menu, X, User, LogOut, LayoutDashboard, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
@@ -13,11 +14,12 @@ import {
 
 const Navbar = () => {
   const { t, lang, toggleLang } = useLanguage();
-  const { user, profileName, isAdmin, signOut } = useAuth();
+  const { user, profileName, avatarUrl, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const displayName = profileName || user?.user_metadata?.name || user?.email?.split('@')[0] || '';
+  const initials = displayName ? displayName.slice(0, 2).toUpperCase() : 'U';
 
   const handleSignOut = async () => {
     await signOut();
@@ -45,7 +47,10 @@ const Navbar = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
-                  <User className="w-4 h-4" />
+                  <Avatar className="w-7 h-7">
+                    {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
+                    <AvatarFallback className="text-xs bg-primary/20 text-primary">{initials}</AvatarFallback>
+                  </Avatar>
                   {displayName}
                 </Button>
               </DropdownMenuTrigger>
@@ -99,6 +104,13 @@ const Navbar = () => {
           </button>
           {user ? (
             <>
+              <div className="flex items-center gap-2 py-1">
+                <Avatar className="w-8 h-8">
+                  {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
+                  <AvatarFallback className="text-xs bg-primary/20 text-primary">{initials}</AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-foreground font-medium">{displayName}</span>
+              </div>
               <Link to="/dashboard" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
                 {t.nav.dashboard}
               </Link>

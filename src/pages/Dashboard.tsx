@@ -213,7 +213,7 @@ const Dashboard = () => {
                               : 'bg-muted text-muted-foreground'
                         }`}
                       >
-                        {c.status}
+                        {(t.dashboard[c.status as keyof typeof t.dashboard] as string) || c.status}
                       </span>
                       <span className={`text-xs px-2 py-0.5 rounded-full ${c.tier === 'premium' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                         {c.tier === 'premium' && <Crown className="w-3 h-3 inline mr-0.5" />}

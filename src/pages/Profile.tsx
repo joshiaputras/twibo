@@ -5,19 +5,21 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Lock, Camera } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { User, Lock, Camera, Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 
 const Profile = () => {
   const { t } = useLanguage();
-  const { user, refreshProfile } = useAuth();
+  const { user, avatarUrl, refreshProfile } = useAuth();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -29,6 +31,35 @@ const Profile = () => {
         }
       });
   }, [user]);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingAvatar(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const filePath = `${user.id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+      await refreshProfile();
+      toast.success(t.profile.avatarUpdated ?? 'Avatar updated!');
+    } catch (err: any) {
+      toast.error(err.message || 'Upload failed');
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
 
   const handleSaveName = async () => {
     if (!user) return;
@@ -45,16 +76,15 @@ const Profile = () => {
 
   const handleChangePassword = async () => {
     if (!currentPassword) {
-      toast.error('Masukkan password saat ini');
+      toast.error(t.profile.enterCurrentPassword ?? 'Enter current password');
       return;
     }
     if (!newPassword || newPassword.length < 6) {
-      toast.error('Password baru minimal 6 karakter');
+      toast.error(t.profile.newPasswordMinLength ?? 'New password must be at least 6 characters');
       return;
     }
     setSavingPassword(true);
 
-    // Verify current password by re-signing in
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user?.email || '',
       password: currentPassword,
@@ -62,7 +92,7 @@ const Profile = () => {
 
     if (signInError) {
       setSavingPassword(false);
-      toast.error('Password saat ini salah');
+      toast.error(t.profile.wrongCurrentPassword ?? 'Current password is incorrect');
       return;
     }
 
@@ -71,11 +101,14 @@ const Profile = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success((t.auth as any).resetSuccess || 'Password updated!');
+      toast.success(t.auth?.resetSuccess || 'Password updated!');
       setCurrentPassword('');
       setNewPassword('');
     }
   };
+
+  const displayName = name || user?.user_metadata?.name || '';
+  const initials = displayName ? displayName.slice(0, 2).toUpperCase() : 'U';
 
   return (
     <Layout>
@@ -87,13 +120,26 @@ const Profile = () => {
           <div className="glass-strong rounded-2xl p-6 border-gold-subtle mb-6">
             <h2 className="font-display font-semibold text-foreground mb-4">{t.profile.avatar}</h2>
             <div className="flex items-center gap-4">
-              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center relative group cursor-pointer">
-                <User className="w-10 h-10 text-primary" />
+              <label className="cursor-pointer relative group">
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                <Avatar className="w-20 h-20">
+                  {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
+                  <AvatarFallback className="text-lg bg-primary/10 text-primary">
+                    {uploadingAvatar ? <Loader2 className="w-6 h-6 animate-spin" /> : initials}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="w-5 h-5 text-foreground" />
+                  <Camera className="w-5 h-5 text-white" />
                 </div>
+              </label>
+              <div>
+                <label className="cursor-pointer">
+                  <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} disabled={uploadingAvatar} />
+                  <Button variant="outline" size="sm" className="border-border" asChild>
+                    <span>{uploadingAvatar ? '...' : (t.profile.uploadAvatar ?? 'Upload')}</span>
+                  </Button>
+                </label>
               </div>
-              <Button variant="outline" size="sm" className="border-border">Upload</Button>
             </div>
           </div>
 
