@@ -14,6 +14,8 @@ import { applyAlphaThreshold } from '@/utils/applyAlphaThreshold';
 import { extractPlaceholderMeta, extractPreviewMeta } from '@/utils/campaignDesign';
 import { useIsMobile } from '@/hooks/use-mobile';
 import PhotoComposerPreview from '@/components/PhotoComposerPreview';
+import AdSenseBanner from '@/components/AdSenseBanner';
+import { useMidtransPayment } from '@/hooks/useMidtransPayment';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -38,6 +40,7 @@ const CampaignPublic = () => {
   const [bgThreshold, setBgThreshold] = useState(50);
   const [applyingThreshold, setApplyingThreshold] = useState(false);
 
+  const { pay, paying } = useMidtransPayment();
   const isFree = campaign?.tier !== 'premium';
   const composeVersionRef = useRef(0);
   const supporterTrackedRef = useRef(false);
@@ -351,9 +354,10 @@ const CampaignPublic = () => {
 
   const handleRemoveWatermark = async () => {
     if (!campaign) return;
-    await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaign.id);
-    setCampaign((prev: any) => ({ ...prev, tier: 'premium' }));
-    toast.success(t.public?.watermarkRemoved ?? 'Watermark berhasil dihapus!');
+    const result = await pay(campaign.id);
+    if (result.success) {
+      setCampaign((prev: any) => ({ ...prev, tier: 'premium' }));
+    }
   };
 
   const isPreviewBusy = processingPhoto;
@@ -536,11 +540,8 @@ const CampaignPublic = () => {
       <section className="py-20 md:py-28">
         <div className="container mx-auto px-4 max-w-6xl">
           {isFree && (
-            <div className="mb-6 rounded-xl border border-dashed border-border bg-secondary/20 p-4 text-center">
-              <p className="text-xs text-muted-foreground">— {t.public?.adSpace ?? 'Advertisement'} —</p>
-              <div className="h-16 flex items-center justify-center">
-                <span className="text-muted-foreground/40 text-xs">Google AdSense</span>
-              </div>
+            <div className="mb-6">
+              <AdSenseBanner />
             </div>
           )}
 
@@ -578,8 +579,9 @@ const CampaignPublic = () => {
                     <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>
                     <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
                   </div>
-                  <Button size="sm" className="gold-glow text-xs gap-1 shrink-0" onClick={handleRemoveWatermark}>
-                    <Crown className="w-3 h-3" /> {t.public?.removeWatermark ?? 'Remove Watermark'}
+                  <Button size="sm" className="gold-glow text-xs gap-1 shrink-0" onClick={handleRemoveWatermark} disabled={paying}>
+                    {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
+                    {paying ? 'Processing...' : (t.public?.removeWatermark ?? 'Upgrade Premium')}
                   </Button>
                 </div>
               )}
@@ -719,11 +721,8 @@ const CampaignPublic = () => {
           </div>
 
           {isFree && (
-            <div className="mt-6 rounded-xl border border-dashed border-border bg-secondary/20 p-4 text-center">
-              <p className="text-xs text-muted-foreground">— {t.public?.adSpace ?? 'Advertisement'} —</p>
-              <div className="h-16 flex items-center justify-center">
-                <span className="text-muted-foreground/40 text-xs">Google AdSense</span>
-              </div>
+            <div className="mt-6">
+              <AdSenseBanner />
             </div>
           )}
         </div>
