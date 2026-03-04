@@ -14,6 +14,8 @@ type PhotoComposerPreviewProps = {
   photoOffsetY: number;
   placeholderMeta?: PlaceholderMeta | null;
   className?: string;
+  bgOverlayImage?: string;
+  bgUnderImage?: string;
 };
 
 const PhotoComposerPreview = ({
@@ -27,6 +29,8 @@ const PhotoComposerPreview = ({
   photoOffsetX,
   photoOffsetY,
   placeholderMeta,
+  bgOverlayImage,
+  bgUnderImage,
   className,
 }: PhotoComposerPreviewProps) => {
   const scaledWidth = Math.max(1, Math.round(width * previewScale));
@@ -40,7 +44,7 @@ const PhotoComposerPreview = ({
   return (
     <div className={cn('relative rounded-lg', campaignType === 'frame' && 'bg-black', className)} style={{ width: scaledWidth, height: scaledHeight, overflow: 'hidden' }}>
       {campaignType === 'background' && (
-        <img src={templateImage} alt="Template" draggable={false} className="absolute inset-0 h-full w-full select-none object-contain pointer-events-none" />
+        <img src={bgUnderImage || templateImage} alt="Template Under" draggable={false} className="absolute inset-0 h-full w-full select-none object-contain pointer-events-none" />
       )}
 
       {campaignType === 'frame' ? (
@@ -77,6 +81,11 @@ const PhotoComposerPreview = ({
             style={{ transform: photoTransform, transformOrigin: 'center center' }}
           />
         )
+      )}
+
+      {/* Background overlay: layers above the image placeholder */}
+      {campaignType === 'background' && bgOverlayImage && (
+        <img src={bgOverlayImage} alt="Template Overlay" draggable={false} className="absolute inset-0 h-full w-full select-none object-contain pointer-events-none" />
       )}
 
       {campaignType === 'frame' && <img src={templateImage} alt="Template" draggable={false} className="absolute inset-0 h-full w-full select-none object-contain pointer-events-none" />}

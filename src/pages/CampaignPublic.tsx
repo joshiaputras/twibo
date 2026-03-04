@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
-import { renderTemplatePNG, composeResult, loadImage } from '@/utils/renderTemplate';
+import { renderTemplatePNG, renderBackgroundOverlayPNG, renderBackgroundUnderPNG, composeResult, loadImage } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { applyAlphaThreshold } from '@/utils/applyAlphaThreshold';
 import { extractPlaceholderMeta, extractPreviewMeta } from '@/utils/campaignDesign';
@@ -29,6 +29,8 @@ const CampaignPublic = () => {
 
   const [userPhoto, setUserPhoto] = useState<string>('');
   const [templateImage, setTemplateImage] = useState<string>('');
+  const [bgOverlayImage, setBgOverlayImage] = useState<string>('');
+  const [bgUnderImage, setBgUnderImage] = useState<string>('');
   const [resultImage, setResultImage] = useState<string>('');
   const [previewImage, setPreviewImage] = useState<string>('');
   const [photoScale, setPhotoScale] = useState(100);
@@ -102,8 +104,20 @@ const CampaignPublic = () => {
 
       try {
         const [w, h] = sizeMap[data.size] || [1080, 1080];
-        const tplDataUrl = await renderTemplatePNG(data.design_json, w, h, data.type ?? 'frame');
+        const campaignType = data.type ?? 'frame';
+        const tplDataUrl = await renderTemplatePNG(data.design_json, w, h, campaignType);
         if (!cancelled) setTemplateImage(tplDataUrl);
+
+        if (campaignType === 'background') {
+          const [overlay, under] = await Promise.all([
+            renderBackgroundOverlayPNG(data.design_json, w, h),
+            renderBackgroundUnderPNG(data.design_json, w, h),
+          ]);
+          if (!cancelled) {
+            setBgOverlayImage(overlay);
+            setBgUnderImage(under);
+          }
+        }
       } catch (err) {
         console.error('Template render error:', err);
       } finally {
@@ -144,6 +158,8 @@ const CampaignPublic = () => {
         placeholderMeta,
         previewMaxW: 420,
         previewMaxH: 520,
+        bgOverlayDataUrl: bgOverlayImage || undefined,
+        bgUnderDataUrl: bgUnderImage || undefined,
       });
       if (current === composeVersionRef.current) {
         setResultImage(result);
@@ -151,7 +167,7 @@ const CampaignPublic = () => {
     } catch (err) {
       console.error('Compose error:', err);
     }
-  }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree, fw, fh, placeholderMeta]);
+  }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree, fw, fh, placeholderMeta, bgOverlayImage, bgUnderImage]);
 
   useEffect(() => {
     if (isInteractingPreview) return;
@@ -262,6 +278,8 @@ const CampaignPublic = () => {
       placeholderMeta,
       previewMaxW: fw,
       previewMaxH: fh,
+      bgOverlayDataUrl: bgOverlayImage || undefined,
+      bgUnderDataUrl: bgUnderImage || undefined,
     }).catch(() => resultImage);
 
     if (!downloadableImage) return;
@@ -640,6 +658,8 @@ const CampaignPublic = () => {
                         photoOffsetX={photoOffsetX}
                         photoOffsetY={photoOffsetY}
                         placeholderMeta={placeholderMeta}
+                        bgOverlayImage={bgOverlayImage}
+                        bgUnderImage={bgUnderImage}
                       />
                     ) : (
                       <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>

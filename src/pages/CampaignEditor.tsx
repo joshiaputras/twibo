@@ -28,7 +28,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { renderTemplatePNG, composeResult, loadImage } from '@/utils/renderTemplate';
+import { renderTemplatePNG, renderBackgroundOverlayPNG, renderBackgroundUnderPNG, composeResult, loadImage } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { extractCanvasDesign, extractPlaceholderMeta, extractPreviewMeta, mergeDesignWithPreview } from '@/utils/campaignDesign';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -73,6 +73,8 @@ const CampaignEditor = () => {
   });
 
   const [templateImage, setTemplateImage] = useState<string>('');
+  const [bgOverlayImage, setBgOverlayImage] = useState<string>('');
+  const [bgUnderImage, setBgUnderImage] = useState<string>('');
   const [simulationPhoto, setSimulationPhoto] = useState<string>('');
   const [simScale, setSimScale] = useState(100);
   const [simOffsetX, setSimOffsetX] = useState(0);
@@ -154,6 +156,18 @@ const CampaignEditor = () => {
       try {
         const dataUrl = await renderTemplatePNG(canvasState, selectedSize.w, selectedSize.h, form.type);
         setTemplateImage(dataUrl);
+
+        if (form.type === 'background') {
+          const [overlay, under] = await Promise.all([
+            renderBackgroundOverlayPNG(canvasState, selectedSize.w, selectedSize.h),
+            renderBackgroundUnderPNG(canvasState, selectedSize.w, selectedSize.h),
+          ]);
+          setBgOverlayImage(overlay);
+          setBgUnderImage(under);
+        } else {
+          setBgOverlayImage('');
+          setBgUnderImage('');
+        }
       } catch (err) {
         console.error('Template render error:', err);
       }
@@ -184,6 +198,8 @@ const CampaignEditor = () => {
         placeholderMeta,
         previewMaxW: 420,
         previewMaxH: 520,
+        bgOverlayDataUrl: bgOverlayImage || undefined,
+        bgUnderDataUrl: bgUnderImage || undefined,
       });
       if (current === composeVersionRef.current) {
         setPreviewResult(result);
@@ -191,7 +207,7 @@ const CampaignEditor = () => {
     } catch (err) {
       console.error('Preview compose error:', err);
     }
-  }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h, form.type, placeholderMeta]);
+  }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h, form.type, placeholderMeta, bgOverlayImage, bgUnderImage]);
 
   useEffect(() => {
     if (isInteractingPreview) return;
@@ -275,6 +291,8 @@ const CampaignEditor = () => {
           placeholderMeta,
           previewMaxW: 420,
           previewMaxH: 520,
+          bgOverlayDataUrl: bgOverlayImage || undefined,
+          bgUnderDataUrl: bgUnderImage || undefined,
         }).catch(() => previewResult)
       : previewResult;
 
@@ -738,6 +756,8 @@ const CampaignEditor = () => {
                         photoOffsetX={simOffsetX}
                         photoOffsetY={simOffsetY}
                         placeholderMeta={placeholderMeta}
+                        bgOverlayImage={bgOverlayImage}
+                        bgUnderImage={bgUnderImage}
                       />
                     ) : (
                       <div className="py-12 text-muted-foreground text-sm">{t.campaign.editor.loading}</div>

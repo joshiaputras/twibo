@@ -3,7 +3,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2, FileText, TrendingUp, Users, Download } from 'lucide-react';
+import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2, FileText, TrendingUp, Users, Download, Lock } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -223,16 +223,16 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  {c.tier === 'premium' && (
-                    <div className="flex gap-4 mb-3 text-sm">
-                      <span className="text-muted-foreground">
-                        {t.dashboard.supporters}: <strong className="text-foreground">{c.supporters}</strong>
-                      </span>
-                      <span className="text-muted-foreground">
-                        {t.dashboard.downloads}: <strong className="text-foreground">{c.downloads}</strong>
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex gap-4 mb-3 text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      {c.tier === 'free' && <Lock className="w-3 h-3 text-muted-foreground/60" />}
+                      {t.dashboard.supporters}: <strong className="text-foreground">{c.tier === 'premium' ? c.supporters : '—'}</strong>
+                    </span>
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      {c.tier === 'free' && <Lock className="w-3 h-3 text-muted-foreground/60" />}
+                      {t.dashboard.downloads}: <strong className="text-foreground">{c.tier === 'premium' ? c.downloads : '—'}</strong>
+                    </span>
+                  </div>
 
                   <div className="flex gap-2 flex-wrap">
                     <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 text-xs" onClick={() => handleCopyLink(c.slug)}>
@@ -253,19 +253,22 @@ const Dashboard = () => {
                       </Button>
                     </a>
 
-                    {c.tier === 'premium' && (
-                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => setStatsDialog(c)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-primary/30 text-primary gap-1 text-xs"
+                      onClick={() => c.tier === 'premium' ? setStatsDialog(c) : handleRemoveWatermark(c.id)}
+                      disabled={c.tier === 'free' && paying}
+                    >
+                      {c.tier === 'free' ? (
+                        paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <BarChart3 className="w-3 h-3" />
+                      ) : (
                         <BarChart3 className="w-3 h-3" />
-                        {t.dashboard.viewStats}
-                      </Button>
-                    )}
-
-                    {c.tier === 'free' && (
-                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => handleRemoveWatermark(c.id)} disabled={paying}>
-                        {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
-                        {paying ? 'Processing...' : (t.dashboard.removeWatermark ?? 'Upgrade Premium')}
-                      </Button>
-                    )}
+                      )}
+                      {c.tier === 'free'
+                        ? (paying ? 'Processing...' : (t.dashboard.viewStats ?? 'Lihat Statistik'))
+                        : (t.dashboard.viewStats ?? 'Lihat Statistik')}
+                    </Button>
 
                     {c.paidOrderId && (
                       <a href={`/invoice/${c.paidOrderId}`} target="_blank" rel="noreferrer">
@@ -306,18 +309,19 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} />
+      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={(id) => { setStatsDialog(null); handleRemoveWatermark(id); }} />
     </Layout>
   );
 };
 
 /* ─── Enhanced Stats Dialog ─── */
-const StatsDialog = ({ campaign, open, onClose, t }: { campaign: CampaignItem | null; open: boolean; onClose: () => void; t: any }) => {
+const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: CampaignItem | null; open: boolean; onClose: () => void; t: any; onUpgrade: (id: string) => void }) => {
   const [dailyData, setDailyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const isFree = campaign?.tier === 'free';
 
   useEffect(() => {
-    if (!campaign || !open) return;
+    if (!campaign || !open || isFree) return;
     setLoading(true);
     supabase
       .from('campaign_stats_daily' as any)
@@ -329,19 +333,28 @@ const StatsDialog = ({ campaign, open, onClose, t }: { campaign: CampaignItem | 
         setDailyData((data as any[]) ?? []);
         setLoading(false);
       });
-  }, [campaign?.id, open]);
+  }, [campaign?.id, open, isFree]);
 
   if (!campaign) return null;
 
-  const totalSupporters = campaign.supporters;
-  const totalDownloads = campaign.downloads;
-  const conversionRate = totalSupporters > 0 ? ((totalDownloads / totalSupporters) * 100).toFixed(1) : '0';
-  const avgSupportersPerDay = dailyData.length > 0 ? (dailyData.reduce((s, d) => s + (d.supporters_count || 0), 0) / dailyData.length).toFixed(1) : '0';
-  const avgDownloadsPerDay = dailyData.length > 0 ? (dailyData.reduce((s, d) => s + (d.downloads_count || 0), 0) / dailyData.length).toFixed(1) : '0';
-  const peakSupporters = dailyData.length > 0 ? Math.max(...dailyData.map(d => d.supporters_count || 0)) : 0;
-  const peakDownloads = dailyData.length > 0 ? Math.max(...dailyData.map(d => d.downloads_count || 0)) : 0;
+  const dummyChartData = [
+    { date: 'Jan 1', supporters: 42, downloads: 18 },
+    { date: 'Jan 2', supporters: 67, downloads: 31 },
+    { date: 'Jan 3', supporters: 53, downloads: 24 },
+    { date: 'Jan 4', supporters: 89, downloads: 45 },
+    { date: 'Jan 5', supporters: 72, downloads: 38 },
+    { date: 'Jan 6', supporters: 95, downloads: 52 },
+    { date: 'Jan 7', supporters: 110, downloads: 61 },
+  ];
 
-  const chartData = dailyData.map(d => ({
+  const totalSupporters = isFree ? 847 : campaign.supporters;
+  const totalDownloads = isFree ? 423 : campaign.downloads;
+  const conversionRate = totalSupporters > 0 ? ((totalDownloads / totalSupporters) * 100).toFixed(1) : '0';
+  const avgSupportersPerDay = isFree ? '121' : (dailyData.length > 0 ? (dailyData.reduce((s, d) => s + (d.supporters_count || 0), 0) / dailyData.length).toFixed(1) : '0');
+  const peakSupporters = isFree ? 156 : (dailyData.length > 0 ? Math.max(...dailyData.map(d => d.supporters_count || 0)) : 0);
+  const peakDownloads = isFree ? 78 : (dailyData.length > 0 ? Math.max(...dailyData.map(d => d.downloads_count || 0)) : 0);
+
+  const chartData = isFree ? dummyChartData : dailyData.map(d => ({
     date: new Date(d.date).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
     supporters: d.supporters_count || 0,
     downloads: d.downloads_count || 0,
@@ -356,84 +369,97 @@ const StatsDialog = ({ campaign, open, onClose, t }: { campaign: CampaignItem | 
           </DialogTitle>
         </DialogHeader>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-          <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-            <Users className="w-5 h-5 mx-auto text-primary mb-1" />
-            <p className="text-2xl font-bold text-foreground">{totalSupporters}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t.dashboard.totalSupporters ?? 'Total Supporters'}</p>
-          </div>
-          <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-            <Download className="w-5 h-5 mx-auto text-primary mb-1" />
-            <p className="text-2xl font-bold text-foreground">{totalDownloads}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t.dashboard.totalDownloads ?? 'Total Downloads'}</p>
-          </div>
-          <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-            <TrendingUp className="w-5 h-5 mx-auto text-primary mb-1" />
-            <p className="text-2xl font-bold text-foreground">{conversionRate}%</p>
-            <p className="text-xs text-muted-foreground mt-1">{t.dashboard.conversionRate ?? 'Conversion Rate'}</p>
-          </div>
-          <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-            <BarChart3 className="w-5 h-5 mx-auto text-primary mb-1" />
-            <p className="text-2xl font-bold text-foreground">{avgSupportersPerDay}</p>
-            <p className="text-xs text-muted-foreground mt-1">{t.dashboard.avgPerDay ?? 'Avg/Day'}</p>
-          </div>
-        </div>
-
-        {/* Peak stats */}
-        <div className="grid grid-cols-2 gap-3 mt-2">
-          <div className="glass rounded-lg p-3 border-gold-subtle flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.supporters})</span>
-            <span className="font-bold text-foreground">{peakSupporters}</span>
-          </div>
-          <div className="glass rounded-lg p-3 border-gold-subtle flex justify-between items-center">
-            <span className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.downloads})</span>
-            <span className="font-bold text-foreground">{peakDownloads}</span>
-          </div>
-        </div>
-
-        {/* Chart */}
-        <div className="mt-4">
-          <h3 className="text-sm font-semibold text-foreground mb-3">{t.dashboard.dailyTrend ?? 'Daily Trend (Last 30 Days)'}</h3>
-          {loading ? (
-            <div className="flex items-center justify-center h-48 text-muted-foreground">
-              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-              {t.dashboard.noStatsYet ?? 'No statistics data yet'}
-            </div>
-          ) : (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="gradSupp" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="hsl(142 76% 36%)" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="hsl(142 76% 36%)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '8px',
-                      fontSize: '12px',
-                    }}
-                  />
-                  <Area type="monotone" dataKey="supporters" name={t.dashboard.supporters} stroke="hsl(var(--primary))" fill="url(#gradSupp)" strokeWidth={2} />
-                  <Area type="monotone" dataKey="downloads" name={t.dashboard.downloads} stroke="hsl(142 76% 36%)" fill="url(#gradDown)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
+        <div className="relative">
+          {isFree && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/60 backdrop-blur-md rounded-xl">
+              <Lock className="w-8 h-8 text-primary mb-3" />
+              <p className="text-foreground font-semibold text-lg mb-1">Statistik Terkunci</p>
+              <p className="text-muted-foreground text-sm text-center mb-4 max-w-xs">
+                Upgrade ke Premium untuk melihat statistik lengkap campaign kamu.
+              </p>
+              <Button className="gold-glow font-semibold gap-2" onClick={() => onUpgrade(campaign.id)}>
+                <Crown className="w-4 h-4" />
+                Remove Watermark & Unlock Statistics
+              </Button>
             </div>
           )}
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+            <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+              <Users className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-2xl font-bold text-foreground">{totalSupporters}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t.dashboard.totalSupporters ?? 'Total Supporters'}</p>
+            </div>
+            <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+              <Download className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-2xl font-bold text-foreground">{totalDownloads}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t.dashboard.totalDownloads ?? 'Total Downloads'}</p>
+            </div>
+            <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+              <TrendingUp className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-2xl font-bold text-foreground">{conversionRate}%</p>
+              <p className="text-xs text-muted-foreground mt-1">{t.dashboard.conversionRate ?? 'Conversion Rate'}</p>
+            </div>
+            <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+              <BarChart3 className="w-5 h-5 mx-auto text-primary mb-1" />
+              <p className="text-2xl font-bold text-foreground">{avgSupportersPerDay}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t.dashboard.avgPerDay ?? 'Avg/Day'}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-2">
+            <div className="glass rounded-lg p-3 border-gold-subtle flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.supporters})</span>
+              <span className="font-bold text-foreground">{peakSupporters}</span>
+            </div>
+            <div className="glass rounded-lg p-3 border-gold-subtle flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.downloads})</span>
+              <span className="font-bold text-foreground">{peakDownloads}</span>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3">{t.dashboard.dailyTrend ?? 'Daily Trend (Last 30 Days)'}</h3>
+            {!isFree && loading ? (
+              <div className="flex items-center justify-center h-48 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+                {t.dashboard.noStatsYet ?? 'No statistics data yet'}
+              </div>
+            ) : (
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="gradSupp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(142 76% 36%)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="hsl(142 76% 36%)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                    />
+                    <Area type="monotone" dataKey="supporters" name={t.dashboard.supporters} stroke="hsl(var(--primary))" fill="url(#gradSupp)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="downloads" name={t.dashboard.downloads} stroke="hsl(142 76% 36%)" fill="url(#gradDown)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
