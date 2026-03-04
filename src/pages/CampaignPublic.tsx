@@ -2,7 +2,7 @@ import Layout from '@/components/Layout';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2, SlidersHorizontal, Users, Link2 } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Slider } from '@/components/ui/slider';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +30,7 @@ const CampaignPublic = () => {
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
   const [creatorName, setCreatorName] = useState('');
-  const [supportersCount, setSupportersCount] = useState(0);
+  const [creatorAvatarUrl, setCreatorAvatarUrl] = useState('');
 
   const [userPhoto, setUserPhoto] = useState<string>('');
   const [templateImage, setTemplateImage] = useState<string>('');
@@ -102,21 +102,16 @@ const CampaignPublic = () => {
 
       setCampaign(data);
 
-      // Fetch creator name
+      // Fetch creator profile (name + avatar)
       const { data: profile } = await supabase
         .from('profiles' as any)
-        .select('name')
+        .select('name, avatar_url')
         .eq('id', data.user_id)
         .maybeSingle();
-      if (!cancelled && profile) setCreatorName((profile as any).name || '');
-
-      // Fetch stats
-      const { data: stats } = await supabase
-        .from('campaign_stats' as any)
-        .select('supporters_count')
-        .eq('campaign_id', data.id)
-        .maybeSingle();
-      if (!cancelled && stats) setSupportersCount((stats as any).supporters_count || 0);
+      if (!cancelled && profile) {
+        setCreatorName((profile as any).name || '');
+        setCreatorAvatarUrl((profile as any).avatar_url || '');
+      }
 
       const previewMeta = extractPreviewMeta(data.design_json);
       setPreviewImage(previewMeta.previewImageDataUrl ?? '');
@@ -682,6 +677,19 @@ const CampaignPublic = () => {
             </div>
           )}
 
+          {/* Banner Image */}
+          {campaign.banner_url && (
+            <div className="mb-6 rounded-2xl overflow-hidden border border-border">
+              <img
+                src={campaign.banner_url}
+                alt={`${campaign.name} banner`}
+                className="w-full h-auto object-cover"
+                style={{ maxHeight: '300px' }}
+                loading="lazy"
+              />
+            </div>
+          )}
+
           {/* Campaign Header */}
           <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle mb-6 space-y-4">
             <h1 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient">{campaign.name}</h1>
@@ -689,6 +697,9 @@ const CampaignPublic = () => {
             {/* Creator avatar + name */}
             <div className="flex items-center gap-2">
               <Avatar className="w-7 h-7">
+                {creatorAvatarUrl && (
+                  <AvatarImage src={creatorAvatarUrl} alt={creatorName} />
+                )}
                 <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                   {(creatorName || 'U').charAt(0).toUpperCase()}
                 </AvatarFallback>
@@ -701,13 +712,6 @@ const CampaignPublic = () => {
                 </span>
               )}
             </div>
-
-            {supportersCount > 0 && (
-              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Users className="w-4 h-4" />
-                <span>{supportersCount.toLocaleString('id-ID')} supporters</span>
-              </div>
-            )}
 
             {/* About This Campaign */}
             {campaign.description && (

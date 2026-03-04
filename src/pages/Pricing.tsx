@@ -11,14 +11,14 @@ const Pricing = () => {
   const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
 
   const comparison = [
-    { feature: t.pricing.editor, free: t.pricing.basic, premium: t.pricing.full },
+    { feature: t.pricing.editor, free: true, premium: true },
     { feature: t.pricing.watermark, free: false, premium: true },
     { feature: t.pricing.ads, free: false, premium: true },
     { feature: t.pricing.stats, free: false, premium: true },
     { feature: t.pricing.privateLink, free: true, premium: true },
     { feature: t.pricing.customSlug, free: true, premium: true },
     { feature: t.pricing.share, free: true, premium: true },
-    { feature: t.pricing.bgRemoval, free: true, premium: true },
+    { feature: t.pricing.customBanner ?? 'Upload Custom Banner', free: false, premium: true },
   ];
 
   return (

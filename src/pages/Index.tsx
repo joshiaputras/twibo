@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart, Image, ChevronRight } from 'lucide-react';
 import { usePricing } from '@/hooks/usePricing';
 import { useFeaturedCampaigns } from '@/hooks/useFeaturedCampaigns';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { extractPreviewMeta } from '@/utils/campaignDesign';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const FloatingCard = ({ className, children }: { className?: string; children: React.ReactNode }) => (
   <div className={`absolute glass rounded-xl p-3 gold-glow opacity-70 ${className}`}>
@@ -17,27 +18,45 @@ const FloatingCard = ({ className, children }: { className?: string; children: R
 const Index = () => {
   const { t } = useLanguage();
   const { premiumPrice, originalPrice } = usePricing();
-  const { campaigns: featuredCampaigns } = useFeaturedCampaigns();
+  const { campaigns: featuredCampaigns, loading: featuredLoading } = useFeaturedCampaigns();
   const carouselRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll carousel
+  // Auto-scroll infinite carousel
   useEffect(() => {
     const el = carouselRef.current;
     if (!el || featuredCampaigns.length === 0) return;
 
     let animId: number;
+    let lastTime = 0;
+    const speed = 0.5; // pixels per frame at 60fps
 
-    const animate = () => {
-      el.scrollLeft += 0.3;
-      // When we've scrolled past the first set, reset seamlessly
-      if (el.scrollLeft >= el.scrollWidth / 2) {
-        el.scrollLeft = 0;
+    const animate = (time: number) => {
+      if (lastTime) {
+        const delta = time - lastTime;
+        const move = speed * (delta / 16.67); // normalize to 60fps
+        el.scrollLeft += move;
+        // Reset seamlessly when past midpoint
+        if (el.scrollLeft >= el.scrollWidth / 2) {
+          el.scrollLeft -= el.scrollWidth / 2;
+        }
       }
+      lastTime = time;
       animId = requestAnimationFrame(animate);
     };
 
+    // Pause on hover
+    const pause = () => cancelAnimationFrame(animId);
+    const resume = () => { lastTime = 0; animId = requestAnimationFrame(animate); };
+
     animId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animId);
+    el.addEventListener('mouseenter', pause);
+    el.addEventListener('mouseleave', resume);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      el.removeEventListener('mouseenter', pause);
+      el.removeEventListener('mouseleave', resume);
+    };
   }, [featuredCampaigns.length]);
 
   const steps = [
@@ -157,22 +176,37 @@ const Index = () => {
       </section>
 
       {/* Featured Campaigns Carousel */}
-      {featuredCampaigns.length > 0 && (
-        <section className="py-20">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">
-                Campaign Gratis untuk Kamu
-              </h2>
-              <p className="text-muted-foreground">Langsung pakai frame campaign populer berikut ini</p>
-            </div>
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-10">
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">
+              Campaign Gratis untuk Kamu
+            </h2>
+            <p className="text-muted-foreground">Langsung pakai frame campaign populer berikut ini</p>
+          </div>
 
+          {featuredLoading ? (
+            <div className="flex gap-4 overflow-hidden pb-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="shrink-0 w-[200px] md:w-[240px]">
+                  <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
+                    <Skeleton className="aspect-square w-full" />
+                    <div className="p-3 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : featuredCampaigns.length > 0 ? (
             <div
               ref={carouselRef}
-              className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide"
+              className="flex gap-4 overflow-x-hidden pb-4"
               style={{ scrollBehavior: 'auto' }}
             >
-              {[...featuredCampaigns, ...featuredCampaigns].map((fc, i) => {
+              {/* Duplicate list 3x for seamless infinite loop */}
+              {[...featuredCampaigns, ...featuredCampaigns, ...featuredCampaigns].map((fc, i) => {
                 const previewMeta = extractPreviewMeta(fc.design_json);
                 const previewUrl = previewMeta.previewImageDataUrl;
 
@@ -201,9 +235,9 @@ const Index = () => {
                 );
               })}
             </div>
-          </div>
-        </section>
-      )}
+          ) : null}
+        </div>
+      </section>
 
       {/* How It Works */}
       <section className="py-20">
@@ -362,22 +396,15 @@ const Index = () => {
           <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-4">
             Siap Buat Campaign Pertamamu?
           </h2>
-          <p className="text-muted-foreground text-lg max-w-xl mx-auto mb-8">
-            Bergabung dengan ribuan kreator yang sudah menggunakan TWIBO.id untuk membuat twibbon campaign profesional.
+          <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
+            Bergabung dengan ribuan komunitas yang sudah menggunakan TWIBO.id
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/signup">
-              <Button size="lg" className="gold-glow-strong font-display font-semibold text-lg px-8 py-6 rounded-xl">
-                Mulai Gratis Sekarang
-                <ArrowRight className="w-5 h-5 ml-1" />
-              </Button>
-            </Link>
-            <Link to="/pricing">
-              <Button size="lg" variant="outline" className="font-display font-semibold text-lg px-8 py-6 rounded-xl border-border hover:border-primary/50">
-                Lihat Paket Premium
-              </Button>
-            </Link>
-          </div>
+          <Link to="/signup">
+            <Button size="lg" className="gold-glow-strong font-display font-semibold text-lg px-10 py-6 rounded-xl">
+              {t.hero.cta}
+              <ArrowRight className="w-5 h-5 ml-1" />
+            </Button>
+          </Link>
         </div>
       </section>
     </Layout>

@@ -86,7 +86,12 @@ const PaymentConfirmDialog = ({
   };
 
   const handleConfirm = () => {
-    onConfirm(voucherDiscount?.code);
+    // Close dialog first, then trigger payment
+    onClose();
+    // Small delay to let dialog close before Midtrans opens
+    setTimeout(() => {
+      onConfirm(voucherDiscount?.code);
+    }, 300);
   };
 
   return (
@@ -137,7 +142,7 @@ const PaymentConfirmDialog = ({
                 <Input
                   placeholder="Masukkan kode voucher"
                   value={voucherCode}
-                  onChange={e => setVoucherCode(e.target.value.toUpperCase())}
+                  onChange={e => { setVoucherCode(e.target.value.toUpperCase()); setVoucherError(''); }}
                   className="pl-9 bg-secondary/50 border-border text-sm uppercase"
                   disabled={!!voucherDiscount}
                 />

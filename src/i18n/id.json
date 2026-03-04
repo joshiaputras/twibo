@@ -88,8 +88,8 @@
     "stats": "Statistik Campaign",
     "customSlug": "Custom URL Slug",
     "share": "Share Buttons",
-    "bgRemoval": "Background Removal",
     "privateLink": "Link Campaign Privat",
+    "customBanner": "Upload Custom Banner",
     "basic": "Dasar",
     "full": "Penuh"
   },
