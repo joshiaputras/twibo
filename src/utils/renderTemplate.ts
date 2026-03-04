@@ -188,9 +188,9 @@ export async function composeResult(opts: {
 
     ctx.save();
     if (placeholderMeta) {
-      const bleed = 2;
-      const left = placeholderMeta.left * previewScale - bleed;
-      const top = placeholderMeta.top * previewScale - bleed;
+    const bleed = 8;
+    const left = placeholderMeta.left * previewScale - bleed;
+    const top = placeholderMeta.top * previewScale - bleed;
       const clipW = placeholderMeta.width * placeholderMeta.scaleX * previewScale + bleed * 2;
       const clipH = placeholderMeta.height * placeholderMeta.scaleY * previewScale + bleed * 2;
       const radiusX = placeholderMeta.rx * placeholderMeta.scaleX * previewScale;
@@ -214,7 +214,7 @@ export async function composeResult(opts: {
     const oy = ph / 2 + photoOffsetY * previewScale - imgH / 2;
 
     if (campaignType === 'frame' && placeholderMeta) {
-      const bleed = 2;
+      const bleed = 8;
       const left = placeholderMeta.left * previewScale - bleed;
       const top = placeholderMeta.top * previewScale - bleed;
       const clipW = placeholderMeta.width * placeholderMeta.scaleX * previewScale + bleed * 2;
@@ -239,6 +239,9 @@ export async function composeResult(opts: {
     ctx.drawImage(tpl, 0, 0, pw, ph);
     await drawPhoto();
   } else {
+    // Fill with black first to cover any transparent template areas
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, pw, ph);
     await drawBlurFill();
     await drawPhoto();
     ctx.drawImage(tpl, 0, 0, pw, ph);

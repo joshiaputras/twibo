@@ -11,6 +11,8 @@ const STATICIMGLY_V145_PATH = 'https://staticimgly.com/@imgly/background-removal
 const baseConfig: RemoveConfig = {
   output: { format: 'image/png' },
   device: 'cpu',
+  debug: false,
+  fetchArgs: { mode: 'cors', credentials: 'omit' },
 };
 
 const PATH_FALLBACKS = [STATICIMGLY_V17_PATH, STATICIMGLY_V145_PATH] as const;
