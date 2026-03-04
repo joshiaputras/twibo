@@ -3,7 +3,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye } from 'lucide-react';
+import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -20,6 +20,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMidtransPayment } from '@/hooks/useMidtransPayment';
 
 type CampaignItem = {
   id: string;
@@ -33,6 +34,7 @@ type CampaignItem = {
 
 const Dashboard = () => {
   const { t } = useLanguage();
+  const { pay, paying } = useMidtransPayment();
   const { user } = useAuth();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
@@ -123,13 +125,10 @@ const Dashboard = () => {
   };
 
   const handleRemoveWatermark = async (id: string) => {
-    const { error } = await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', id);
-    if (error) {
-      toast.error(error.message);
-      return;
+    const result = await pay(id);
+    if (result.success) {
+      setCampaigns(prev => prev.map(c => (c.id === id ? { ...c, tier: 'premium' } : c)));
     }
-    setCampaigns(prev => prev.map(c => (c.id === id ? { ...c, tier: 'premium' } : c)));
-    toast.success(t.dashboard.watermarkRemoved ?? 'Watermark berhasil dihapus!');
   };
 
   return (
@@ -243,9 +242,9 @@ const Dashboard = () => {
                     </Button>
 
                     {c.tier === 'free' && (
-                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => handleRemoveWatermark(c.id)}>
-                        <Crown className="w-3 h-3" />
-                        {t.dashboard.removeWatermark ?? 'Remove Watermark'}
+                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => handleRemoveWatermark(c.id)} disabled={paying}>
+                        {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
+                        {paying ? 'Processing...' : (t.dashboard.removeWatermark ?? 'Upgrade Premium')}
                       </Button>
                     )}
 

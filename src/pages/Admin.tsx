@@ -373,16 +373,17 @@ const Admin = () => {
                 <h3 className="font-display font-semibold text-foreground">{t.admin.settings}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
-                    { key: 'midtrans_server_key', label: 'Midtrans Server Key' },
-                    { key: 'midtrans_client_key', label: 'Midtrans Client Key' },
-                    { key: 'adsense_id', label: 'Google AdSense ID' },
-                    { key: 'whatsapp_link', label: 'WhatsApp Chat Link' },
-                    { key: 'telegram_link', label: 'Telegram Chat Link' },
-                    { key: 'vps_storage_url', label: 'VPS Storage URL' },
+                    { key: 'midtrans_server_key', label: 'Midtrans Server Key', type: 'password' },
+                    { key: 'midtrans_client_key', label: 'Midtrans Client Key', type: 'text' },
+                    { key: 'midtrans_mode', label: 'Midtrans Mode (sandbox / production)', type: 'text' },
+                    { key: 'adsense_id', label: 'Google AdSense Publisher ID (ca-pub-xxx)', type: 'text' },
+                    { key: 'whatsapp_link', label: 'WhatsApp Chat Link', type: 'text' },
+                    { key: 'telegram_link', label: 'Telegram Chat Link', type: 'text' },
+                    { key: 'vps_storage_url', label: 'VPS Storage URL', type: 'text' },
                   ].map(item => (
                     <div key={item.key}>
                       <label className="text-sm text-muted-foreground">{item.label}</label>
-                      <Input value={settings[item.key] || ''} onChange={e => setSettings(prev => ({ ...prev, [item.key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-sm" placeholder={t.admin.settingPlaceholder ?? 'Enter value'} />
+                      <Input type={item.type || 'text'} value={settings[item.key] || ''} onChange={e => setSettings(prev => ({ ...prev, [item.key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-sm" placeholder={item.key === 'midtrans_mode' ? 'sandbox' : (t.admin.settingPlaceholder ?? 'Enter value')} />
                     </div>
                   ))}
                 </div>
