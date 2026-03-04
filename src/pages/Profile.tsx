@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { User, Lock, Camera, Loader2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Lock, Camera, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 const Profile = () => {
@@ -20,9 +20,11 @@ const Profile = () => {
   const [savingName, setSavingName] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const loadedRef = useRef(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || loadedRef.current) return;
+    loadedRef.current = true;
     supabase.from('profiles').select('name, phone, avatar_url').eq('id', user.id).maybeSingle()
       .then(({ data }) => {
         if (data) {
@@ -50,10 +52,13 @@ const Profile = () => {
       const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
       const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+      const { error: updateError } = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+      if (updateError) throw updateError;
+
       await refreshProfile();
       toast.success(t.profile.avatarUpdated ?? 'Avatar updated!');
     } catch (err: any) {
+      console.error('Avatar upload error:', err);
       toast.error(err.message || 'Upload failed');
     } finally {
       setUploadingAvatar(false);
@@ -64,17 +69,21 @@ const Profile = () => {
   const handleSaveName = async () => {
     if (!user) return;
     setSavingName(true);
-    const { error } = await supabase.from('profiles').update({ name, phone }).eq('id', user.id);
-    if (error) {
+    try {
+      const { error } = await supabase.from('profiles').update({ name, phone }).eq('id', user.id);
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      await supabase.auth.updateUser({ data: { name, phone } });
+      await refreshProfile();
+      toast.success(t.profile.saveChanges + ' ✓');
+    } catch (err: any) {
+      console.error('Save profile error:', err);
+      toast.error(err.message || 'Save failed');
+    } finally {
       setSavingName(false);
-      toast.error(error.message);
-      return;
     }
-    // Also update auth user_metadata so it stays in sync
-    await supabase.auth.updateUser({ data: { name, phone } });
-    await refreshProfile();
-    setSavingName(false);
-    toast.success(t.profile.saveChanges + ' ✓');
   };
 
   const handleChangePassword = async () => {
@@ -87,26 +96,30 @@ const Profile = () => {
       return;
     }
     setSavingPassword(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user?.email || '',
+        password: currentPassword,
+      });
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: user?.email || '',
-      password: currentPassword,
-    });
+      if (signInError) {
+        toast.error(t.profile.wrongCurrentPassword ?? 'Current password is incorrect');
+        return;
+      }
 
-    if (signInError) {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success(t.auth?.resetSuccess || 'Password updated!');
+        setCurrentPassword('');
+        setNewPassword('');
+      }
+    } catch (err: any) {
+      console.error('Password change error:', err);
+      toast.error(err.message || 'Failed');
+    } finally {
       setSavingPassword(false);
-      toast.error(t.profile.wrongCurrentPassword ?? 'Current password is incorrect');
-      return;
-    }
-
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setSavingPassword(false);
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success(t.auth?.resetSuccess || 'Password updated!');
-      setCurrentPassword('');
-      setNewPassword('');
     }
   };
 
