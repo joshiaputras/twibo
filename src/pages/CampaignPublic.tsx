@@ -579,8 +579,20 @@ const CampaignPublic = () => {
 
                 {exampleImage && (
                   <div className="pt-1">
-                    <div className="mx-auto w-[70%] max-w-[320px] rounded-xl border border-border bg-secondary/20 p-2">
+                    <div className="relative mx-auto w-[70%] max-w-[320px] rounded-xl border border-border bg-secondary/20 p-2">
                       <img src={exampleImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
+                      {isFree && (
+                        <>
+                          <div className="absolute inset-2 flex items-center justify-center pointer-events-none">
+                            <span className="text-white/30 text-4xl font-black tracking-widest rotate-[-20deg] select-none" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>PREVIEW</span>
+                          </div>
+                          <div className="absolute bottom-3 right-3 pointer-events-none">
+                            <div className="bg-white/95 rounded-full px-2.5 py-0.5 shadow-sm">
+                              <span className="text-[8px] font-bold tracking-wide" style={{ color: 'hsl(46 95% 48%)', fontFamily: '"Space Grotesk", "Segoe UI", sans-serif' }}>Made with TWIBO.id</span>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
