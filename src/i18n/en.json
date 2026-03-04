@@ -88,8 +88,8 @@
     "stats": "Campaign Statistics",
     "customSlug": "Custom URL Slug",
     "share": "Share Buttons",
-    "bgRemoval": "Background Removal",
     "privateLink": "Private Campaign Link",
+    "customBanner": "Upload Custom Banner",
     "basic": "Basic",
     "full": "Full"
   },

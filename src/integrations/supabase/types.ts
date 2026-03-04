@@ -70,6 +70,7 @@ export type Database = {
       }
       campaigns: {
         Row: {
+          banner_url: string | null
           caption: string
           created_at: string
           description: string
@@ -86,6 +87,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          banner_url?: string | null
           caption?: string
           created_at?: string
           description?: string
@@ -102,6 +104,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          banner_url?: string | null
           caption?: string
           created_at?: string
           description?: string
