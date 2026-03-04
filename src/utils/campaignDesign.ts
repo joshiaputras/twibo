@@ -80,12 +80,26 @@ export function extractPlaceholderMeta(raw: unknown): PlaceholderMeta | null {
   const placeholder = objects.find(isPlaceholderObject);
   if (!placeholder) return null;
 
-  const left = Number(placeholder.left ?? 0);
-  const top = Number(placeholder.top ?? 0);
+  const rawLeft = Number(placeholder.left ?? 0);
+  const rawTop = Number(placeholder.top ?? 0);
   const width = Number(placeholder.width ?? 0);
   const height = Number(placeholder.height ?? 0);
   const scaleX = Number(placeholder.scaleX ?? 1) || 1;
   const scaleY = Number(placeholder.scaleY ?? 1) || 1;
+
+  // Fabric.js v6 defaults to originX/Y = 'center', so left/top is the center point.
+  // Convert to top-left corner for consumers.
+  const originX = String(placeholder.originX ?? 'center').toLowerCase();
+  const originY = String(placeholder.originY ?? 'center').toLowerCase();
+  const w = width * scaleX;
+  const h = height * scaleY;
+
+  let left = rawLeft;
+  let top = rawTop;
+  if (originX === 'center') left = rawLeft - w / 2;
+  else if (originX === 'right') left = rawLeft - w;
+  if (originY === 'center') top = rawTop - h / 2;
+  else if (originY === 'bottom') top = rawTop - h;
 
   return {
     left,
