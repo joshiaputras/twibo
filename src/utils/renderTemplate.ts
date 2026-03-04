@@ -188,10 +188,11 @@ export async function composeResult(opts: {
 
     ctx.save();
     if (placeholderMeta) {
-      const left = placeholderMeta.left * previewScale;
-      const top = placeholderMeta.top * previewScale;
-      const clipW = placeholderMeta.width * placeholderMeta.scaleX * previewScale;
-      const clipH = placeholderMeta.height * placeholderMeta.scaleY * previewScale;
+      const bleed = 2;
+      const left = placeholderMeta.left * previewScale - bleed;
+      const top = placeholderMeta.top * previewScale - bleed;
+      const clipW = placeholderMeta.width * placeholderMeta.scaleX * previewScale + bleed * 2;
+      const clipH = placeholderMeta.height * placeholderMeta.scaleY * previewScale + bleed * 2;
       const radiusX = placeholderMeta.rx * placeholderMeta.scaleX * previewScale;
       const radiusY = placeholderMeta.ry * placeholderMeta.scaleY * previewScale;
       createRoundedRectPath(ctx, left, top, clipW, clipH, radiusX, radiusY);
@@ -213,10 +214,11 @@ export async function composeResult(opts: {
     const oy = ph / 2 + photoOffsetY * previewScale - imgH / 2;
 
     if (campaignType === 'frame' && placeholderMeta) {
-      const left = placeholderMeta.left * previewScale;
-      const top = placeholderMeta.top * previewScale;
-      const clipW = placeholderMeta.width * placeholderMeta.scaleX * previewScale;
-      const clipH = placeholderMeta.height * placeholderMeta.scaleY * previewScale;
+      const bleed = 2;
+      const left = placeholderMeta.left * previewScale - bleed;
+      const top = placeholderMeta.top * previewScale - bleed;
+      const clipW = placeholderMeta.width * placeholderMeta.scaleX * previewScale + bleed * 2;
+      const clipH = placeholderMeta.height * placeholderMeta.scaleY * previewScale + bleed * 2;
       const radiusX = placeholderMeta.rx * placeholderMeta.scaleX * previewScale;
       const radiusY = placeholderMeta.ry * placeholderMeta.scaleY * previewScale;
 

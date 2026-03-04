@@ -40,17 +40,19 @@ const PhotoComposerPreview = ({
   const clipStyles = (() => {
     if (campaignType !== 'frame' || !placeholderMeta) return {} as CSSProperties;
 
-    const left = placeholderMeta.left * previewScale;
-    const top = placeholderMeta.top * previewScale;
-    const boxWidth = placeholderMeta.width * placeholderMeta.scaleX * previewScale;
-    const boxHeight = placeholderMeta.height * placeholderMeta.scaleY * previewScale;
+    // Add a small bleed (expand) so the clip fully covers the template hole
+    const bleed = 2;
+    const left = Math.max(0, placeholderMeta.left * previewScale - bleed);
+    const top = Math.max(0, placeholderMeta.top * previewScale - bleed);
+    const boxWidth = placeholderMeta.width * placeholderMeta.scaleX * previewScale + bleed * 2;
+    const boxHeight = placeholderMeta.height * placeholderMeta.scaleY * previewScale + bleed * 2;
     const right = Math.max(0, scaledWidth - (left + boxWidth));
     const bottom = Math.max(0, scaledHeight - (top + boxHeight));
     const radiusX = placeholderMeta.rx * placeholderMeta.scaleX * previewScale;
     const radiusY = placeholderMeta.ry * placeholderMeta.scaleY * previewScale;
 
     return {
-      clipPath: `inset(${Math.max(0, top)}px ${right}px ${bottom}px ${Math.max(0, left)}px round ${Math.max(0, radiusX)}px ${Math.max(0, radiusY)}px)`,
+      clipPath: `inset(${top}px ${right}px ${bottom}px ${left}px round ${Math.max(0, radiusX)}px ${Math.max(0, radiusY)}px)`,
     } as CSSProperties;
   })();
 
