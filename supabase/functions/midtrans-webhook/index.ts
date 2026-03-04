@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // If paid, upgrade campaign to premium
+    // If paid, upgrade campaign to premium and cleanup other pending orders
     if (newStatus === "paid" && paymentData?.campaign_id) {
       const { error: upgradeErr } = await adminClient
         .from("campaigns")
@@ -128,6 +128,36 @@ Deno.serve(async (req) => {
         console.error("Upgrade campaign error:", upgradeErr);
       } else {
         console.log("Campaign upgraded to premium:", paymentData.campaign_id);
+      }
+
+      // Delete other pending/failed payment records for this campaign (keep only the paid one)
+      const { error: cleanupErr } = await adminClient
+        .from("payments")
+        .delete()
+        .eq("campaign_id", paymentData.campaign_id)
+        .neq("midtrans_order_id", order_id)
+        .in("status", ["pending", "failed"]);
+
+      if (cleanupErr) {
+        console.error("Cleanup pending orders error:", cleanupErr);
+      } else {
+        console.log("Cleaned up duplicate pending orders for campaign:", paymentData.campaign_id);
+      }
+
+      // Send invoice email (fire-and-forget)
+      try {
+        const appUrl = Deno.env.get("APP_URL") || "https://twibbo-creator-hub.lovable.app";
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-invoice-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          },
+          body: JSON.stringify({ order_id, app_url: appUrl }),
+        });
+        console.log("Invoice email triggered for:", order_id);
+      } catch (emailErr) {
+        console.error("Invoice email trigger failed:", emailErr);
       }
     }
 

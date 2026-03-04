@@ -388,11 +388,17 @@ const Admin = () => {
               <div className="glass-strong rounded-2xl p-6 border-gold-subtle space-y-6">
                 <h3 className="font-display font-semibold text-foreground">{t.admin.settings}</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
+                {[
                     { key: 'midtrans_server_key', label: 'Midtrans Server Key', type: 'password' },
                     { key: 'midtrans_client_key', label: 'Midtrans Client Key', type: 'text' },
                     { key: 'midtrans_mode', label: 'Midtrans Mode (sandbox / production)', type: 'text' },
                     { key: 'adsense_id', label: 'Google AdSense Publisher ID (ca-pub-xxx)', type: 'text' },
+                    { key: 'smtp_host', label: 'SMTP Host (e.g. smtp.gmail.com)', type: 'text' },
+                    { key: 'smtp_port', label: 'SMTP Port (587 / 465)', type: 'text' },
+                    { key: 'smtp_username', label: 'SMTP Username / Email', type: 'text' },
+                    { key: 'smtp_password', label: 'SMTP Password / App Password', type: 'password' },
+                    { key: 'smtp_from_email', label: 'SMTP From Email', type: 'text' },
+                    { key: 'smtp_from_name', label: 'SMTP From Name', type: 'text' },
                     { key: 'whatsapp_link', label: 'WhatsApp Chat Link', type: 'text' },
                     { key: 'telegram_link', label: 'Telegram Chat Link', type: 'text' },
                     { key: 'vps_storage_url', label: 'VPS Storage URL', type: 'text' },
