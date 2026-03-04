@@ -180,7 +180,7 @@ export async function composeResult(opts: {
     if (!userPhotoDataUrl || campaignType !== 'frame') return;
     const photo = await loadImage(userPhotoDataUrl);
 
-    const coverScale = Math.max(pw / photo.width, ph / photo.height) * 1.08;
+    const coverScale = Math.max(pw / photo.width, ph / photo.height) * 1.5;
     const blurW = photo.width * coverScale;
     const blurH = photo.height * coverScale;
     const blurX = (pw - blurW) / 2;

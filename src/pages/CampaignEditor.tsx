@@ -82,6 +82,7 @@ const CampaignEditor = () => {
   const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle');
   const [processingPhoto, setProcessingPhoto] = useState(false);
   const [isInteractingPreview, setIsInteractingPreview] = useState(false);
+  const [loadingCampaign, setLoadingCampaign] = useState(isEdit);
 
   const composeVersionRef = useRef(0);
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
@@ -115,6 +116,7 @@ const CampaignEditor = () => {
   useEffect(() => {
     if (!isEdit || !id) return;
     const loadCampaign = async () => {
+      setLoadingCampaign(true);
       const { data, error }: { data: any; error: any } = await supabase.from('campaigns' as any).select('*').eq('id', id).single();
       if (error || !data) {
         toast.error(t.campaign.loadError);
@@ -141,6 +143,7 @@ const CampaignEditor = () => {
       setSimOffsetX(previewMeta.photoOffsetX ?? 0);
       setSimOffsetY(previewMeta.photoOffsetY ?? 0);
       setPreviewResult(previewMeta.previewImageDataUrl ?? '');
+      setLoadingCampaign(false);
     };
     loadCampaign();
   }, [id, isEdit, navigate, t.campaign.loadError]);
@@ -331,7 +334,7 @@ const CampaignEditor = () => {
         const photo = await loadImage(photoDataUrl);
         const targetW = Math.max(1, placeholderMeta.width * placeholderMeta.scaleX);
         const targetH = Math.max(1, placeholderMeta.height * placeholderMeta.scaleY);
-        const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height)) * 1.05;
+        const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height)) * 1.2;
 
         return {
           scale: clamp(coverScale * 100, 20, 400),
@@ -579,7 +582,15 @@ const CampaignEditor = () => {
             ))}
           </div>
 
-          <div className="glass-strong rounded-2xl p-4 md:p-8 border-gold-subtle">
+          <div className="glass-strong rounded-2xl p-4 md:p-8 border-gold-subtle relative">
+            {loadingCampaign && (
+              <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-2xl">
+                <div className="inline-flex items-center gap-2 text-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">{t.campaign.editor?.loading ?? 'Loading...'}</span>
+                </div>
+              </div>
+            )}
             {step === 0 && (
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step1}</h2>
@@ -819,10 +830,17 @@ const CampaignEditor = () => {
 
             {!showPayment && (
               <div className="flex justify-between mt-8 pt-6 border-t border-border/30">
-                <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 0} className="border-border gap-1">
-                  <ChevronLeft className="w-4 h-4" />
-                  {t.campaign.prev}
-                </Button>
+                {step === 0 ? (
+                  <Button variant="outline" onClick={() => navigate('/dashboard')} className="border-border gap-1">
+                    <ChevronLeft className="w-4 h-4" />
+                    {t.campaign.backToDashboard ?? 'Back to Dashboard'}
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={() => setStep(s => s - 1)} className="border-border gap-1">
+                    <ChevronLeft className="w-4 h-4" />
+                    {t.campaign.prev}
+                  </Button>
+                )}
                 {step < steps.length - 1 && (
                   <Button onClick={handleNext} className="gold-glow gap-1">
                     {t.campaign.next}

@@ -172,6 +172,7 @@
     "typeBgDesc": "Remove photo background and merge with your design",
     "next": "Next",
     "prev": "Previous",
+    "backToDashboard": "Back to Dashboard",
     "saveDraft": "Save Draft",
     "saving": "Saving...",
     "publish": "Publish Campaign",

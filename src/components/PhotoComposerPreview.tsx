@@ -63,14 +63,14 @@ const PhotoComposerPreview = ({
       )}
 
       {campaignType === 'frame' ? (
-        <div className="absolute inset-0 pointer-events-none overflow-hidden" style={clipStyles}>
+        <div className="absolute inset-0 pointer-events-none overflow-hidden bg-black" style={clipStyles}>
           {userPhoto && (
             <img
               src={userPhoto}
               alt="Blur fill"
               draggable={false}
               className="absolute inset-0 h-full w-full select-none object-cover blur-xl"
-              style={{ opacity: 0.88, transform: 'scale(1.2)' }}
+              style={{ opacity: 0.92, transform: 'scale(1.5)' }}
             />
           )}
           {userPhoto && (
