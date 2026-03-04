@@ -33,9 +33,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const fetchingRef = useRef(false);
+  const sessionRef = useRef<Session | null>(null);
 
-  const fetchProfile = useCallback(async (userId: string, currentSession?: Session | null) => {
-    // Prevent concurrent fetches that cause flickering
+  // Keep sessionRef in sync
+  sessionRef.current = session;
+
+  const fetchProfile = useCallback(async (userId: string, sess?: Session | null) => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
 
@@ -47,45 +50,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       setProfileName(profile?.name ?? '');
 
-      const sess = currentSession ?? session;
-      const googleAvatar = sess?.user?.user_metadata?.avatar_url || sess?.user?.user_metadata?.picture || '';
+      const s = sess ?? sessionRef.current;
+      const googleAvatar = s?.user?.user_metadata?.avatar_url || s?.user?.user_metadata?.picture || '';
       setAvatarUrl(profile?.avatar_url || googleAvatar || '');
 
       setIsAdmin((roleRows ?? []).some((r: any) => r.role === 'admin'));
     } catch (err) {
-      // Silently fail - don't reset state on network errors to prevent flickering
       console.error('Failed to fetch profile:', err);
     } finally {
       fetchingRef.current = false;
     }
-  }, [session]);
+  }, []); // No dependencies - uses refs instead
 
   const refreshProfile = useCallback(async () => {
     const { data: { session: currentSession } } = await supabase.auth.getSession();
-    const user = currentSession?.user;
-    if (user) await fetchProfile(user.id, currentSession);
+    if (currentSession?.user) await fetchProfile(currentSession.user.id, currentSession);
   }, [fetchProfile]);
 
   useEffect(() => {
     let mounted = true;
+    let initialFetchDone = false;
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
       if (!mounted) return;
-      setSession(session);
+      setSession(s);
       setLoading(false);
-      if (session?.user) fetchProfile(session.user.id, session);
+      initialFetchDone = true;
+      if (s?.user) fetchProfile(s.user.id, s);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       if (!mounted) return;
-      setSession(session);
+      setSession(s);
       setLoading(false);
-      if (session?.user) {
-        // Use requestAnimationFrame instead of setTimeout to batch with rendering
-        requestAnimationFrame(() => {
-          if (mounted) fetchProfile(session.user.id, session);
-        });
-      } else {
+      // Only fetch profile on actual auth events, not duplicate initial load
+      if (s?.user && initialFetchDone) {
+        fetchProfile(s.user.id, s);
+      } else if (!s) {
         setProfileName('');
         setAvatarUrl('');
         setIsAdmin(false);
