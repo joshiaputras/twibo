@@ -2,6 +2,7 @@ import { StaticCanvas } from 'fabric';
 import { extractCanvasDesign, type PlaceholderMeta } from './campaignDesign';
 
 const PLACEHOLDER_PREFIX = '__placeholder__';
+const BG_IMAGE_PLACEHOLDER_ID = '__bg_image_placeholder__';
 const LEGACY_PLACEHOLDER_FILL = 'rgba(255,255,255,0.14';
 const LEGACY_PLACEHOLDER_STROKE = 'rgba(255,255,255,0.9';
 
@@ -76,6 +77,12 @@ export async function renderTemplatePNG(
   await fc.loadFromJSON(parsed);
 
   const placeholders = fc.getObjects().filter((o: any) => isPlaceholderObject(o));
+  // Hide bg image placeholder (visual guide only, never rendered)
+  fc.getObjects().forEach((o: any) => {
+    if (String(o?.id ?? '') === BG_IMAGE_PLACEHOLDER_ID) {
+      o.set({ visible: false, opacity: 0 });
+    }
+  });
 
   if (campaignType === 'frame') {
     // Keep stacking order from editor: placeholder punches a hole only on layers below it.
