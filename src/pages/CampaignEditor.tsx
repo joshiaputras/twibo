@@ -4,6 +4,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -24,12 +25,14 @@ import {
   Move,
   ZoomIn,
   Loader2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { renderTemplatePNG, renderBackgroundOverlayPNG, renderBackgroundUnderPNG, composeResult, loadImage } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
+import { applyAlphaThreshold } from '@/utils/applyAlphaThreshold';
 import { extractCanvasDesign, extractPlaceholderMeta, extractPreviewMeta, mergeDesignWithPreview } from '@/utils/campaignDesign';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -85,6 +88,10 @@ const CampaignEditor = () => {
   const [processingPhoto, setProcessingPhoto] = useState(false);
   const [isInteractingPreview, setIsInteractingPreview] = useState(false);
   const [loadingCampaign, setLoadingCampaign] = useState(isEdit);
+  const [rawRemovedBg, setRawRemovedBg] = useState<string>('');
+  const [bgThreshold, setBgThreshold] = useState(50);
+  const [bgFeather, setBgFeather] = useState(3);
+  const [applyingThreshold, setApplyingThreshold] = useState(false);
 
   const composeVersionRef = useRef(0);
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
@@ -366,6 +373,28 @@ const CampaignEditor = () => {
     [form.type, placeholderMeta, selectedSize.w, selectedSize.h]
   );
 
+  const applyBgProcessing = useCallback(async (threshold: number, feather: number) => {
+    if (!rawRemovedBg) return;
+    setApplyingThreshold(true);
+    try {
+      const processed = await applyAlphaThreshold(rawRemovedBg, threshold, feather);
+      setSimulationPhoto(processed);
+    } catch { /* ignore */ }
+    setApplyingThreshold(false);
+  }, [rawRemovedBg]);
+
+  const handleThresholdChange = useCallback(async (values: number[]) => {
+    const v = values[0];
+    setBgThreshold(v);
+    await applyBgProcessing(v, bgFeather);
+  }, [bgFeather, applyBgProcessing]);
+
+  const handleFeatherChange = useCallback(async (values: number[]) => {
+    const v = values[0];
+    setBgFeather(v);
+    await applyBgProcessing(bgThreshold, v);
+  }, [bgThreshold, applyBgProcessing]);
+
   const handleSimulationUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -377,12 +406,24 @@ const CampaignEditor = () => {
 
       try {
         setProcessingPhoto(true);
-        const photoDataUrl = form.type === 'background' ? await removeBackgroundFromDataUrl(rawDataUrl) : rawDataUrl;
-        const initialTransform = await getInitialSimulationTransform(photoDataUrl);
-        setSimulationPhoto(photoDataUrl);
-        setSimScale(initialTransform.scale);
-        setSimOffsetX(initialTransform.offsetX);
-        setSimOffsetY(initialTransform.offsetY);
+        if (form.type === 'background') {
+          const removedBgDataUrl = await removeBackgroundFromDataUrl(rawDataUrl);
+          setRawRemovedBg(removedBgDataUrl);
+          setBgThreshold(50);
+          setBgFeather(3);
+          const processed = await applyAlphaThreshold(removedBgDataUrl, 50, 3);
+          const initialTransform = await getInitialSimulationTransform(processed);
+          setSimulationPhoto(processed);
+          setSimScale(initialTransform.scale);
+          setSimOffsetX(initialTransform.offsetX);
+          setSimOffsetY(initialTransform.offsetY);
+        } else {
+          const initialTransform = await getInitialSimulationTransform(rawDataUrl);
+          setSimulationPhoto(rawDataUrl);
+          setSimScale(initialTransform.scale);
+          setSimOffsetX(initialTransform.offsetX);
+          setSimOffsetY(initialTransform.offsetY);
+        }
       } catch {
         const initialTransform = await getInitialSimulationTransform(rawDataUrl);
         setSimulationPhoto(rawDataUrl);
@@ -801,6 +842,30 @@ const CampaignEditor = () => {
                         <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
                       </p>
                       <p className="text-xs text-muted-foreground">Scale: {Math.round(simScale)}% • X: {Math.round(simOffsetX)} • Y: {Math.round(simOffsetY)}</p>
+                    </div>
+                  )}
+
+                  {form.type === 'background' && simulationPhoto && rawRemovedBg && (
+                    <div className="glass rounded-xl p-4 border-gold-subtle space-y-3 mt-3">
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Background Settings</h3>
+                        {applyingThreshold && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Tolerance</span>
+                          <span>{bgThreshold}%</span>
+                        </div>
+                        <Slider value={[bgThreshold]} onValueChange={handleThresholdChange} min={0} max={100} step={1} disabled={applyingThreshold} />
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Edge Blur</span>
+                          <span>{bgFeather}px</span>
+                        </div>
+                        <Slider value={[bgFeather]} onValueChange={handleFeatherChange} min={0} max={20} step={1} disabled={applyingThreshold} />
+                      </div>
                     </div>
                   )}
                 </div>
