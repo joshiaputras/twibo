@@ -92,4 +92,12 @@
   .border-gold-subtle {
     border-color: hsl(45 100% 50% / 0.2);
   }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }

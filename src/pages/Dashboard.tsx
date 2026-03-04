@@ -22,6 +22,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMidtransPayment } from '@/hooks/useMidtransPayment';
+import { usePricing } from '@/hooks/usePricing';
+import PaymentConfirmDialog from '@/components/PaymentConfirmDialog';
 
 type CampaignItem = {
   id: string;
@@ -37,6 +39,7 @@ type CampaignItem = {
 const Dashboard = () => {
   const { t } = useLanguage();
   const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
+  const { premiumPrice, originalPrice } = usePricing();
   const { user } = useAuth();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
@@ -44,6 +47,7 @@ const Dashboard = () => {
   const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statsDialog, setStatsDialog] = useState<CampaignItem | null>(null);
+  const [paymentConfirmCampaign, setPaymentConfirmCampaign] = useState<CampaignItem | null>(null);
 
   const loadCampaigns = async () => {
     if (!user) return;
@@ -139,11 +143,12 @@ const Dashboard = () => {
     toast.success('Campaign berhasil dihapus');
   };
 
-  const handleRemoveWatermark = async (id: string) => {
-    const result = await pay(id);
+  const handleRemoveWatermark = async (id: string, voucherCode?: string) => {
+    const result = await pay(id, voucherCode);
     if (result.success) {
       setCampaigns(prev => prev.map(c => (c.id === id ? { ...c, tier: 'premium' } : c)));
     }
+    setPaymentConfirmCampaign(null);
   };
 
   return (
@@ -263,6 +268,18 @@ const Dashboard = () => {
                       {t.dashboard.viewStats ?? 'Lihat Statistik'}
                     </Button>
 
+                    {/* Hapus Watermark button for free campaigns */}
+                    {c.tier === 'free' && (
+                      <Button
+                        size="sm"
+                        className="gold-glow gap-1 text-xs"
+                        onClick={() => setPaymentConfirmCampaign(c)}
+                      >
+                        <Crown className="w-3 h-3" />
+                        {t.dashboard.removeWatermark ?? 'Hapus Watermark'}
+                      </Button>
+                    )}
+
                     {c.paidOrderId && (
                       <a href={`/invoice/${c.paidOrderId}`} target="_blank" rel="noreferrer">
                         <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 text-xs">
@@ -302,7 +319,20 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={(id) => { setStatsDialog(null); handleRemoveWatermark(id); }} />
+      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={(id) => { setStatsDialog(null); const c = campaigns.find(x => x.id === id); if (c) setPaymentConfirmCampaign(c); }} />
+
+      {/* Payment Confirmation Dialog */}
+      <PaymentConfirmDialog
+        open={!!paymentConfirmCampaign}
+        onClose={() => setPaymentConfirmCampaign(null)}
+        onConfirm={(voucherCode) => {
+          if (paymentConfirmCampaign) handleRemoveWatermark(paymentConfirmCampaign.id, voucherCode);
+        }}
+        basePrice={premiumPrice}
+        originalPrice={originalPrice}
+        campaignName={paymentConfirmCampaign?.name ?? ''}
+        paying={paying}
+      />
 
       {/* Full-screen loading overlay while Midtrans initialises */}
       {paymentInitializing && (
@@ -327,7 +357,6 @@ const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: Camp
     if (!campaign) return;
     onUpgrade(campaign.id);
   };
-
 
   useEffect(() => {
     if (!campaign || !open || isFree) return;
@@ -388,86 +417,59 @@ const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: Camp
               </p>
               <Button className="gold-glow font-semibold gap-2" onClick={handleUpgradeClick}>
                 <Crown className="w-4 h-4" />
-                Remove Watermark & Unlock Statistics
+                Hapus Watermark & Lihat Statistik
               </Button>
             </div>
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-            <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-              <Users className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{totalSupporters}</p>
-              <p className="text-xs text-muted-foreground mt-1">{t.dashboard.totalSupporters ?? 'Total Supporters'}</p>
-            </div>
-            <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-              <Download className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{totalDownloads}</p>
-              <p className="text-xs text-muted-foreground mt-1">{t.dashboard.totalDownloads ?? 'Total Downloads'}</p>
-            </div>
-            <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-              <TrendingUp className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{conversionRate}%</p>
-              <p className="text-xs text-muted-foreground mt-1">{t.dashboard.conversionRate ?? 'Conversion Rate'}</p>
-            </div>
-            <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-              <BarChart3 className="w-5 h-5 mx-auto text-primary mb-1" />
-              <p className="text-2xl font-bold text-foreground">{avgSupportersPerDay}</p>
-              <p className="text-xs text-muted-foreground mt-1">{t.dashboard.avgPerDay ?? 'Avg/Day'}</p>
-            </div>
+            {[
+              { label: t.dashboard.totalSupporters ?? 'Total Supporters', value: totalSupporters.toLocaleString('id-ID'), icon: Users, color: 'text-primary' },
+              { label: t.dashboard.totalDownloads ?? 'Total Downloads', value: totalDownloads.toLocaleString('id-ID'), icon: Download, color: 'text-primary' },
+              { label: t.dashboard.conversionRate ?? 'Conversion Rate', value: `${conversionRate}%`, icon: TrendingUp, color: 'text-primary' },
+              { label: t.dashboard.avgPerDay ?? 'Avg/Day', value: String(avgSupportersPerDay), icon: BarChart3, color: 'text-primary' },
+            ].map((stat, i) => (
+              <div key={i} className="glass rounded-xl p-3 border-gold-subtle text-center">
+                <stat.icon className={`w-4 h-4 mx-auto mb-1 ${stat.color}`} />
+                <p className="text-lg font-bold text-foreground">{stat.value}</p>
+                <p className="text-[10px] text-muted-foreground">{stat.label}</p>
+              </div>
+            ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-2">
-            <div className="glass rounded-lg p-3 border-gold-subtle flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.supporters})</span>
-              <span className="font-bold text-foreground">{peakSupporters}</span>
-            </div>
-            <div className="glass rounded-lg p-3 border-gold-subtle flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.downloads})</span>
-              <span className="font-bold text-foreground">{peakDownloads}</span>
-            </div>
-          </div>
+          <div className="mt-4 space-y-3">
+            <h4 className="text-sm font-semibold text-foreground">{t.dashboard.dailyTrend ?? 'Daily Trend (Last 30 Days)'}</h4>
 
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3">{t.dashboard.dailyTrend ?? 'Daily Trend (Last 30 Days)'}</h3>
-            {!isFree && loading ? (
-              <div className="flex items-center justify-center h-48 text-muted-foreground">
-                <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
-              </div>
-            ) : chartData.length === 0 ? (
-              <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
-                {t.dashboard.noStatsYet ?? 'No statistics data yet'}
-              </div>
-            ) : (
-              <div className="h-64">
+            {(isFree || chartData.length > 0) ? (
+              <div className="h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="gradSupp" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(142 76% 36%)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="hsl(142 76% 36%)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
-                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(222 30% 18% / 0.5)" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'hsl(215 20% 55%)' }} />
+                    <YAxis tick={{ fontSize: 10, fill: 'hsl(215 20% 55%)' }} />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--background))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                      }}
+                      contentStyle={{ backgroundColor: 'hsl(222 47% 8%)', border: '1px solid hsl(222 30% 18%)', borderRadius: '8px', fontSize: '12px' }}
+                      labelStyle={{ color: 'hsl(210 40% 98%)' }}
                     />
-                    <Area type="monotone" dataKey="supporters" name={t.dashboard.supporters} stroke="hsl(var(--primary))" fill="url(#gradSupp)" strokeWidth={2} />
-                    <Area type="monotone" dataKey="downloads" name={t.dashboard.downloads} stroke="hsl(142 76% 36%)" fill="url(#gradDown)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="supporters" stackId="1" stroke="hsl(45 100% 50%)" fill="hsl(45 100% 50% / 0.2)" />
+                    <Area type="monotone" dataKey="downloads" stackId="2" stroke="hsl(45 100% 70%)" fill="hsl(45 100% 70% / 0.1)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
+            ) : (
+              <p className="text-muted-foreground text-sm text-center py-8">{t.dashboard.noStatsYet ?? 'No statistics data yet'}</p>
             )}
+
+            <div className="grid grid-cols-2 gap-3 text-center">
+              <div className="glass rounded-lg p-2 border-gold-subtle">
+                <p className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.supporters ?? 'Supporters'})</p>
+                <p className="font-bold text-foreground">{peakSupporters}</p>
+              </div>
+              <div className="glass rounded-lg p-2 border-gold-subtle">
+                <p className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.downloads ?? 'Downloads'})</p>
+                <p className="font-bold text-foreground">{peakDownloads}</p>
+              </div>
+            </div>
           </div>
         </div>
       </DialogContent>
