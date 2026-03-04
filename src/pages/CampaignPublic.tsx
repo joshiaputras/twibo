@@ -575,7 +575,7 @@ const CampaignPublic = () => {
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
                     onWheelCapture={onWheel}
-                    className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-2 flex items-center justify-center p-2"
+                    className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-2 flex items-center justify-center"
                     onDragStart={event => event.preventDefault()}
                     style={{
                       touchAction: 'none',

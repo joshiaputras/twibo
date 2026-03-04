@@ -19,9 +19,9 @@ const buildAttempts = (): Attempt[] => {
   const canUseWorker = typeof window !== 'undefined' && window.crossOriginIsolated;
 
   const defaultAttempts: Attempt[] = [
-    { key: 'default-quint8-main', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false } },
-    ...(canUseWorker ? [{ key: 'default-quint8-worker', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true } }] : []),
-    { key: 'default-fp16-main', config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false } },
+    { key: 'default-quint8-main', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath: STATICIMGLY_V17_PATH } },
+    ...(canUseWorker ? [{ key: 'default-quint8-worker', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath: STATICIMGLY_V17_PATH } }] : []),
+    { key: 'default-fp16-main', config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath: STATICIMGLY_V17_PATH } },
   ];
 
   const cdnAttempts = PATH_FALLBACKS.flatMap(publicPath => [

@@ -712,7 +712,7 @@ const CampaignEditor = () => {
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
                     onWheelCapture={onWheel}
-                    className="relative w-full rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2 touch-none"
+                    className="relative w-full rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center touch-none"
                     onDragStart={event => event.preventDefault()}
                     style={{
                       touchAction: 'none',
