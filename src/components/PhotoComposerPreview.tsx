@@ -96,13 +96,13 @@ const PhotoComposerPreview = ({
         <>
           {/* PREVIEW diagonal text */}
           <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center overflow-hidden">
-            <span
+          <span
               className="font-black select-none"
               style={{
-                fontSize: `${Math.max(16, Math.round(scaledWidth * 0.12))}px`,
-                color: 'rgba(255,255,255,0.3)',
+                fontSize: `${Math.max(28, Math.round(scaledWidth * 0.18))}px`,
+                color: 'rgba(255,255,255,0.35)',
                 transform: 'rotate(-20deg)',
-                textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                textShadow: '0 3px 12px rgba(0,0,0,0.4)',
                 fontFamily: '"Inter", "Segoe UI", sans-serif',
                 letterSpacing: '0.05em',
               }}
@@ -111,9 +111,9 @@ const PhotoComposerPreview = ({
             </span>
           </div>
           {/* Watermark badge */}
-          <div className="absolute bottom-2 right-2 z-20 pointer-events-none" style={{ margin: `${Math.max(4, Math.round(scaledWidth * 0.03))}px` }}>
-            <div className="bg-white/95 rounded-full shadow-sm flex items-center justify-center" style={{ padding: `${Math.max(3, Math.round(scaledWidth * 0.006))}px ${Math.max(8, Math.round(scaledWidth * 0.018))}px` }}>
-              <span className="font-bold tracking-wide leading-none" style={{ fontSize: `${Math.max(7, Math.round(scaledWidth * 0.022))}px`, color: 'hsl(46 95% 48%)', fontFamily: '"Space Grotesk", "Segoe UI", sans-serif' }}>Made with TWIBO.id</span>
+          <div className="absolute bottom-2 right-2 z-20 pointer-events-none" style={{ margin: `${Math.max(6, Math.round(scaledWidth * 0.03))}px` }}>
+            <div className="bg-white/95 rounded-full shadow-md flex items-center justify-center" style={{ padding: `${Math.max(5, Math.round(scaledWidth * 0.012))}px ${Math.max(12, Math.round(scaledWidth * 0.028))}px` }}>
+              <span className="font-bold tracking-wide leading-none" style={{ fontSize: `${Math.max(10, Math.round(scaledWidth * 0.034))}px`, color: 'hsl(46 95% 48%)', fontFamily: '"Space Grotesk", "Segoe UI", sans-serif' }}>Made with TWIBO.id</span>
             </div>
           </div>
         </>
