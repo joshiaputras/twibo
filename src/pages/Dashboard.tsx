@@ -302,26 +302,20 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={async (id) => { await handleRemoveWatermark(id); setStatsDialog(null); }} />
+      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={(id) => { setStatsDialog(null); toast.info('Memproses pembayaran...'); handleRemoveWatermark(id); }} />
     </Layout>
   );
 };
 
 /* ─── Enhanced Stats Dialog ─── */
-const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: CampaignItem | null; open: boolean; onClose: () => void; t: any; onUpgrade: (id: string) => Promise<void> }) => {
+const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: CampaignItem | null; open: boolean; onClose: () => void; t: any; onUpgrade: (id: string) => void }) => {
   const [dailyData, setDailyData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [upgrading, setUpgrading] = useState(false);
   const isFree = campaign?.tier === 'free';
 
-  const handleUpgradeClick = async () => {
-    if (!campaign || upgrading) return;
-    setUpgrading(true);
-    try {
-      await onUpgrade(campaign.id);
-    } finally {
-      setUpgrading(false);
-    }
+  const handleUpgradeClick = () => {
+    if (!campaign) return;
+    onUpgrade(campaign.id);
   };
 
 
@@ -366,8 +360,8 @@ const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: Camp
   }));
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v && !upgrading) onClose(); }}>
-      <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => { if (upgrading) e.preventDefault(); }} onEscapeKeyDown={(e) => { if (upgrading) e.preventDefault(); }} onInteractOutside={(e) => { if (upgrading) e.preventDefault(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-gold-gradient">
             {t.dashboard.statsTitle ?? 'Statistics'}: {campaign.name}
@@ -382,9 +376,9 @@ const StatsDialog = ({ campaign, open, onClose, t, onUpgrade }: { campaign: Camp
               <p className="text-muted-foreground text-sm text-center mb-4 max-w-xs">
                 Upgrade ke Premium untuk melihat statistik lengkap campaign kamu.
               </p>
-              <Button className="gold-glow font-semibold gap-2" onClick={handleUpgradeClick} disabled={upgrading}>
-                {upgrading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Crown className="w-4 h-4" />}
-                {upgrading ? 'Memproses Pembayaran...' : 'Remove Watermark & Unlock Statistics'}
+              <Button className="gold-glow font-semibold gap-2" onClick={handleUpgradeClick}>
+                <Crown className="w-4 h-4" />
+                Remove Watermark & Unlock Statistics
               </Button>
             </div>
           )}
