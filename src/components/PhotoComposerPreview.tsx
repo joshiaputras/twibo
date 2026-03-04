@@ -93,8 +93,10 @@ const PhotoComposerPreview = ({
       {campaignType === 'frame' && <img src={templateImage} alt="Template" draggable={false} className="absolute inset-0 h-full w-full select-none object-contain pointer-events-none" />}
 
       {showWatermark && (
-        <div className="absolute bottom-2 right-2 z-20 bg-black/50 backdrop-blur-sm rounded px-2 py-0.5 pointer-events-none">
-          <span className="text-white/80 text-[10px] font-medium tracking-wide">Made with TWIBO.id</span>
+        <div className="absolute bottom-2 right-2 z-20 pointer-events-none" style={{ margin: `${Math.max(4, Math.round(scaledWidth * 0.03))}px` }}>
+          <div className="bg-white/95 rounded-full px-3 py-1 shadow-sm">
+            <span className="text-[10px] font-bold tracking-wide" style={{ color: 'hsl(46 95% 48%)', fontFamily: '"Space Grotesk", "Segoe UI", sans-serif' }}>Made with TWIBO.id</span>
+          </div>
         </div>
       )}
     </div>
