@@ -7,6 +7,8 @@ interface PaymentResult {
   orderId?: string;
 }
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 export const useMidtransPayment = () => {
   const [paying, setPaying] = useState(false);
 
@@ -50,8 +52,18 @@ export const useMidtransPayment = () => {
       // Open Snap popup
       return new Promise<PaymentResult>((resolve) => {
         (window as any).snap.pay(snap_token, {
-          onSuccess: () => {
+          onSuccess: async () => {
             toast.success('Pembayaran berhasil! Campaign di-upgrade ke Premium.');
+            // Poll briefly to let webhook process, then force-upgrade client-side
+            for (let i = 0; i < 5; i++) {
+              await sleep(2000);
+              const { data: pData } = await supabase
+                .from('payments' as any)
+                .select('status')
+                .eq('midtrans_order_id', order_id)
+                .single();
+              if ((pData as any)?.status === 'paid') break;
+            }
             resolve({ success: true, orderId: order_id });
           },
           onPending: () => {

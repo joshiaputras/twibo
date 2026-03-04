@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
       .from("payments")
       .update(updateData)
       .eq("midtrans_order_id", order_id)
-      .select("campaign_id")
+      .select("campaign_id, user_id")
       .single();
 
     if (updateErr) {
