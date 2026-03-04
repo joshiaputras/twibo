@@ -38,7 +38,7 @@ const PhotoComposerPreview = ({
   const photoTransform = `translate(calc(-50% + ${tx}px), calc(-50% + ${ty}px)) scale(${zoom})`;
 
   return (
-    <div className={cn('relative overflow-hidden rounded-lg', campaignType === 'frame' && 'bg-black', className)} style={{ width: scaledWidth, height: scaledHeight }}>
+    <div className={cn('relative rounded-lg', campaignType === 'frame' && 'bg-black', className)} style={{ width: scaledWidth, height: scaledHeight, overflow: 'hidden' }}>
       {campaignType === 'background' && (
         <img src={templateImage} alt="Template" draggable={false} className="absolute inset-0 h-full w-full select-none object-contain pointer-events-none" />
       )}
