@@ -15,29 +15,18 @@ const baseConfig: RemoveConfig = {
   fetchArgs: { mode: 'cors', credentials: 'omit' },
 };
 
-const PATH_FALLBACKS = [STATICIMGLY_V17_PATH, STATICIMGLY_V145_PATH] as const;
-
 const buildAttempts = (): Attempt[] => {
-  const canUseWorker = typeof window !== 'undefined' && window.crossOriginIsolated;
-
-  const defaultAttempts: Attempt[] = [
-    { key: 'default-quint8-main', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath: STATICIMGLY_V17_PATH } },
-    ...(canUseWorker ? [{ key: 'default-quint8-worker', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath: STATICIMGLY_V17_PATH } }] : []),
-    { key: 'default-fp16-main', config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath: STATICIMGLY_V17_PATH } },
+  // Prioritise quint8 with explicit CDN paths — most reliable combo
+  return [
+    { key: 'quint8-v17', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath: STATICIMGLY_V17_PATH } },
+    { key: 'quint8-v145', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath: STATICIMGLY_V145_PATH } },
+    { key: 'fp16-v17', config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath: STATICIMGLY_V17_PATH } },
+    { key: 'fp16-v145', config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath: STATICIMGLY_V145_PATH } },
   ];
-
-  const cdnAttempts = PATH_FALLBACKS.flatMap(publicPath => [
-    { key: `quint8-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath } },
-    ...(canUseWorker ? [{ key: `quint8-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath } }] : []),
-    { key: `fp16-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath } },
-  ]);
-
-  return [...defaultAttempts, ...cdnAttempts];
 };
 
 const ATTEMPTS: Attempt[] = buildAttempts();
 
-let preloadPromise: Promise<void> | null = null;
 let preferredAttemptKey: string | null = null;
 
 const withTimeout = async <T>(promise: Promise<T>, ms: number): Promise<T> => {
@@ -60,37 +49,19 @@ const getOrderedAttempts = () => {
   return [preferred, ...ATTEMPTS.filter(attempt => attempt.key !== preferredAttemptKey)];
 };
 
-async function ensureBackgroundModelReady() {
-  if (preloadPromise) return preloadPromise;
-
-  preloadPromise = (async () => {
+export async function warmupBackgroundRemoval(): Promise<void> {
+  try {
     const { preload } = await import('@imgly/background-removal');
-    let lastError: unknown = null;
-
     for (const attempt of getOrderedAttempts()) {
       try {
         await withTimeout(preload(attempt.config as any), 90000);
         preferredAttemptKey = attempt.key;
+        console.log('[bg-removal] warmup succeeded with', attempt.key);
         return;
-      } catch (error) {
-        lastError = error;
+      } catch (err) {
+        console.warn('[bg-removal] warmup attempt failed:', attempt.key, err);
       }
     }
-
-    throw lastError ?? new Error('Unable to preload background removal model');
-  })();
-
-  try {
-    await preloadPromise;
-  } catch (error) {
-    preloadPromise = null;
-    throw error;
-  }
-}
-
-export async function warmupBackgroundRemoval(): Promise<void> {
-  try {
-    await ensureBackgroundModelReady();
   } catch (error) {
     console.warn('Background removal warmup failed, will retry on upload.', error);
   }
@@ -140,12 +111,15 @@ async function removeWithFallback(source: Blob | string): Promise<Blob> {
   let lastError: unknown;
   for (const attempt of getOrderedAttempts()) {
     try {
-      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 120000);
+      console.log('[bg-removal] trying', attempt.key);
+      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 180000);
       if (resultBlob && resultBlob.size > 0) {
         preferredAttemptKey = attempt.key;
+        console.log('[bg-removal] success with', attempt.key);
         return resultBlob;
       }
     } catch (err) {
+      console.warn('[bg-removal] attempt failed:', attempt.key, err);
       lastError = err;
     }
   }
@@ -154,12 +128,7 @@ async function removeWithFallback(source: Blob | string): Promise<Blob> {
 }
 
 export async function removeBackgroundFromDataUrl(dataUrl: string): Promise<string> {
-  try {
-    await ensureBackgroundModelReady();
-  } catch {
-    // lanjutkan ke removeWithFallback, karena beberapa browser gagal preload tapi sukses saat proses langsung
-  }
-
+  // Skip preload — go directly to removal which handles its own model loading
   const sourceBlob = await dataUrlToBlob(dataUrl);
   const normalizedBlob = await normalizeInputBlob(sourceBlob);
 
@@ -167,6 +136,7 @@ export async function removeBackgroundFromDataUrl(dataUrl: string): Promise<stri
   try {
     resultBlob = await removeWithFallback(normalizedBlob);
   } catch {
+    // Retry with raw data URL as fallback input format
     resultBlob = await removeWithFallback(dataUrl);
   }
 
