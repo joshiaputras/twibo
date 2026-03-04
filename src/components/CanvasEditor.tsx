@@ -85,6 +85,9 @@ const CanvasEditor = ({
   const [placeholderRoundness, setPlaceholderRoundness] = useState(20);
   const [hasPlaceholder, setHasPlaceholder] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [selectedAngle, setSelectedAngle] = useState(0);
+  const [textStrokeColor, setTextStrokeColor] = useState('#000000');
+  const [textStrokeWidth, setTextStrokeWidth] = useState(0);
 
   const isPanning = useRef(false);
   const lastPan = useRef({ x: 0, y: 0 });
@@ -102,7 +105,7 @@ const CanvasEditor = ({
 
   const serializeCanvas = useCallback(() => {
     if (!fabricRef.current) return '';
-    return JSON.stringify((fabricRef.current as any).toJSON(['id', 'name', 'isPlaceholder', 'selectable', 'evented']));
+    return JSON.stringify((fabricRef.current as any).toJSON(['id', 'name', 'isPlaceholder', 'selectable', 'evented', 'stroke', 'strokeWidth']));
   }, []);
 
   const syncLayers = useCallback(() => {
@@ -200,9 +203,17 @@ const CanvasEditor = ({
       }
     };
 
-    canvas.on('selection:created', (e: any) => syncSelectionState(e.selected?.[0]));
-    canvas.on('selection:updated', (e: any) => syncSelectionState(e.selected?.[0]));
-    canvas.on('selection:cleared', () => setSelectedId(null));
+    const syncSelectedAngle = (obj: any) => {
+      if (obj) setSelectedAngle(Math.round(obj.angle ?? 0));
+      if (obj && String(obj.type).toLowerCase() === 'text') {
+        setTextStrokeColor(typeof obj.stroke === 'string' && obj.stroke.startsWith('#') ? obj.stroke : '#000000');
+        setTextStrokeWidth(Number(obj.strokeWidth ?? 0));
+      }
+    };
+
+    canvas.on('selection:created', (e: any) => { syncSelectionState(e.selected?.[0]); syncSelectedAngle(e.selected?.[0]); });
+    canvas.on('selection:updated', (e: any) => { syncSelectionState(e.selected?.[0]); syncSelectedAngle(e.selected?.[0]); });
+    canvas.on('selection:cleared', () => { setSelectedId(null); setSelectedAngle(0); });
 
     return () => { canvas.dispose(); fabricRef.current = null; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -417,8 +428,10 @@ const CanvasEditor = ({
     const activeType = String(active.type).toLowerCase();
     if (activeType !== 'rect') return;
 
-    const size = Math.max(1, Math.min(active.width ?? 1, active.height ?? 1));
-    const cornerRadius = (size / 2) * (clamp(roundness, 0, 100) / 100);
+    const w = Math.max(1, active.width ?? 1);
+    const h = Math.max(1, active.height ?? 1);
+    const minDim = Math.min(w, h);
+    const cornerRadius = (minDim / 2) * (clamp(roundness, 0, 100) / 100);
     active.set({ rx: cornerRadius, ry: cornerRadius });
     fabricRef.current?.renderAll();
     saveHistory();
@@ -494,6 +507,27 @@ const CanvasEditor = ({
     if (!active) return;
     if (axis === 'x') active.set('flipX', !active.flipX);
     if (axis === 'y') active.set('flipY', !active.flipY);
+    fabricRef.current.renderAll();
+    saveHistory();
+  }, [saveHistory]);
+
+  const updateSelectedAngle = useCallback((angle: number) => {
+    setSelectedAngle(angle);
+    if (!fabricRef.current) return;
+    const active = fabricRef.current.getActiveObject() as any;
+    if (!active) return;
+    active.set('angle', angle);
+    fabricRef.current.renderAll();
+    saveHistory();
+  }, [saveHistory]);
+
+  const updateTextStroke = useCallback((color: string, width: number) => {
+    setTextStrokeColor(color);
+    setTextStrokeWidth(width);
+    if (!fabricRef.current) return;
+    const active = fabricRef.current.getActiveObject() as any;
+    if (!active || String(active.type).toLowerCase() !== 'text') return;
+    active.set({ stroke: color, strokeWidth: width });
     fabricRef.current.renderAll();
     saveHistory();
   }, [saveHistory]);
@@ -587,6 +621,20 @@ const CanvasEditor = ({
             <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => flipSelected('y')}>
               <FlipVertical2 className="w-3 h-3" />
             </Button>
+            {selectedId && (
+              <div className="flex items-center gap-1">
+                <RotateCcw className="w-3 h-3 text-muted-foreground" />
+                <Input
+                  type="number"
+                  value={selectedAngle}
+                  onChange={e => updateSelectedAngle(Number(e.target.value) % 360)}
+                  className="w-16 h-8 text-xs bg-secondary/50 border-border"
+                  min={-360}
+                  max={360}
+                />
+                <span className="text-[10px] text-muted-foreground">°</span>
+              </div>
+            )}
             <div className="w-px h-5 bg-border" />
             <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={handleUndo} disabled={historyIdx <= 0}>
               <Undo2 className="w-3 h-3" />
@@ -641,6 +689,22 @@ const CanvasEditor = ({
               <Button size="sm" className="w-full gap-1 h-8 text-xs" onClick={addText}>
                 <Type className="w-3 h-3" /> {t.campaign.editor.addText}
               </Button>
+              {/* Text stroke/border */}
+              <div className="border-t border-border/30 pt-2 mt-2 space-y-1.5">
+                <label className="text-[10px] text-muted-foreground">Text Border</label>
+                <div className="flex items-center gap-2">
+                  <Input type="color" value={textStrokeColor} onChange={e => updateTextStroke(e.target.value, textStrokeWidth)} className="h-7 w-9 p-0.5 bg-secondary/50 border-border" />
+                  <Input
+                    type="number"
+                    value={textStrokeWidth}
+                    onChange={e => updateTextStroke(textStrokeColor, Math.max(0, Number(e.target.value)))}
+                    min={0}
+                    max={20}
+                    className="w-16 h-7 text-xs bg-secondary/50 border-border"
+                  />
+                  <span className="text-[10px] text-muted-foreground">px</span>
+                </div>
+              </div>
             </div>
 
             {/* Shape tool */}

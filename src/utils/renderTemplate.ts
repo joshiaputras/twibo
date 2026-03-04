@@ -85,6 +85,7 @@ export async function renderTemplatePNG(
         opacity: 1,
         fill: 'rgba(0,0,0,1)',
         stroke: 'rgba(0,0,0,1)',
+        strokeWidth: 0,
         globalCompositeOperation: 'destination-out',
       });
     });
