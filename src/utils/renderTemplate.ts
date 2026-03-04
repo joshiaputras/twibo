@@ -54,6 +54,7 @@ const createRoundedRectPath = (
 /**
  * Render campaign design_json to PNG data URL.
  * For frame mode, placeholder is cut out (transparent hole).
+ * For background mode, renders two layers: below and above the image placeholder.
  */
 export async function renderTemplatePNG(
   designJson: any,
@@ -85,7 +86,6 @@ export async function renderTemplatePNG(
   });
 
   if (campaignType === 'frame') {
-    // Keep stacking order from editor: placeholder punches a hole only on layers below it.
     placeholders.forEach((placeholder: any) => {
       placeholder.set({
         visible: true,
@@ -97,7 +97,7 @@ export async function renderTemplatePNG(
       });
     });
   } else {
-    // Background mode does not need a hole.
+    // Background mode: hide all placeholders
     placeholders.forEach((placeholder: any) => {
       placeholder.set({
         visible: false,
@@ -112,6 +112,103 @@ export async function renderTemplatePNG(
 
   fc.renderAll();
 
+  const dataUrl = tmpEl.toDataURL('image/png');
+  fc.dispose();
+  return dataUrl;
+}
+
+/**
+ * For background mode, render only layers ABOVE the image placeholder.
+ * Returns empty string if no layers above placeholder or not background mode.
+ */
+export async function renderBackgroundOverlayPNG(
+  designJson: any,
+  w: number,
+  h: number,
+): Promise<string> {
+  const parsed = extractCanvasDesign(designJson);
+  if (!parsed || Object.keys(parsed).length === 0) return '';
+
+  const tmpEl = document.createElement('canvas');
+  tmpEl.width = w;
+  tmpEl.height = h;
+
+  const fc = new StaticCanvas(tmpEl, {
+    width: w,
+    height: h,
+    backgroundColor: 'transparent',
+  });
+
+  await fc.loadFromJSON(parsed);
+
+  const objs = fc.getObjects();
+  // Find the bg image placeholder index
+  const placeholderIdx = objs.findIndex((o: any) =>
+    String(o?.id ?? '') === BG_IMAGE_PLACEHOLDER_ID || isPlaceholderObject(o)
+  );
+
+  if (placeholderIdx < 0) {
+    fc.dispose();
+    return '';
+  }
+
+  // Hide placeholder and all layers AT or BELOW it
+  objs.forEach((o: any, i: number) => {
+    if (i <= placeholderIdx) {
+      o.set({ visible: false, opacity: 0 });
+    }
+  });
+
+  fc.renderAll();
+  const dataUrl = tmpEl.toDataURL('image/png');
+  fc.dispose();
+  return dataUrl;
+}
+
+/**
+ * For background mode, render only layers BELOW the image placeholder.
+ */
+export async function renderBackgroundUnderPNG(
+  designJson: any,
+  w: number,
+  h: number,
+): Promise<string> {
+  const parsed = extractCanvasDesign(designJson);
+  if (!parsed || Object.keys(parsed).length === 0) return '';
+
+  const tmpEl = document.createElement('canvas');
+  tmpEl.width = w;
+  tmpEl.height = h;
+
+  const fc = new StaticCanvas(tmpEl, {
+    width: w,
+    height: h,
+    backgroundColor: 'transparent',
+  });
+
+  await fc.loadFromJSON(parsed);
+
+  const objs = fc.getObjects();
+  const placeholderIdx = objs.findIndex((o: any) =>
+    String(o?.id ?? '') === BG_IMAGE_PLACEHOLDER_ID || isPlaceholderObject(o)
+  );
+
+  if (placeholderIdx < 0) {
+    // No placeholder, render everything as under layer
+    fc.renderAll();
+    const dataUrl = tmpEl.toDataURL('image/png');
+    fc.dispose();
+    return dataUrl;
+  }
+
+  // Hide placeholder and all layers ABOVE it
+  objs.forEach((o: any, i: number) => {
+    if (i >= placeholderIdx) {
+      o.set({ visible: false, opacity: 0 });
+    }
+  });
+
+  fc.renderAll();
   const dataUrl = tmpEl.toDataURL('image/png');
   fc.dispose();
   return dataUrl;
@@ -152,6 +249,8 @@ export async function composeResult(opts: {
   placeholderMeta?: PlaceholderMeta | null;
   previewMaxW?: number;
   previewMaxH?: number;
+  bgOverlayDataUrl?: string;
+  bgUnderDataUrl?: string;
 }): Promise<string> {
   const {
     templateDataUrl,
@@ -164,6 +263,8 @@ export async function composeResult(opts: {
     addWatermark,
     campaignType = 'frame',
     placeholderMeta = null,
+    bgOverlayDataUrl,
+    bgUnderDataUrl,
   } = opts;
 
   const maxW = opts.previewMaxW ?? 500;
@@ -243,8 +344,20 @@ export async function composeResult(opts: {
   const tpl = await loadImage(templateDataUrl);
 
   if (campaignType === 'background') {
-    ctx.drawImage(tpl, 0, 0, pw, ph);
+    // Draw under layers (below placeholder)
+    if (bgUnderDataUrl) {
+      const under = await loadImage(bgUnderDataUrl);
+      ctx.drawImage(under, 0, 0, pw, ph);
+    } else {
+      ctx.drawImage(tpl, 0, 0, pw, ph);
+    }
+    // Draw user photo on top of under layers
     await drawPhoto();
+    // Draw overlay layers (above placeholder) on top of photo
+    if (bgOverlayDataUrl) {
+      const overlay = await loadImage(bgOverlayDataUrl);
+      ctx.drawImage(overlay, 0, 0, pw, ph);
+    }
   } else {
     // Fill with black first to cover any transparent template areas
     ctx.fillStyle = '#000000';

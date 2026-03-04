@@ -789,49 +789,6 @@ const CanvasEditor = ({
       )}
 
       <div className="flex flex-col xl:flex-row gap-4">
-        {/* Layers panel - always visible, on top for mobile */}
-        {mode === 'edit' && (
-          <div className="w-full xl:hidden">
-            <div className="glass rounded-xl p-3 border-gold-subtle">
-              <h3 className="text-xs font-semibold text-foreground mb-2">{t.campaign.editor.layers}</h3>
-              {layers.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground">{t.campaign.editor.noLayers}</p>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {layers.map(layer => (
-                    <div
-                      key={layer.id}
-                      draggable
-                      onDragStart={() => handleLayerDragStart(layer.id)}
-                      onDragOver={(e) => handleLayerDragOver(e, layer.id)}
-                      onDrop={() => handleLayerDrop(layer.id)}
-                      onDragEnd={() => setDragLayerId(null)}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] cursor-grab transition-colors border ${
-                        dragLayerId === layer.id ? 'opacity-50' : ''
-                      } ${
-                        selectedId === layer.id ? 'bg-primary/20 text-primary border-primary/30' : 'text-muted-foreground hover:bg-secondary/50 border-transparent'
-                      }`}
-                      onClick={() => {
-                        if (!fabricRef.current) return;
-                        const obj = fabricRef.current.getObjects().find((o: any) => o.id === layer.id);
-                        if (!obj) return;
-                        fabricRef.current.setActiveObject(obj);
-                        fabricRef.current.renderAll();
-                        setSelectedId(layer.id);
-                      }}
-                    >
-                      <GripVertical className="w-2.5 h-2.5 shrink-0 opacity-40" />
-                      <button onClick={e => { e.stopPropagation(); toggleVisibility(layer.id); }} className="shrink-0">
-                        {layer.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-muted-foreground/50" />}
-                      </button>
-                      <span className="truncate max-w-[80px]">{layer.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
         {/* Left sidebar - tools */}
         {mode === 'edit' && (
           <div className={`w-full xl:w-64 space-y-3 shrink-0 ${showSidebar ? 'block' : 'hidden xl:block'}`}>
@@ -949,7 +906,7 @@ const CanvasEditor = ({
           </p>
         </div>
 
-        {/* Right sidebar - layers (desktop only, mobile version is above) */}
+        {/* Right sidebar - layers (desktop) */}
         {mode === 'edit' && (
           <div className="hidden xl:block w-56 shrink-0">
             <div className="glass rounded-xl p-3 border-gold-subtle">
@@ -995,6 +952,52 @@ const CanvasEditor = ({
           </div>
         )}
       </div>
+
+      {/* Mobile layers panel - below canvas */}
+      {mode === 'edit' && (
+        <div className="xl:hidden">
+          <div className="glass rounded-xl p-3 border-gold-subtle">
+            <h3 className="text-xs font-semibold text-foreground mb-2">{t.campaign.editor.layers}</h3>
+            {layers.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground">{t.campaign.editor.noLayers}</p>
+            ) : (
+              <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                {layers.map(layer => (
+                  <div
+                    key={layer.id}
+                    draggable
+                    onDragStart={() => handleLayerDragStart(layer.id)}
+                    onDragOver={(e) => handleLayerDragOver(e, layer.id)}
+                    onDrop={() => handleLayerDrop(layer.id)}
+                    onDragEnd={() => setDragLayerId(null)}
+                    className={`flex items-center gap-1.5 px-2 py-1.5 rounded text-[11px] cursor-grab transition-colors ${
+                      dragLayerId === layer.id ? 'opacity-50' : ''
+                    } ${
+                      selectedId === layer.id ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary/50'
+                    }`}
+                    onClick={() => {
+                      if (!fabricRef.current) return;
+                      const obj = fabricRef.current.getObjects().find((o: any) => o.id === layer.id);
+                      if (!obj) return;
+                      fabricRef.current.setActiveObject(obj);
+                      fabricRef.current.renderAll();
+                      setSelectedId(layer.id);
+                    }}
+                  >
+                    <GripVertical className="w-3 h-3 shrink-0 opacity-40" />
+                    <button onClick={e => { e.stopPropagation(); toggleVisibility(layer.id); }} className="shrink-0">
+                      {layer.visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground/50" />}
+                    </button>
+                    <span className="truncate flex-1">{layer.name}</span>
+                    <button onClick={e => { e.stopPropagation(); moveLayer(layer.id, 'up'); }} className="shrink-0 hover:text-foreground"><ChevronUp className="w-3.5 h-3.5" /></button>
+                    <button onClick={e => { e.stopPropagation(); moveLayer(layer.id, 'down'); }} className="shrink-0 hover:text-foreground"><ChevronDown className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
