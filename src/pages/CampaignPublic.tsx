@@ -170,7 +170,7 @@ const CampaignPublic = () => {
         const photo = await loadImage(photoDataUrl);
         const targetW = Math.max(1, placeholderMeta.width * placeholderMeta.scaleX);
         const targetH = Math.max(1, placeholderMeta.height * placeholderMeta.scaleY);
-        const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height)) * 1.05;
+        const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height)) * 1.2;
 
         return {
           scale: clamp(coverScale * 100, 20, 400),
@@ -259,22 +259,27 @@ const CampaignPublic = () => {
     toast.success(t.public?.captionCopied ?? 'Caption disalin!');
   };
 
-  const handleShareWhatsApp = () => {
+  const handleShareWhatsApp = async () => {
     const url = `${window.location.origin}/c/${slug}`;
     const text = campaign?.caption ? `${campaign.caption}\n\n${url}` : url;
+    if (campaign?.caption) {
+      try { await navigator.clipboard.writeText(campaign.caption); toast.success(t.public?.captionCopied ?? 'Caption disalin!'); } catch {}
+    }
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
   const handleShareInstagram = async () => {
-    // Instagram doesn't have a direct share URL — copy caption and notify user
     if (campaign?.caption) {
-      await navigator.clipboard.writeText(campaign.caption);
+      try { await navigator.clipboard.writeText(campaign.caption); } catch {}
     }
     toast.success(t.public?.instagramHint ?? 'Caption disalin! Buka Instagram dan paste caption saat posting.');
   };
 
   const handleShareUniversal = async () => {
     const url = `${window.location.origin}/c/${slug}`;
+    if (campaign?.caption) {
+      try { await navigator.clipboard.writeText(campaign.caption); toast.success(t.public?.captionCopied ?? 'Caption disalin!'); } catch {}
+    }
     const shareData: ShareData = {
       title: campaign?.name ?? 'Twibbon',
       text: campaign?.caption ?? '',
