@@ -369,7 +369,7 @@ export async function composeResult(opts: {
 
   if (addWatermark) {
     // Draw "PREVIEW" diagonal text
-    const pvFontSize = Math.max(36, Math.round(pw * 0.16));
+    const pvFontSize = Math.max(28, Math.round(pw * 0.13));
     ctx.save();
     ctx.translate(pw / 2, ph / 2);
     ctx.rotate(-20 * Math.PI / 180);
@@ -385,10 +385,10 @@ export async function composeResult(opts: {
 
     // Draw watermark badge
     const label = 'Made with TWIBO.id';
-    const fontSize = Math.max(14, Math.round(pw * 0.042));
-    const padX = Math.max(14, Math.round(fontSize * 1.0));
-    const padY = Math.max(6, Math.round(fontSize * 0.45));
-    const margin = Math.max(10, Math.round(pw * 0.03));
+    const fontSize = Math.max(10, Math.round(pw * 0.034));
+    const padX = Math.max(10, Math.round(fontSize * 0.9));
+    const padY = Math.max(4, Math.round(fontSize * 0.38));
+    const margin = Math.max(8, Math.round(pw * 0.025));
 
     ctx.save();
     ctx.font = `700 ${fontSize}px "Space Grotesk", "Segoe UI", sans-serif`;
@@ -398,6 +398,12 @@ export async function composeResult(opts: {
     const x = pw - margin - badgeW;
     const y = ph - margin - badgeH;
     const radius = badgeH / 2;
+
+    // Badge shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.25)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 2;
 
     ctx.fillStyle = 'rgba(255,255,255,0.94)';
     ctx.beginPath();
@@ -416,6 +422,12 @@ export async function composeResult(opts: {
     }
     ctx.closePath();
     ctx.fill();
+
+    // Reset shadow before drawing text
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
 
     ctx.fillStyle = 'hsl(46, 95%, 48%)';
     ctx.textAlign = 'left';
