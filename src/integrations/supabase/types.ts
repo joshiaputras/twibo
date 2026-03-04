@@ -41,6 +41,33 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_stats_daily: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          date: string
+          downloads_count: number
+          id: string
+          supporters_count: number
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          date?: string
+          downloads_count?: number
+          id?: string
+          supporters_count?: number
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          date?: string
+          downloads_count?: number
+          id?: string
+          supporters_count?: number
+        }
+        Relationships: []
+      }
       campaigns: {
         Row: {
           caption: string

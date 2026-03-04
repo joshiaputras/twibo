@@ -145,7 +145,14 @@
     "all": "Semua",
     "search": "Cari campaign...",
     "linkCopied": "Link berhasil disalin!",
-    "campaignDeleted": "Campaign berhasil dihapus"
+    "campaignDeleted": "Campaign berhasil dihapus",
+    "totalSupporters": "Total Supporter",
+    "totalDownloads": "Total Unduhan",
+    "conversionRate": "Tingkat Konversi",
+    "dailyTrend": "Tren Harian (30 Hari Terakhir)",
+    "noStatsYet": "Belum ada data statistik",
+    "avgPerDay": "Rata-rata/Hari",
+    "peakDay": "Hari Puncak"
   },
   "profile": {
     "title": "Pengaturan Profil",
