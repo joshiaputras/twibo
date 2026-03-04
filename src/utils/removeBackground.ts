@@ -14,15 +14,18 @@ const baseConfig: RemoveConfig = {
   device: 'cpu',
 };
 
-const MODELS = ['isnet_quint8', 'isnet_fp16', 'isnet'] as const;
-const PUBLIC_PATHS = [STATICIMGLY_PUBLIC_PATH, JSDELIVR_PUBLIC_PATH, UNPKG_PUBLIC_PATH] as const;
+const PATH_FALLBACKS = [STATICIMGLY_PUBLIC_PATH, JSDELIVR_PUBLIC_PATH, UNPKG_PUBLIC_PATH] as const;
 
-const ATTEMPTS: Attempt[] = MODELS.flatMap(model =>
-  PUBLIC_PATHS.flatMap(publicPath => [
-    { key: `${model}-${publicPath}-main`, config: { ...baseConfig, model, proxyToWorker: false, publicPath } },
-    { key: `${model}-${publicPath}-worker`, config: { ...baseConfig, model, proxyToWorker: true, publicPath } },
-  ])
-);
+const ATTEMPTS: Attempt[] = [
+  { key: 'default-main', config: { ...baseConfig, proxyToWorker: false } },
+  { key: 'default-worker', config: { ...baseConfig, proxyToWorker: true } },
+  ...PATH_FALLBACKS.flatMap(publicPath => [
+    { key: `fp16-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath } },
+    { key: `fp16-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: true, publicPath } },
+    { key: `isnet-${publicPath}-main`, config: { ...baseConfig, model: 'isnet', proxyToWorker: false, publicPath } },
+    { key: `isnet-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet', proxyToWorker: true, publicPath } },
+  ]),
+];
 
 let preloadPromise: Promise<void> | null = null;
 let preferredAttemptKey: string | null = null;
@@ -52,23 +55,35 @@ async function ensureBackgroundModelReady() {
 
   preloadPromise = (async () => {
     const { preload } = await import('@imgly/background-removal');
+    let lastError: unknown = null;
 
-    for (const attempt of getOrderedAttempts().slice(0, 6)) {
+    for (const attempt of getOrderedAttempts()) {
       try {
-        await withTimeout(preload(attempt.config as any), 35000);
+        await withTimeout(preload(attempt.config as any), 20000);
         preferredAttemptKey = attempt.key;
         return;
-      } catch {
-        // coba attempt berikutnya
+      } catch (error) {
+        lastError = error;
       }
     }
+
+    throw lastError ?? new Error('Unable to preload background removal model');
   })();
 
-  return preloadPromise;
+  try {
+    await preloadPromise;
+  } catch (error) {
+    preloadPromise = null;
+    throw error;
+  }
 }
 
 export async function warmupBackgroundRemoval(): Promise<void> {
-  await ensureBackgroundModelReady();
+  try {
+    await ensureBackgroundModelReady();
+  } catch (error) {
+    console.warn('Background removal warmup failed, will retry on upload.', error);
+  }
 }
 
 async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
@@ -79,7 +94,7 @@ async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
 async function normalizeInputBlob(sourceBlob: Blob): Promise<Blob> {
   try {
     const bitmap = await createImageBitmap(sourceBlob);
-    const maxDimension = 1024;
+    const maxDimension = 1280;
     const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
 
     const targetWidth = Math.max(1, Math.round(bitmap.width * scale));
@@ -115,7 +130,7 @@ async function removeWithFallback(source: Blob | string): Promise<Blob> {
   let lastError: unknown;
   for (const attempt of getOrderedAttempts()) {
     try {
-      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 45000);
+      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 35000);
       if (resultBlob && resultBlob.size > 0) {
         preferredAttemptKey = attempt.key;
         return resultBlob;
@@ -129,7 +144,11 @@ async function removeWithFallback(source: Blob | string): Promise<Blob> {
 }
 
 export async function removeBackgroundFromDataUrl(dataUrl: string): Promise<string> {
-  await ensureBackgroundModelReady();
+  try {
+    await ensureBackgroundModelReady();
+  } catch {
+    // lanjutkan ke removeWithFallback, karena beberapa browser gagal preload tapi sukses saat proses langsung
+  }
 
   const sourceBlob = await dataUrlToBlob(dataUrl);
   const normalizedBlob = await normalizeInputBlob(sourceBlob);

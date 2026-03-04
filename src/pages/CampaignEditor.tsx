@@ -186,9 +186,11 @@ const CampaignEditor = () => {
   }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h, form.type]);
 
   useEffect(() => {
+    if (isInteractingPreview) return;
+
     const timer = window.setTimeout(() => {
       updatePreview();
-    }, isInteractingPreview ? 140 : 70);
+    }, 40);
 
     return () => window.clearTimeout(timer);
   }, [updatePreview, isInteractingPreview]);
@@ -645,8 +647,6 @@ const CampaignEditor = () => {
                     onPointerMove={onPointerMove}
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
-                    onPointerLeave={onPointerUp}
-                    onWheel={onWheel}
                     onWheelCapture={onWheel}
                     className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center p-2 touch-none"
                     onDragStart={event => event.preventDefault()}
