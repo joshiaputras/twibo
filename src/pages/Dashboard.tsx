@@ -3,9 +3,10 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2, FileText } from 'lucide-react';
+import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2, FileText, TrendingUp, Users, Download } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -305,28 +306,137 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <Dialog open={!!statsDialog} onOpenChange={() => setStatsDialog(null)}>
-        <DialogContent className="glass-strong border-border">
-          <DialogHeader>
-            <DialogTitle className="font-display text-gold-gradient">
-              {t.dashboard.statsTitle ?? 'Statistik'}: {statsDialog?.name}
-            </DialogTitle>
-          </DialogHeader>
-          {statsDialog && (
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-                <p className="text-2xl font-bold text-foreground">{statsDialog.supporters}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t.dashboard.supporters}</p>
-              </div>
-              <div className="glass rounded-xl p-4 text-center border-gold-subtle">
-                <p className="text-2xl font-bold text-foreground">{statsDialog.downloads}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t.dashboard.downloads}</p>
-              </div>
+      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} />
+    </Layout>
+  );
+};
+
+/* ─── Enhanced Stats Dialog ─── */
+const StatsDialog = ({ campaign, open, onClose, t }: { campaign: CampaignItem | null; open: boolean; onClose: () => void; t: any }) => {
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!campaign || !open) return;
+    setLoading(true);
+    supabase
+      .from('campaign_stats_daily' as any)
+      .select('date,supporters_count,downloads_count')
+      .eq('campaign_id', campaign.id)
+      .order('date', { ascending: true })
+      .limit(30)
+      .then(({ data }) => {
+        setDailyData((data as any[]) ?? []);
+        setLoading(false);
+      });
+  }, [campaign?.id, open]);
+
+  if (!campaign) return null;
+
+  const totalSupporters = campaign.supporters;
+  const totalDownloads = campaign.downloads;
+  const conversionRate = totalSupporters > 0 ? ((totalDownloads / totalSupporters) * 100).toFixed(1) : '0';
+  const avgSupportersPerDay = dailyData.length > 0 ? (dailyData.reduce((s, d) => s + (d.supporters_count || 0), 0) / dailyData.length).toFixed(1) : '0';
+  const avgDownloadsPerDay = dailyData.length > 0 ? (dailyData.reduce((s, d) => s + (d.downloads_count || 0), 0) / dailyData.length).toFixed(1) : '0';
+  const peakSupporters = dailyData.length > 0 ? Math.max(...dailyData.map(d => d.supporters_count || 0)) : 0;
+  const peakDownloads = dailyData.length > 0 ? Math.max(...dailyData.map(d => d.downloads_count || 0)) : 0;
+
+  const chartData = dailyData.map(d => ({
+    date: new Date(d.date).toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+    supporters: d.supporters_count || 0,
+    downloads: d.downloads_count || 0,
+  }));
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-display text-gold-gradient">
+            {t.dashboard.statsTitle ?? 'Statistics'}: {campaign.name}
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+          <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+            <Users className="w-5 h-5 mx-auto text-primary mb-1" />
+            <p className="text-2xl font-bold text-foreground">{totalSupporters}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t.dashboard.totalSupporters ?? 'Total Supporters'}</p>
+          </div>
+          <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+            <Download className="w-5 h-5 mx-auto text-primary mb-1" />
+            <p className="text-2xl font-bold text-foreground">{totalDownloads}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t.dashboard.totalDownloads ?? 'Total Downloads'}</p>
+          </div>
+          <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+            <TrendingUp className="w-5 h-5 mx-auto text-primary mb-1" />
+            <p className="text-2xl font-bold text-foreground">{conversionRate}%</p>
+            <p className="text-xs text-muted-foreground mt-1">{t.dashboard.conversionRate ?? 'Conversion Rate'}</p>
+          </div>
+          <div className="glass rounded-xl p-4 text-center border-gold-subtle">
+            <BarChart3 className="w-5 h-5 mx-auto text-primary mb-1" />
+            <p className="text-2xl font-bold text-foreground">{avgSupportersPerDay}</p>
+            <p className="text-xs text-muted-foreground mt-1">{t.dashboard.avgPerDay ?? 'Avg/Day'}</p>
+          </div>
+        </div>
+
+        {/* Peak stats */}
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <div className="glass rounded-lg p-3 border-gold-subtle flex justify-between items-center">
+            <span className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.supporters})</span>
+            <span className="font-bold text-foreground">{peakSupporters}</span>
+          </div>
+          <div className="glass rounded-lg p-3 border-gold-subtle flex justify-between items-center">
+            <span className="text-xs text-muted-foreground">{t.dashboard.peakDay ?? 'Peak Day'} ({t.dashboard.downloads})</span>
+            <span className="font-bold text-foreground">{peakDownloads}</span>
+          </div>
+        </div>
+
+        {/* Chart */}
+        <div className="mt-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3">{t.dashboard.dailyTrend ?? 'Daily Trend (Last 30 Days)'}</h3>
+          {loading ? (
+            <div className="flex items-center justify-center h-48 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading...
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+              {t.dashboard.noStatsYet ?? 'No statistics data yet'}
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="gradSupp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradDown" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(142 76% 36%)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(142 76% 36%)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Area type="monotone" dataKey="supporters" name={t.dashboard.supporters} stroke="hsl(var(--primary))" fill="url(#gradSupp)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="downloads" name={t.dashboard.downloads} stroke="hsl(142 76% 36%)" fill="url(#gradDown)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-    </Layout>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

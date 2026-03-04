@@ -145,7 +145,14 @@
     "all": "All",
     "search": "Search campaigns...",
     "linkCopied": "Link copied!",
-    "campaignDeleted": "Campaign deleted"
+    "campaignDeleted": "Campaign deleted",
+    "totalSupporters": "Total Supporters",
+    "totalDownloads": "Total Downloads",
+    "conversionRate": "Conversion Rate",
+    "dailyTrend": "Daily Trend (Last 30 Days)",
+    "noStatsYet": "No statistics data yet",
+    "avgPerDay": "Avg/Day",
+    "peakDay": "Peak Day"
   },
   "profile": {
     "title": "Profile Settings",
