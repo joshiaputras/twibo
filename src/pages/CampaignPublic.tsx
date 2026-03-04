@@ -713,7 +713,7 @@ const CampaignPublic = () => {
                       </div>
                       <div className="space-y-1">
                         <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>{t.public?.feather ?? 'Feather'}</span>
+                          <span>{t.public?.feather ?? 'Edge Blur'}</span>
                           <span>{bgFeather}px</span>
                         </div>
                         <Slider

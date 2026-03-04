@@ -257,17 +257,10 @@ const Dashboard = () => {
                       variant="outline"
                       size="sm"
                       className="border-primary/30 text-primary gap-1 text-xs"
-                      onClick={() => c.tier === 'premium' ? setStatsDialog(c) : handleRemoveWatermark(c.id)}
-                      disabled={c.tier === 'free' && paying}
+                      onClick={() => setStatsDialog(c)}
                     >
-                      {c.tier === 'free' ? (
-                        paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <BarChart3 className="w-3 h-3" />
-                      ) : (
-                        <BarChart3 className="w-3 h-3" />
-                      )}
-                      {c.tier === 'free'
-                        ? (paying ? 'Processing...' : (t.dashboard.viewStats ?? 'Lihat Statistik'))
-                        : (t.dashboard.viewStats ?? 'Lihat Statistik')}
+                      <BarChart3 className="w-3 h-3" />
+                      {t.dashboard.viewStats ?? 'Lihat Statistik'}
                     </Button>
 
                     {c.paidOrderId && (
