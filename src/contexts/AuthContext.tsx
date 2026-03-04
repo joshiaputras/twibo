@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -32,21 +32,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profileName, setProfileName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const fetchingRef = useRef(false);
 
   const fetchProfile = useCallback(async (userId: string, currentSession?: Session | null) => {
-    const [{ data: profile }, { data: roleRows }] = await Promise.all([
-      supabase.from('profiles').select('name, avatar_url').eq('id', userId).maybeSingle(),
-      supabase.from('user_roles').select('role').eq('user_id', userId),
-    ]);
+    // Prevent concurrent fetches that cause flickering
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
 
-    setProfileName(profile?.name ?? '');
-    
-    // Priority: profile avatar_url > Google avatar from user metadata
-    const sess = currentSession ?? session;
-    const googleAvatar = sess?.user?.user_metadata?.avatar_url || sess?.user?.user_metadata?.picture || '';
-    setAvatarUrl(profile?.avatar_url || googleAvatar || '');
-    
-    setIsAdmin((roleRows ?? []).some((r: any) => r.role === 'admin'));
+    try {
+      const [{ data: profile }, { data: roleRows }] = await Promise.all([
+        supabase.from('profiles').select('name, avatar_url').eq('id', userId).maybeSingle(),
+        supabase.from('user_roles').select('role').eq('user_id', userId),
+      ]);
+
+      setProfileName(profile?.name ?? '');
+
+      const sess = currentSession ?? session;
+      const googleAvatar = sess?.user?.user_metadata?.avatar_url || sess?.user?.user_metadata?.picture || '';
+      setAvatarUrl(profile?.avatar_url || googleAvatar || '');
+
+      setIsAdmin((roleRows ?? []).some((r: any) => r.role === 'admin'));
+    } catch (err) {
+      // Silently fail - don't reset state on network errors to prevent flickering
+      console.error('Failed to fetch profile:', err);
+    } finally {
+      fetchingRef.current = false;
+    }
   }, [session]);
 
   const refreshProfile = useCallback(async () => {
@@ -56,11 +67,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchProfile]);
 
   useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      setSession(session);
+      setLoading(false);
+      if (session?.user) fetchProfile(session.user.id, session);
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
       setSession(session);
       setLoading(false);
       if (session?.user) {
-        setTimeout(() => fetchProfile(session.user.id, session), 0);
+        // Use requestAnimationFrame instead of setTimeout to batch with rendering
+        requestAnimationFrame(() => {
+          if (mounted) fetchProfile(session.user.id, session);
+        });
       } else {
         setProfileName('');
         setAvatarUrl('');
@@ -68,13 +92,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-      if (session?.user) fetchProfile(session.user.id, session);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchProfile]);
 
   const signOut = async () => {
