@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   Upload, Trash2, ZoomIn, ZoomOut, Undo2, Redo2,
   Type, Square, CircleIcon, Eye, EyeOff, ChevronUp, ChevronDown, Crosshair, RotateCcw,
-  Move, MousePointer, FlipHorizontal2, FlipVertical2,
+  Move, MousePointer, FlipHorizontal2, FlipVertical2, GripVertical, User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/i18n/LanguageContext';
@@ -27,6 +27,7 @@ interface LayerItem {
 }
 
 const PLACEHOLDER_PREFIX = '__placeholder__';
+const BG_IMAGE_PLACEHOLDER_ID = '__bg_image_placeholder__';
 const LEGACY_PLACEHOLDER_FILL = 'rgba(255,255,255,0.14';
 const LEGACY_PLACEHOLDER_STROKE = 'rgba(255,255,255,0.9';
 
@@ -86,6 +87,7 @@ const CanvasEditor = ({
   const [hasPlaceholder, setHasPlaceholder] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [selectedAngle, setSelectedAngle] = useState(0);
+  const [dragLayerId, setDragLayerId] = useState<string | null>(null);
   const [textStrokeColor, setTextStrokeColor] = useState('#000000');
   const [textStrokeWidth, setTextStrokeWidth] = useState(0);
 
@@ -276,6 +278,11 @@ const CanvasEditor = ({
       syncLayers();
       syncLayers();
       initialLoadedRef.current = true;
+
+      // Add background image placeholder if this is a new background campaign
+      if (type === 'background' && !initialState) {
+        addBgImagePlaceholder();
+      }
     };
 
     load();
@@ -607,6 +614,73 @@ const CanvasEditor = ({
     saveHistory();
   }, [saveHistory, syncLayers]);
 
+  const handleLayerDragStart = useCallback((layerId: string) => {
+    setDragLayerId(layerId);
+  }, []);
+
+  const handleLayerDragOver = useCallback((e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleLayerDrop = useCallback((targetId: string) => {
+    if (!dragLayerId || dragLayerId === targetId || !fabricRef.current) {
+      setDragLayerId(null);
+      return;
+    }
+    const objs = fabricRef.current.getObjects();
+    const srcObj = objs.find((o: any) => o.id === dragLayerId);
+    const tgtObj = objs.find((o: any) => o.id === targetId);
+    if (!srcObj || !tgtObj) { setDragLayerId(null); return; }
+
+    // Layers list is reversed (top layer first), so we need the target's canvas index
+    const tgtIdx = objs.indexOf(tgtObj);
+    fabricRef.current.moveObjectTo(srcObj, tgtIdx);
+    fabricRef.current.renderAll();
+    syncLayers();
+    saveHistory();
+    setDragLayerId(null);
+  }, [dragLayerId, saveHistory, syncLayers]);
+
+  // Add default background image placeholder for background type
+  const addBgImagePlaceholder = useCallback(() => {
+    if (!fabricRef.current || type !== 'background') return;
+    // Check if already exists
+    const exists = fabricRef.current.getObjects().some((o: any) => o.id === BG_IMAGE_PLACEHOLDER_ID);
+    if (exists) return;
+
+    // Create a person silhouette using a simple SVG data URL
+    const svgStr = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>`;
+    const svgDataUrl = `data:image/svg+xml;base64,${btoa(svgStr)}`;
+
+    FabricImage.fromURL(svgDataUrl).then((img) => {
+      const canvas = fabricRef.current;
+      if (!canvas) return;
+      const size = Math.min(width, height) * 0.5;
+      const imgScale = size / Math.max(img.width || 1, img.height || 1);
+      (img as any).id = BG_IMAGE_PLACEHOLDER_ID;
+      (img as any).name = 'Image Placeholder';
+      img.set({
+        scaleX: imgScale,
+        scaleY: imgScale,
+        left: width / 2,
+        top: height / 2,
+        originX: 'center',
+        originY: 'center',
+        opacity: 0.5,
+        selectable: false,
+        evented: false,
+      });
+      // Insert at bottom (index 0)
+      canvas.insertAt(0, img);
+      canvas.renderAll();
+      syncLayersRef.current();
+      saveHistoryRef.current();
+    }).catch(() => {
+      // Fallback: just skip if SVG fails
+    });
+  }, [type, width, height]);
+
   // Keyboard shortcuts
   useEffect(() => {
     if (mode !== 'edit') return;
@@ -715,6 +789,49 @@ const CanvasEditor = ({
       )}
 
       <div className="flex flex-col xl:flex-row gap-4">
+        {/* Layers panel - always visible, on top for mobile */}
+        {mode === 'edit' && (
+          <div className="w-full xl:hidden">
+            <div className="glass rounded-xl p-3 border-gold-subtle">
+              <h3 className="text-xs font-semibold text-foreground mb-2">{t.campaign.editor.layers}</h3>
+              {layers.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground">{t.campaign.editor.noLayers}</p>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {layers.map(layer => (
+                    <div
+                      key={layer.id}
+                      draggable
+                      onDragStart={() => handleLayerDragStart(layer.id)}
+                      onDragOver={(e) => handleLayerDragOver(e, layer.id)}
+                      onDrop={() => handleLayerDrop(layer.id)}
+                      onDragEnd={() => setDragLayerId(null)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] cursor-grab transition-colors border ${
+                        dragLayerId === layer.id ? 'opacity-50' : ''
+                      } ${
+                        selectedId === layer.id ? 'bg-primary/20 text-primary border-primary/30' : 'text-muted-foreground hover:bg-secondary/50 border-transparent'
+                      }`}
+                      onClick={() => {
+                        if (!fabricRef.current) return;
+                        const obj = fabricRef.current.getObjects().find((o: any) => o.id === layer.id);
+                        if (!obj) return;
+                        fabricRef.current.setActiveObject(obj);
+                        fabricRef.current.renderAll();
+                        setSelectedId(layer.id);
+                      }}
+                    >
+                      <GripVertical className="w-2.5 h-2.5 shrink-0 opacity-40" />
+                      <button onClick={e => { e.stopPropagation(); toggleVisibility(layer.id); }} className="shrink-0">
+                        {layer.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-muted-foreground/50" />}
+                      </button>
+                      <span className="truncate max-w-[80px]">{layer.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         {/* Left sidebar - tools */}
         {mode === 'edit' && (
           <div className={`w-full xl:w-64 space-y-3 shrink-0 ${showSidebar ? 'block' : 'hidden xl:block'}`}>
@@ -832,9 +949,9 @@ const CanvasEditor = ({
           </p>
         </div>
 
-        {/* Right sidebar - layers */}
+        {/* Right sidebar - layers (desktop only, mobile version is above) */}
         {mode === 'edit' && (
-          <div className={`w-full xl:w-56 shrink-0 ${showSidebar ? 'block' : 'hidden xl:block'}`}>
+          <div className="hidden xl:block w-56 shrink-0">
             <div className="glass rounded-xl p-3 border-gold-subtle">
               <h3 className="text-xs font-semibold text-foreground mb-2">{t.campaign.editor.layers}</h3>
               {layers.length === 0 ? (
@@ -844,7 +961,14 @@ const CanvasEditor = ({
                   {layers.map(layer => (
                     <div
                       key={layer.id}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] cursor-pointer transition-colors ${
+                      draggable
+                      onDragStart={() => handleLayerDragStart(layer.id)}
+                      onDragOver={(e) => handleLayerDragOver(e, layer.id)}
+                      onDrop={() => handleLayerDrop(layer.id)}
+                      onDragEnd={() => setDragLayerId(null)}
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] cursor-grab transition-colors ${
+                        dragLayerId === layer.id ? 'opacity-50' : ''
+                      } ${
                         selectedId === layer.id ? 'bg-primary/20 text-primary' : 'text-muted-foreground hover:bg-secondary/50'
                       }`}
                       onClick={() => {
@@ -856,6 +980,7 @@ const CanvasEditor = ({
                         setSelectedId(layer.id);
                       }}
                     >
+                      <GripVertical className="w-2.5 h-2.5 shrink-0 opacity-40" />
                       <button onClick={e => { e.stopPropagation(); toggleVisibility(layer.id); }} className="shrink-0">
                         {layer.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 text-muted-foreground/50" />}
                       </button>
