@@ -1,7 +1,8 @@
 import Layout from '@/components/Layout';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2 } from 'lucide-react';
+import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2, SlidersHorizontal } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +10,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
 import { renderTemplatePNG, composeResult, loadImage } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
+import { applyAlphaThreshold } from '@/utils/applyAlphaThreshold';
 import { extractPlaceholderMeta, extractPreviewMeta } from '@/utils/campaignDesign';
 import { useIsMobile } from '@/hooks/use-mobile';
 import PhotoComposerPreview from '@/components/PhotoComposerPreview';
@@ -32,6 +34,9 @@ const CampaignPublic = () => {
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
   const [processingPhoto, setProcessingPhoto] = useState(false);
   const [isInteractingPreview, setIsInteractingPreview] = useState(false);
+  const [rawRemovedBg, setRawRemovedBg] = useState<string>('');
+  const [bgThreshold, setBgThreshold] = useState(50);
+  const [applyingThreshold, setApplyingThreshold] = useState(false);
 
   const isFree = campaign?.tier !== 'premium';
   const composeVersionRef = useRef(0);
@@ -199,15 +204,28 @@ const CampaignPublic = () => {
 
       try {
         setProcessingPhoto(true);
-        const photoDataUrl = campaign?.type === 'background' ? await removeBackgroundFromDataUrl(rawDataUrl) : rawDataUrl;
-        const initialTransform = await getInitialPhotoTransform(photoDataUrl);
-        setUserPhoto(photoDataUrl);
-        setPhotoScale(initialTransform.scale);
-        setPhotoOffsetX(initialTransform.offsetX);
-        setPhotoOffsetY(initialTransform.offsetY);
+        if (campaign?.type === 'background') {
+          const removedBgDataUrl = await removeBackgroundFromDataUrl(rawDataUrl);
+          setRawRemovedBg(removedBgDataUrl);
+          setBgThreshold(50);
+          const processed = await applyAlphaThreshold(removedBgDataUrl, 50);
+          const initialTransform = await getInitialPhotoTransform(processed);
+          setUserPhoto(processed);
+          setPhotoScale(initialTransform.scale);
+          setPhotoOffsetX(initialTransform.offsetX);
+          setPhotoOffsetY(initialTransform.offsetY);
+        } else {
+          const initialTransform = await getInitialPhotoTransform(rawDataUrl);
+          setUserPhoto(rawDataUrl);
+          setRawRemovedBg('');
+          setPhotoScale(initialTransform.scale);
+          setPhotoOffsetX(initialTransform.offsetX);
+          setPhotoOffsetY(initialTransform.offsetY);
+        }
       } catch {
         const initialTransform = await getInitialPhotoTransform(rawDataUrl);
         setUserPhoto(rawDataUrl);
+        setRawRemovedBg('');
         setPhotoScale(initialTransform.scale);
         setPhotoOffsetX(initialTransform.offsetX);
         setPhotoOffsetY(initialTransform.offsetY);
@@ -315,6 +333,21 @@ const CampaignPublic = () => {
     navigator.clipboard.writeText(`${window.location.origin}/c/${slug}`);
     toast.success(t.public?.linkCopied ?? 'Link disalin!');
   };
+
+  const handleThresholdChange = useCallback(async (values: number[]) => {
+    const newThreshold = values[0];
+    setBgThreshold(newThreshold);
+    if (!rawRemovedBg) return;
+    setApplyingThreshold(true);
+    try {
+      const processed = await applyAlphaThreshold(rawRemovedBg, newThreshold);
+      setUserPhoto(processed);
+    } catch {
+      // keep current
+    } finally {
+      setApplyingThreshold(false);
+    }
+  }, [rawRemovedBg]);
 
   const handleRemoveWatermark = async () => {
     if (!campaign) return;
@@ -622,6 +655,34 @@ const CampaignPublic = () => {
                       <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>
                     </label>
                   </div>
+
+                  {rawRemovedBg && campaign?.type === 'background' && (
+                    <div className="glass rounded-xl p-4 border-gold-subtle space-y-3">
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Background Removal</h3>
+                        {applyingThreshold && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Toleransi</span>
+                          <span>{bgThreshold}%</span>
+                        </div>
+                        <Slider
+                          value={[bgThreshold]}
+                          onValueChange={handleThresholdChange}
+                          min={0}
+                          max={100}
+                          step={5}
+                          className="w-full"
+                        />
+                        <div className="flex justify-between text-[10px] text-muted-foreground/60">
+                          <span>Lembut</span>
+                          <span>Agresif</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {campaign?.caption && (
                     <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
