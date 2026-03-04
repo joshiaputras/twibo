@@ -52,9 +52,12 @@ const CampaignPublic = () => {
 
   const [fw, fh] = sizeMap[campaign?.size] || [1080, 1080];
   const previewScale = Math.min(500 / fw, 600 / fh, 1);
+  const exampleImage = previewImage || templateImage;
 
   useEffect(() => {
     if (!slug) return;
+
+    let cancelled = false;
     const load = async () => {
       setLoading(true);
       const { data, error }: { data: any; error: any } = await supabase
@@ -64,33 +67,43 @@ const CampaignPublic = () => {
         .eq('status', 'published')
         .single();
 
+      if (cancelled) return;
+
       if (error || !data) {
+        setCampaign(null);
         setLoading(false);
         return;
       }
 
       setCampaign(data);
-      if (user && data.user_id === user.id) setIsOwner(true);
 
       const previewMeta = extractPreviewMeta(data.design_json);
-      setUserPhoto(previewMeta.photoDataUrl ?? '');
-      setPhotoScale(previewMeta.photoScale ?? 100);
-      setPhotoOffsetX(previewMeta.photoOffsetX ?? 0);
-      setPhotoOffsetY(previewMeta.photoOffsetY ?? 0);
       setPreviewImage(previewMeta.previewImageDataUrl ?? '');
-
-      setLoading(false);
+      setUserPhoto('');
+      setPhotoScale(100);
+      setPhotoOffsetX(0);
+      setPhotoOffsetY(0);
 
       try {
         const [w, h] = sizeMap[data.size] || [1080, 1080];
         const tplDataUrl = await renderTemplatePNG(data.design_json, w, h, data.type ?? 'frame');
-        setTemplateImage(tplDataUrl);
+        if (!cancelled) setTemplateImage(tplDataUrl);
       } catch (err) {
         console.error('Template render error:', err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     };
-    load();
-  }, [slug, user]);
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  useEffect(() => {
+    setIsOwner(!!user?.id && !!campaign?.user_id && campaign.user_id === user.id);
+  }, [user?.id, campaign?.user_id]);
 
   useEffect(() => {
     if (campaign?.type !== 'background') return;
@@ -124,9 +137,11 @@ const CampaignPublic = () => {
   }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree, fw, fh]);
 
   useEffect(() => {
+    if (isInteractingPreview) return;
+
     const timer = window.setTimeout(() => {
       updateResult();
-    }, isInteractingPreview ? 140 : 70);
+    }, 40);
 
     return () => window.clearTimeout(timer);
   }, [updateResult, isInteractingPreview]);
@@ -410,21 +425,21 @@ const CampaignPublic = () => {
               </div>
             )}
 
-            {previewImage && (
+            {exampleImage && (
               <div className="mb-4 rounded-xl border border-border bg-secondary/20 p-2">
-                <img src={previewImage} alt="Contoh hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
+                <img src={exampleImage} alt="Contoh hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
               </div>
             )}
 
-            <div
-              ref={previewInteractionRef}
-              onPointerDown={onPointerDown}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-              onPointerCancel={onPointerUp}
-              onPointerLeave={onPointerUp}
-              onWheelCapture={onWheel}
-              className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2"
+            {userPhoto && (
+              <div
+                ref={previewInteractionRef}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
+                onWheelCapture={onWheel}
+                className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2"
               onDragStart={event => event.preventDefault()}
               style={{
                 touchAction: 'none',
@@ -450,7 +465,8 @@ const CampaignPublic = () => {
                   </div>
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             {!userPhoto ? (
               <div className="space-y-4">
