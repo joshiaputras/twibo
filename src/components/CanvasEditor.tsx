@@ -97,7 +97,22 @@ const CanvasEditor = ({
   const saveHistoryRef = useRef<() => void>(() => {});
 
   // Compute display size: fit canvas into available viewport
-  const maxW = typeof window !== 'undefined' ? Math.min(window.innerWidth - 40, 800) : 800;
+  const [containerW, setContainerW] = useState(800);
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const measure = () => {
+      // Account for padding (p-4 = 16px * 2 on mobile, p-6 = 24px * 2 on desktop)
+      const padding = window.innerWidth < 768 ? 32 : 48;
+      setContainerW(Math.max(200, el.clientWidth - padding));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const maxW = Math.min(containerW, 800);
   const maxH = 600;
   const baseScale = Math.min(maxW / width, maxH / height, 1);
   const displayW = Math.round(width * baseScale);

@@ -703,7 +703,7 @@ const CampaignEditor = () => {
                   </p>
                 </div>
 
-                <div className="max-w-md w-full mx-auto">
+                <div className="w-full mx-auto" style={{ maxWidth: Math.max(1, Math.round(selectedSize.w * previewScale)) + 'px' }}>
                   <p className="text-sm text-muted-foreground text-center mb-2">{t.campaign.templatePreview ?? 'Template Preview'}</p>
                   <div
                     ref={previewInteractionRef}
@@ -712,11 +712,13 @@ const CampaignEditor = () => {
                     onPointerUp={onPointerUp}
                     onPointerCancel={onPointerUp}
                     onWheelCapture={onWheel}
-                    className="relative w-full rounded-xl overflow-hidden border border-border bg-secondary/20 flex items-center justify-center touch-none"
+                    className="relative rounded-xl overflow-hidden border border-border mx-auto"
                     onDragStart={event => event.preventDefault()}
                     style={{
                       touchAction: 'none',
                       overscrollBehavior: 'contain',
+                      width: Math.max(1, Math.round(selectedSize.w * previewScale)),
+                      height: Math.max(1, Math.round(selectedSize.h * previewScale)),
                       backgroundImage:
                         'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
                       backgroundSize: '16px 16px',
