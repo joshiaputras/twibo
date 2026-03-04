@@ -687,22 +687,20 @@ const CampaignPublic = () => {
             <h1 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient">{campaign.name}</h1>
 
             {/* Creator avatar + name */}
-            {creatorName && (
-              <div className="flex items-center gap-2">
-                <Avatar className="w-7 h-7">
-                  <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                    {creatorName.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm text-foreground font-medium">{creatorName}</span>
-                {campaign.tier === 'premium' && (
-                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
-                    <Crown className="w-3 h-3" />
-                    Premium
-                  </span>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <Avatar className="w-7 h-7">
+                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                  {(creatorName || 'U').charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm text-foreground font-medium">{creatorName || 'User'}</span>
+              {campaign.tier === 'premium' && (
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
+                  <Crown className="w-3 h-3" />
+                  Premium
+                </span>
+              )}
+            </div>
 
             {supportersCount > 0 && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -714,7 +712,8 @@ const CampaignPublic = () => {
             {/* About This Campaign */}
             {campaign.description && (
               <div>
-                <h3 className="text-sm font-semibold text-foreground/90 mb-1">Tentang Campaign Ini</h3>
+                <hr className="border-border/40 my-2" />
+                <h3 className="text-lg font-display font-semibold text-foreground mb-2">Tentang Campaign Ini</h3>
                 <p className="text-foreground/80 text-sm">{campaign.description}</p>
               </div>
             )}
@@ -747,12 +746,8 @@ const CampaignPublic = () => {
 
               {/* Caption below preview image */}
               {campaign.caption && !userPhoto && (
-                <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                <div className="rounded-xl border border-border bg-secondary/20 p-4">
                   <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
-                  <Button variant="outline" size="sm" className="border-border gap-1 text-xs w-full" onClick={handleCopyCaption}>
-                    <Copy className="w-3 h-3" />
-                    {t.public?.copyCaption ?? 'Salin Caption'}
-                  </Button>
                 </div>
               )}
             </div>
@@ -876,12 +871,8 @@ const CampaignPublic = () => {
 
                   {/* Caption below interactive preview */}
                   {campaign?.caption && (
-                    <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                    <div className="rounded-xl border border-border bg-secondary/20 p-4">
                       <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
-                      <Button variant="outline" size="sm" className="border-border gap-1 text-xs w-full" onClick={handleCopyCaption}>
-                        <Copy className="w-3 h-3" />
-                        {t.public?.copyCaption ?? 'Salin Caption'}
-                      </Button>
                     </div>
                   )}
 

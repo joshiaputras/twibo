@@ -326,6 +326,8 @@ const Admin = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t.admin.campaign ?? 'Campaign'}</TableHead>
+                      <TableHead>{t.admin.name ?? 'Name'}</TableHead>
+                      <TableHead>{t.admin.email ?? 'Email'}</TableHead>
                       <TableHead>{t.admin.slug ?? 'Slug'}</TableHead>
                       <TableHead>{t.admin.tier ?? 'Tier'}</TableHead>
                       <TableHead>{t.admin.status ?? 'Status'}</TableHead>
@@ -336,6 +338,8 @@ const Admin = () => {
                     {filteredCampaigns.map((c: any) => (
                       <TableRow key={c.id}>
                         <TableCell className="font-medium">{c.name}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{users.find((u: any) => u.id === c.user_id)?.name || '-'}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{users.find((u: any) => u.id === c.user_id)?.email || '-'}</TableCell>
                         <TableCell className="text-muted-foreground">{c.slug}</TableCell>
                         <TableCell>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${c.tier === 'premium' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
@@ -385,15 +389,17 @@ const Admin = () => {
                             >
                               {c.tier === 'premium' ? (t.admin.setFree ?? 'Set Free') : (t.admin.setPremium ?? 'Set Premium')}
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`text-xs gap-1 ${c.is_featured ? 'border-primary/50 text-primary' : ''}`}
-                              onClick={() => updateCampaign(c.id, { is_featured: !c.is_featured }, c.is_featured ? 'Dihapus dari featured' : 'Ditampilkan di homepage')}
-                            >
-                              <Star className={`w-3 h-3 ${c.is_featured ? 'fill-primary' : ''}`} />
-                              {c.is_featured ? 'Featured ✓' : 'Set Featured'}
-                            </Button>
+                            {users.find((u: any) => u.id === c.user_id)?.is_admin && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={`text-xs gap-1 ${c.is_featured ? 'border-primary/50 text-primary' : ''}`}
+                                onClick={() => updateCampaign(c.id, { is_featured: !c.is_featured }, c.is_featured ? 'Dihapus dari featured' : 'Ditampilkan di homepage')}
+                              >
+                                <Star className={`w-3 h-3 ${c.is_featured ? 'fill-primary' : ''}`} />
+                                {c.is_featured ? 'Featured ✓' : 'Set Featured'}
+                              </Button>
+                            )}
                             <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteCampaign(c.id)}>
                               <Trash2 className="w-3 h-3" /> {t.admin.delete ?? 'Delete'}
                             </Button>
@@ -403,7 +409,7 @@ const Admin = () => {
                     ))}
                     {filteredCampaigns.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="p-8 text-center text-muted-foreground">
+                        <TableCell colSpan={7} className="p-8 text-center text-muted-foreground">
                           {t.admin.noData ?? 'Belum ada data'}
                         </TableCell>
                       </TableRow>

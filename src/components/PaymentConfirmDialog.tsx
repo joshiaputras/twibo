@@ -27,6 +27,7 @@ const PaymentConfirmDialog = ({
 }: PaymentConfirmDialogProps) => {
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherValidating, setVoucherValidating] = useState(false);
+  const [voucherError, setVoucherError] = useState('');
   const [voucherDiscount, setVoucherDiscount] = useState<{
     type: string;
     value: number;
@@ -43,6 +44,7 @@ const PaymentConfirmDialog = ({
   const handleValidateVoucher = async () => {
     if (!voucherCode.trim()) return;
     setVoucherValidating(true);
+    setVoucherError('');
     try {
       const { data, error } = await supabase
         .from('vouchers' as any)
@@ -52,24 +54,24 @@ const PaymentConfirmDialog = ({
         .maybeSingle();
 
       if (error || !data) {
-        toast.error('Kode voucher tidak valid');
+        setVoucherError('Kode voucher tidak valid');
         setVoucherDiscount(null);
         return;
       }
 
       const v = data as any;
       if (v.max_uses && v.used_count >= v.max_uses) {
-        toast.error('Voucher sudah habis digunakan');
+        setVoucherError('Voucher sudah habis digunakan');
         setVoucherDiscount(null);
         return;
       }
       if (v.valid_until && new Date(v.valid_until) < new Date()) {
-        toast.error('Voucher sudah kadaluarsa');
+        setVoucherError('Voucher sudah kadaluarsa');
         setVoucherDiscount(null);
         return;
       }
       if (v.valid_from && new Date(v.valid_from) > new Date()) {
-        toast.error('Voucher belum berlaku');
+        setVoucherError('Voucher belum berlaku');
         setVoucherDiscount(null);
         return;
       }
@@ -77,7 +79,7 @@ const PaymentConfirmDialog = ({
       setVoucherDiscount({ type: v.discount_type, value: v.discount_value, code: v.code });
       toast.success(`Voucher "${v.code}" berhasil diterapkan!`);
     } catch {
-      toast.error('Gagal memvalidasi voucher');
+      setVoucherError('Gagal memvalidasi voucher');
     } finally {
       setVoucherValidating(false);
     }
@@ -156,10 +158,13 @@ const PaymentConfirmDialog = ({
                 </Button>
               )}
             </div>
+            {voucherError && (
+              <p className="text-xs text-destructive">{voucherError}</p>
+            )}
             {voucherDiscount && (
               <button
                 className="text-xs text-muted-foreground underline"
-                onClick={() => { setVoucherDiscount(null); setVoucherCode(''); }}
+                onClick={() => { setVoucherDiscount(null); setVoucherCode(''); setVoucherError(''); }}
               >
                 Hapus voucher
               </button>
@@ -170,7 +175,7 @@ const PaymentConfirmDialog = ({
           <div className="rounded-xl border border-border bg-secondary/20 p-4">
             <p className="text-xs text-muted-foreground mb-2">Yang kamu dapatkan:</p>
             <ul className="space-y-1.5">
-              {['Tanpa watermark', 'Tanpa iklan', 'Statistik lengkap', 'Prioritas support'].map((f, i) => (
+              {['Tanpa watermark', 'Tanpa iklan', 'Statistik lengkap', 'Prioritas support', 'Upload banner kustom'].map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-xs text-foreground">
                   <Check className="w-3 h-3 text-primary shrink-0" /> {f}
                 </li>

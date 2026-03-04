@@ -26,11 +26,11 @@ const Index = () => {
     if (!el || featuredCampaigns.length === 0) return;
 
     let animId: number;
-    let speed = 0.5;
 
     const animate = () => {
-      el.scrollLeft += speed;
-      if (el.scrollLeft >= el.scrollWidth - el.clientWidth) {
+      el.scrollLeft += 0.3;
+      // When we've scrolled past the first set, reset seamlessly
+      if (el.scrollLeft >= el.scrollWidth / 2) {
         el.scrollLeft = 0;
       }
       animId = requestAnimationFrame(animate);

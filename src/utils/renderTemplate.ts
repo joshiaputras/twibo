@@ -390,7 +390,7 @@ export async function composeResult(opts: {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 2;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.94)';
+    ctx.fillStyle = 'rgba(15, 15, 15, 0.9)';
     ctx.beginPath();
     if (typeof (ctx as any).roundRect === 'function') {
       (ctx as any).roundRect(x, y, badgeW, badgeH, radius);
@@ -407,6 +407,11 @@ export async function composeResult(opts: {
     }
     ctx.closePath();
     ctx.fill();
+
+    // White border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
     // Reset shadow before drawing text
     ctx.shadowColor = 'transparent';
