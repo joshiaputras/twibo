@@ -334,31 +334,47 @@ const Admin = () => {
               </div>
             </TabsContent>
 
-            <TabsContent value="transactions">
+            <TabsContent value="transactions" className="space-y-3">
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t.admin.date ?? 'Date'}</TableHead>
+                      <TableHead>Order ID</TableHead>
                       <TableHead>{t.admin.campaign ?? 'Campaign'}</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead>Metode</TableHead>
                       <TableHead>{t.admin.amount ?? 'Amount'}</TableHead>
                       <TableHead>{t.admin.status ?? 'Status'}</TableHead>
+                      <TableHead>Paid At</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments.map((tx: any) => (
-                      <TableRow key={tx.id}>
-                        <TableCell className="text-xs">{new Date(tx.created_at).toLocaleDateString('id-ID')}</TableCell>
-                        <TableCell className="text-muted-foreground">{tx.campaign_id}</TableCell>
-                        <TableCell className="text-primary font-semibold">Rp {(tx.amount || 0).toLocaleString('id-ID')}</TableCell>
-                        <TableCell>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>{tx.status}</span>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {payments.map((tx: any) => {
+                      const camp = campaigns.find((c: any) => c.id === tx.campaign_id);
+                      const usr = users.find((u: any) => u.id === tx.user_id);
+                      return (
+                        <TableRow key={tx.id}>
+                          <TableCell className="text-xs text-muted-foreground">{new Date(tx.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</TableCell>
+                          <TableCell className="text-xs font-mono text-muted-foreground">{tx.midtrans_order_id || '-'}</TableCell>
+                          <TableCell className="font-medium">{camp?.name || tx.campaign_id?.substring(0, 8)}</TableCell>
+                          <TableCell className="text-muted-foreground text-xs">{usr?.name || usr?.email || tx.user_id?.substring(0, 8)}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{tx.payment_method || '-'}</TableCell>
+                          <TableCell className="text-primary font-semibold">Rp {(tx.amount || 0).toLocaleString('id-ID')}</TableCell>
+                          <TableCell>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              tx.status === 'paid' ? 'bg-green-500/20 text-green-400' :
+                              tx.status === 'failed' ? 'bg-destructive/20 text-destructive' :
+                              'bg-yellow-500/20 text-yellow-400'
+                            }`}>{tx.status}</span>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">{tx.paid_at ? new Date(tx.paid_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                     {payments.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="p-8 text-center text-muted-foreground">
+                        <TableCell colSpan={8} className="p-8 text-center text-muted-foreground">
                           {t.admin.noData ?? 'Belum ada data'}
                         </TableCell>
                       </TableRow>
