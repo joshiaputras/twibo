@@ -11,6 +11,7 @@ import { renderTemplatePNG, composeResult, loadImage } from '@/utils/renderTempl
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { extractPlaceholderMeta, extractPreviewMeta } from '@/utils/campaignDesign';
 import { useIsMobile } from '@/hooks/use-mobile';
+import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 

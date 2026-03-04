@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
