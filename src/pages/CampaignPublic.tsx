@@ -1,9 +1,9 @@
 import Layout from '@/components/Layout';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2, SlidersHorizontal, Users, Link2, MoreHorizontal, Ticket } from 'lucide-react';
+import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2, SlidersHorizontal, Users, Link2 } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Slider } from '@/components/ui/slider';
-import { Input } from '@/components/ui/input';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 import AdSenseBanner from '@/components/AdSenseBanner';
 import { useMidtransPayment } from '@/hooks/useMidtransPayment';
+import { usePricing } from '@/hooks/usePricing';
+import PaymentConfirmDialog from '@/components/PaymentConfirmDialog';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -46,12 +48,9 @@ const CampaignPublic = () => {
   const [bgThreshold, setBgThreshold] = useState(50);
   const [applyingThreshold, setApplyingThreshold] = useState(false);
 
-  // Voucher state
-  const [voucherCode, setVoucherCode] = useState('');
-  const [voucherValidating, setVoucherValidating] = useState(false);
-  const [voucherDiscount, setVoucherDiscount] = useState<{ type: string; value: number; code: string } | null>(null);
-
   const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
+  const { premiumPrice, originalPrice } = usePricing();
+  const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const isFree = campaign?.tier !== 'premium';
   const composeVersionRef = useRef(0);
   const supporterTrackedRef = useRef(false);
@@ -487,59 +486,14 @@ const CampaignPublic = () => {
     await applyBgProcessing(newThreshold);
   }, [applyBgProcessing]);
 
-  const handleValidateVoucher = async () => {
-    if (!voucherCode.trim()) return;
-    setVoucherValidating(true);
-    try {
-      const { data, error } = await supabase
-        .from('vouchers' as any)
-        .select('*')
-        .eq('code', voucherCode.trim().toUpperCase())
-        .eq('is_active', true)
-        .maybeSingle();
 
-      if (error || !data) {
-        toast.error('Kode voucher tidak valid');
-        setVoucherDiscount(null);
-        setVoucherValidating(false);
-        return;
-      }
-
-      const v = data as any;
-      if (v.max_uses && v.used_count >= v.max_uses) {
-        toast.error('Voucher sudah habis digunakan');
-        setVoucherDiscount(null);
-        setVoucherValidating(false);
-        return;
-      }
-      if (v.valid_until && new Date(v.valid_until) < new Date()) {
-        toast.error('Voucher sudah kadaluarsa');
-        setVoucherDiscount(null);
-        setVoucherValidating(false);
-        return;
-      }
-      if (v.valid_from && new Date(v.valid_from) > new Date()) {
-        toast.error('Voucher belum berlaku');
-        setVoucherDiscount(null);
-        setVoucherValidating(false);
-        return;
-      }
-
-      setVoucherDiscount({ type: v.discount_type, value: v.discount_value, code: v.code });
-      toast.success(`Voucher "${v.code}" berhasil diterapkan!`);
-    } catch {
-      toast.error('Gagal memvalidasi voucher');
-    } finally {
-      setVoucherValidating(false);
-    }
-  };
-
-  const handleRemoveWatermark = async () => {
+  const handleRemoveWatermark = async (voucherCode?: string) => {
     if (!campaign) return;
-    const result = await pay(campaign.id, voucherDiscount?.code);
+    const result = await pay(campaign.id, voucherCode);
     if (result.success) {
       setCampaign((prev: any) => ({ ...prev, tier: 'premium' }));
     }
+    setShowPaymentConfirm(false);
   };
 
   const isPreviewBusy = processingPhoto;
@@ -694,14 +648,6 @@ const CampaignPublic = () => {
     });
   };
 
-  // Calculate price with voucher
-  const basePrice = 50000;
-  const discountAmount = voucherDiscount
-    ? voucherDiscount.type === 'percentage'
-      ? Math.round(basePrice * voucherDiscount.value / 100)
-      : voucherDiscount.value
-    : 0;
-  const finalPrice = Math.max(0, basePrice - discountAmount);
 
   if (loading) {
     return (
@@ -736,66 +682,77 @@ const CampaignPublic = () => {
             </div>
           )}
 
-          {/* Campaign Header - Redesigned */}
+          {/* Campaign Header */}
           <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle mb-6 space-y-4">
             <h1 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient">{campaign.name}</h1>
 
-            <div className="flex flex-wrap items-center gap-3">
-              {creatorName && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
-                    <Users className="w-3 h-3 text-primary" />
-                  </div>
-                  <span className="text-foreground font-medium">{creatorName}</span>
-                </div>
-              )}
-              {supportersCount > 0 && (
-                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                  <Users className="w-4 h-4" />
-                  <span>{supportersCount.toLocaleString('id-ID')} supporters</span>
-                </div>
-              )}
-              {campaign.tier === 'premium' && (
-                <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-primary/20 text-primary font-semibold">
-                  <Crown className="w-3 h-3" />
-                  Premium Creator
-                </span>
-              )}
-            </div>
+            {/* Creator avatar + name */}
+            {creatorName && (
+              <div className="flex items-center gap-2">
+                <Avatar className="w-7 h-7">
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                    {creatorName.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-foreground font-medium">{creatorName}</span>
+                {campaign.tier === 'premium' && (
+                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
+                    <Crown className="w-3 h-3" />
+                    Premium
+                  </span>
+                )}
+              </div>
+            )}
 
+            {supportersCount > 0 && (
+              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Users className="w-4 h-4" />
+                <span>{supportersCount.toLocaleString('id-ID')} supporters</span>
+              </div>
+            )}
+
+            {/* About This Campaign */}
             {campaign.description && (
-              <p className="text-muted-foreground text-sm">{campaign.description}</p>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground/90 mb-1">Tentang Campaign Ini</h3>
+                <p className="text-foreground/80 text-sm">{campaign.description}</p>
+              </div>
             )}
 
             {/* Share bar */}
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex-1 min-w-0 flex items-center gap-2 glass rounded-lg px-3 py-2 text-xs text-muted-foreground">
+              <div className="flex-1 min-w-0 flex items-center gap-2 glass rounded-lg px-3 py-2 text-xs text-foreground/70">
                 <Link2 className="w-3.5 h-3.5 shrink-0" />
                 <span className="truncate">{window.location.origin}/c/{slug}</span>
               </div>
-              <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleShareUniversal}>
+              <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={handleShareUniversal}>
                 <Share2 className="w-3.5 h-3.5" />
               </Button>
-              <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleCopyLink}>
+              <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={handleCopyLink}>
                 <Copy className="w-3.5 h-3.5" />
               </Button>
             </div>
-
-            {campaign.caption && (
-              <div className="rounded-xl border border-border bg-secondary/20 p-4 text-left">
-                <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
-              </div>
-            )}
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            {/* Left column: preview image */}
+            {/* Left column: preview image + caption below it */}
             <div className="space-y-4">
               {bakedPreviewImage && (
                 <div className="glass-strong rounded-2xl p-4 border-gold-subtle">
                   <div className="relative mx-auto max-w-[400px] rounded-xl border border-border bg-secondary/20 p-2">
                     <img src={bakedPreviewImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
                   </div>
+                </div>
+              )}
+
+              {/* Caption below preview image */}
+              {campaign.caption && !userPhoto && (
+                <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
+                  <Button variant="outline" size="sm" className="border-border gap-1 text-xs w-full" onClick={handleCopyCaption}>
+                    <Copy className="w-3 h-3" />
+                    {t.public?.copyCaption ?? 'Salin Caption'}
+                  </Button>
                 </div>
               )}
             </div>
@@ -811,33 +768,9 @@ const CampaignPublic = () => {
                       <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
                     </div>
                   </div>
-
-                  {/* Voucher Code Input */}
-                  <div className="flex gap-2">
-                    <div className="flex-1 relative">
-                      <Ticket className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Kode voucher (opsional)"
-                        value={voucherCode}
-                        onChange={e => setVoucherCode(e.target.value.toUpperCase())}
-                        className="pl-9 bg-secondary/50 border-border text-sm uppercase"
-                      />
-                    </div>
-                    <Button size="sm" variant="outline" className="text-xs shrink-0" onClick={handleValidateVoucher} disabled={voucherValidating || !voucherCode.trim()}>
-                      {voucherValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
-                    </Button>
-                  </div>
-                  {voucherDiscount && (
-                    <div className="text-xs text-green-400 flex items-center gap-1">
-                      <Ticket className="w-3 h-3" />
-                      Diskon {voucherDiscount.type === 'percentage' ? `${voucherDiscount.value}%` : `Rp ${voucherDiscount.value.toLocaleString('id-ID')}`} diterapkan!
-                      {discountAmount > 0 && <span className="ml-1">(Bayar: Rp {finalPrice.toLocaleString('id-ID')})</span>}
-                    </div>
-                  )}
-
-                  <Button size="sm" className="gold-glow text-xs gap-1 w-full" onClick={handleRemoveWatermark} disabled={paying}>
+                  <Button size="sm" className="gold-glow text-xs gap-1 w-full" onClick={() => setShowPaymentConfirm(true)} disabled={paying}>
                     {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
-                    {paying ? 'Processing...' : `Upgrade Premium${finalPrice < basePrice ? ` — Rp ${finalPrice.toLocaleString('id-ID')}` : ''}`}
+                    {paying ? 'Processing...' : `Upgrade Premium — Rp ${premiumPrice.toLocaleString('id-ID')}`}
                   </Button>
                 </div>
               )}
@@ -941,6 +874,7 @@ const CampaignPublic = () => {
                     </div>
                   )}
 
+                  {/* Caption below interactive preview */}
                   {campaign?.caption && (
                     <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
                       <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
@@ -982,6 +916,18 @@ const CampaignPublic = () => {
           )}
         </div>
       </section>
+
+      {/* Payment Confirmation Dialog */}
+      <PaymentConfirmDialog
+        open={showPaymentConfirm}
+        onClose={() => setShowPaymentConfirm(false)}
+        onConfirm={(voucherCode) => handleRemoveWatermark(voucherCode)}
+        basePrice={premiumPrice}
+        originalPrice={originalPrice}
+        campaignName={campaign?.name ?? ''}
+        paying={paying}
+      />
+
       {paymentInitializing && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/70 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3">

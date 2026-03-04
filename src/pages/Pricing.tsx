@@ -3,9 +3,12 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Check, X, Crown, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { usePricing } from '@/hooks/usePricing';
 
 const Pricing = () => {
   const { t } = useLanguage();
+  const { premiumPrice, originalPrice } = usePricing();
+  const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
 
   const comparison = [
     { feature: t.pricing.editor, free: t.pricing.basic, premium: t.pricing.full },
@@ -61,10 +64,10 @@ const Pricing = () => {
               </div>
               <div className="mb-6">
                 <div className="mb-1">
-                  <span className="text-sm text-muted-foreground line-through">{t.pricing.premiumOriginal}</span>
+                  <span className="text-sm text-muted-foreground line-through">{formatPrice(originalPrice)}</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-display text-4xl font-bold text-gold-gradient">{t.pricing.premiumPrice}</span>
+                  <span className="font-display text-4xl font-bold text-gold-gradient">{formatPrice(premiumPrice)}</span>
                   <span className="text-sm text-muted-foreground">{t.pricing.perCampaign}</span>
                 </div>
               </div>

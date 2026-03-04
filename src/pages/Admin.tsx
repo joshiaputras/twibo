@@ -24,6 +24,7 @@ import {
   Ticket,
   Plus,
   Loader2,
+  Star,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -383,6 +384,15 @@ const Admin = () => {
                               onClick={() => updateCampaign(c.id, { tier: c.tier === 'premium' ? 'free' : 'premium' }, t.admin.tierUpdated ?? 'Campaign tier updated')}
                             >
                               {c.tier === 'premium' ? (t.admin.setFree ?? 'Set Free') : (t.admin.setPremium ?? 'Set Premium')}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className={`text-xs gap-1 ${c.is_featured ? 'border-primary/50 text-primary' : ''}`}
+                              onClick={() => updateCampaign(c.id, { is_featured: !c.is_featured }, c.is_featured ? 'Dihapus dari featured' : 'Ditampilkan di homepage')}
+                            >
+                              <Star className={`w-3 h-3 ${c.is_featured ? 'fill-primary' : ''}`} />
+                              {c.is_featured ? 'Featured ✓' : 'Set Featured'}
                             </Button>
                             <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteCampaign(c.id)}>
                               <Trash2 className="w-3 h-3" /> {t.admin.delete ?? 'Delete'}

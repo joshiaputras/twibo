@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     const { data: settingsRows } = await adminClient
       .from("site_settings")
       .select("key, value")
-      .in("key", ["midtrans_server_key", "midtrans_client_key", "midtrans_mode"]);
+      .in("key", ["midtrans_server_key", "midtrans_client_key", "midtrans_mode", "premium_price"]);
 
     const settingsMap: Record<string, string> = {};
     (settingsRows ?? []).forEach((r: any) => {
@@ -101,6 +101,7 @@ Deno.serve(async (req) => {
     const serverKey = settingsMap["midtrans_server_key"];
     const clientKey = settingsMap["midtrans_client_key"];
     const mode = settingsMap["midtrans_mode"] || "sandbox";
+    const configuredPrice = Number(settingsMap["premium_price"]) || 50000;
 
     if (!serverKey || !clientKey) {
       return new Response(
@@ -120,7 +121,7 @@ Deno.serve(async (req) => {
         : "https://app.sandbox.midtrans.com";
 
     const orderId = `TWIBO-${campaign_id.substring(0, 8)}-${Date.now()}`;
-    let amount = 50000;
+    let amount = configuredPrice;
     let discountAmount = 0;
     let appliedVoucherCode: string | null = null;
 

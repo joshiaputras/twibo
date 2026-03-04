@@ -2,7 +2,11 @@ import Layout from '@/components/Layout';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart } from 'lucide-react';
+import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart, Image, ChevronRight } from 'lucide-react';
+import { usePricing } from '@/hooks/usePricing';
+import { useFeaturedCampaigns } from '@/hooks/useFeaturedCampaigns';
+import { useEffect, useRef, useState } from 'react';
+import { extractPreviewMeta } from '@/utils/campaignDesign';
 
 const FloatingCard = ({ className, children }: { className?: string; children: React.ReactNode }) => (
   <div className={`absolute glass rounded-xl p-3 gold-glow opacity-70 ${className}`}>
@@ -12,6 +16,29 @@ const FloatingCard = ({ className, children }: { className?: string; children: R
 
 const Index = () => {
   const { t } = useLanguage();
+  const { premiumPrice, originalPrice } = usePricing();
+  const { campaigns: featuredCampaigns } = useFeaturedCampaigns();
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll carousel
+  useEffect(() => {
+    const el = carouselRef.current;
+    if (!el || featuredCampaigns.length === 0) return;
+
+    let animId: number;
+    let speed = 0.5;
+
+    const animate = () => {
+      el.scrollLeft += speed;
+      if (el.scrollLeft >= el.scrollWidth - el.clientWidth) {
+        el.scrollLeft = 0;
+      }
+      animId = requestAnimationFrame(animate);
+    };
+
+    animId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animId);
+  }, [featuredCampaigns.length]);
 
   const steps = [
     { icon: Paintbrush, title: t.howItWorks.step1Title, desc: t.howItWorks.step1Desc },
@@ -38,6 +65,8 @@ const Index = () => {
     { icon: Star, title: 'Event & Acara', desc: 'Frame foto untuk konferensi, seminar, wisuda, atau perayaan spesial.' },
     { icon: Sparkles, title: 'Brand & Marketing', desc: 'Tingkatkan brand awareness dengan frame campaign yang dibagikan oleh supporter.' },
   ];
+
+  const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
 
   return (
     <Layout>
@@ -91,6 +120,90 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Image showcase / visual section */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            <div className="glass rounded-2xl border-gold-subtle overflow-hidden aspect-square flex items-center justify-center">
+              <div className="text-center p-6">
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Paintbrush className="w-10 h-10 text-primary" />
+                </div>
+                <p className="text-sm text-foreground font-semibold">Desain Frame</p>
+                <p className="text-xs text-muted-foreground mt-1">Canvas editor yang powerful</p>
+              </div>
+            </div>
+            <div className="glass rounded-2xl border-gold-subtle overflow-hidden aspect-square flex items-center justify-center">
+              <div className="text-center p-6">
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Upload className="w-10 h-10 text-primary" />
+                </div>
+                <p className="text-sm text-foreground font-semibold">Upload & Gabungkan</p>
+                <p className="text-xs text-muted-foreground mt-1">Supporter upload foto langsung</p>
+              </div>
+            </div>
+            <div className="glass rounded-2xl border-gold-subtle overflow-hidden aspect-square flex items-center justify-center">
+              <div className="text-center p-6">
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                  <Image className="w-10 h-10 text-primary" />
+                </div>
+                <p className="text-sm text-foreground font-semibold">Hasil Profesional</p>
+                <p className="text-xs text-muted-foreground mt-1">Download langsung dalam HD</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Campaigns Carousel */}
+      {featuredCampaigns.length > 0 && (
+        <section className="py-20">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-10">
+              <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">
+                Campaign Gratis untuk Kamu
+              </h2>
+              <p className="text-muted-foreground">Langsung pakai frame campaign populer berikut ini</p>
+            </div>
+
+            <div
+              ref={carouselRef}
+              className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide"
+              style={{ scrollBehavior: 'auto' }}
+            >
+              {[...featuredCampaigns, ...featuredCampaigns].map((fc, i) => {
+                const previewMeta = extractPreviewMeta(fc.design_json);
+                const previewUrl = previewMeta.previewImageDataUrl;
+
+                return (
+                  <Link
+                    key={`${fc.id}-${i}`}
+                    to={`/c/${fc.slug}`}
+                    className="shrink-0 w-[200px] md:w-[240px] group"
+                  >
+                    <div className="glass rounded-2xl border-gold-subtle overflow-hidden hover:gold-glow transition-shadow">
+                      <div className="aspect-square bg-secondary/30 flex items-center justify-center overflow-hidden">
+                        {previewUrl ? (
+                          <img src={previewUrl} alt={fc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                        ) : (
+                          <Image className="w-12 h-12 text-muted-foreground/30" />
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <p className="text-sm font-semibold text-foreground truncate">{fc.name}</p>
+                        <p className="text-xs text-primary flex items-center gap-1 mt-1">
+                          Gunakan <ChevronRight className="w-3 h-3" />
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* How It Works */}
       <section className="py-20">
@@ -158,7 +271,7 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Pricing Section */}
+      {/* Pricing Section - Dynamic */}
       <section className="py-20" id="pricing">
         <div className="container mx-auto px-4">
           <div className="text-center mb-14">
@@ -199,10 +312,10 @@ const Index = () => {
               </div>
               <div className="mb-6">
                 <div className="mb-1">
-                  <span className="text-sm text-muted-foreground line-through">{t.pricing.premiumOriginal}</span>
+                  <span className="text-sm text-muted-foreground line-through">{formatPrice(originalPrice)}</span>
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-display text-4xl font-bold text-gold-gradient">{t.pricing.premiumPrice}</span>
+                  <span className="font-display text-4xl font-bold text-gold-gradient">{formatPrice(premiumPrice)}</span>
                   <span className="text-sm text-muted-foreground">{t.pricing.perCampaign}</span>
                 </div>
               </div>
