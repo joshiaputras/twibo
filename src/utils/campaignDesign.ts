@@ -6,7 +6,22 @@ export type CampaignPreviewMeta = {
   previewImageDataUrl?: string;
 };
 
+export type PlaceholderMeta = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  scaleX: number;
+  scaleY: number;
+  rx: number;
+  ry: number;
+  angle: number;
+};
+
 const PREVIEW_KEY = '__twiboPreview';
+const PLACEHOLDER_PREFIX = '__placeholder__';
+const LEGACY_PLACEHOLDER_FILL = 'rgba(255,255,255,0.14';
+const LEGACY_PLACEHOLDER_STROKE = 'rgba(255,255,255,0.9';
 
 function parseDesignJson(raw: unknown): Record<string, any> {
   if (!raw) return {};
@@ -20,6 +35,23 @@ function parseDesignJson(raw: unknown): Record<string, any> {
   }
   return typeof raw === 'object' ? (raw as Record<string, any>) : {};
 }
+
+const normalizeColor = (value: unknown) => String(value ?? '').toLowerCase().replace(/\s+/g, '');
+
+const isPlaceholderObject = (obj: any) => {
+  const id = String(obj?.id ?? '');
+  const name = String(obj?.name ?? '').toLowerCase();
+  const explicitFlag = obj?.isPlaceholder === true;
+  const type = String(obj?.type ?? '').toLowerCase();
+  const fill = normalizeColor(obj?.fill);
+  const stroke = normalizeColor(obj?.stroke);
+
+  if (explicitFlag) return true;
+  if (id && (id === PLACEHOLDER_PREFIX || id.startsWith(`${PLACEHOLDER_PREFIX}-`))) return true;
+  if (name.includes('placeholder')) return true;
+
+  return type === 'rect' && fill.startsWith(LEGACY_PLACEHOLDER_FILL) && stroke.startsWith(LEGACY_PLACEHOLDER_STROKE);
+};
 
 export function extractPreviewMeta(raw: unknown): CampaignPreviewMeta {
   const parsed = parseDesignJson(raw);
@@ -40,6 +72,32 @@ export function extractCanvasDesign(raw: unknown): Record<string, any> {
 
   const { [PREVIEW_KEY]: _preview, ...canvasOnly } = parsed;
   return canvasOnly;
+}
+
+export function extractPlaceholderMeta(raw: unknown): PlaceholderMeta | null {
+  const canvasDesign = extractCanvasDesign(raw);
+  const objects = Array.isArray(canvasDesign?.objects) ? canvasDesign.objects : [];
+  const placeholder = objects.find(isPlaceholderObject);
+  if (!placeholder) return null;
+
+  const left = Number(placeholder.left ?? 0);
+  const top = Number(placeholder.top ?? 0);
+  const width = Number(placeholder.width ?? 0);
+  const height = Number(placeholder.height ?? 0);
+  const scaleX = Number(placeholder.scaleX ?? 1) || 1;
+  const scaleY = Number(placeholder.scaleY ?? 1) || 1;
+
+  return {
+    left,
+    top,
+    width,
+    height,
+    scaleX,
+    scaleY,
+    rx: Number(placeholder.rx ?? 0) || 0,
+    ry: Number(placeholder.ry ?? 0) || 0,
+    angle: Number(placeholder.angle ?? 0) || 0,
+  };
 }
 
 export function mergeDesignWithPreview(rawCanvasDesign: unknown, previewMeta: CampaignPreviewMeta): Record<string, any> {

@@ -29,7 +29,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
-import { extractCanvasDesign, extractPreviewMeta, mergeDesignWithPreview } from '@/utils/campaignDesign';
+import { extractCanvasDesign, extractPlaceholderMeta, extractPreviewMeta, mergeDesignWithPreview } from '@/utils/campaignDesign';
 import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 
 const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
@@ -108,6 +108,7 @@ const CampaignEditor = () => {
 
   const selectedSize = sizes.find(s => s.key === form.size)!;
   const previewScale = Math.min(500 / selectedSize.w, 600 / selectedSize.h, 1);
+  const placeholderMeta = extractPlaceholderMeta(canvasState);
 
   useEffect(() => {
     if (!isEdit || !id) return;
@@ -175,6 +176,7 @@ const CampaignEditor = () => {
         photoOffsetY: simOffsetY,
         addWatermark: false,
         campaignType: form.type,
+        placeholderMeta,
         previewMaxW: 420,
         previewMaxH: 520,
       });
@@ -184,7 +186,7 @@ const CampaignEditor = () => {
     } catch (err) {
       console.error('Preview compose error:', err);
     }
-  }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h, form.type]);
+  }, [templateImage, simulationPhoto, simScale, simOffsetX, simOffsetY, selectedSize.w, selectedSize.h, form.type, placeholderMeta]);
 
   useEffect(() => {
     if (isInteractingPreview) return;
@@ -254,12 +256,29 @@ const CampaignEditor = () => {
       parsedDesign = {};
     }
 
+    const finalPreviewImageDataUrl = templateImage
+      ? await composeResult({
+          templateDataUrl: templateImage,
+          userPhotoDataUrl: simulationPhoto || undefined,
+          fullWidth: selectedSize.w,
+          fullHeight: selectedSize.h,
+          photoScale: simScale,
+          photoOffsetX: simOffsetX,
+          photoOffsetY: simOffsetY,
+          addWatermark: false,
+          campaignType: form.type,
+          placeholderMeta,
+          previewMaxW: 420,
+          previewMaxH: 520,
+        }).catch(() => previewResult)
+      : previewResult;
+
     const designWithPreview = mergeDesignWithPreview(parsedDesign, {
       photoDataUrl: simulationPhoto,
       photoScale: simScale,
       photoOffsetX: simOffsetX,
       photoOffsetY: simOffsetY,
-      previewImageDataUrl: previewResult,
+      previewImageDataUrl: finalPreviewImageDataUrl,
     });
 
     const payload = {
@@ -672,6 +691,7 @@ const CampaignEditor = () => {
                         photoScale={simScale}
                         photoOffsetX={simOffsetX}
                         photoOffsetY={simOffsetY}
+                        placeholderMeta={placeholderMeta}
                       />
                     ) : (
                       <div className="py-12 text-muted-foreground text-sm">{t.campaign.editor.loading}</div>

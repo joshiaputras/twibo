@@ -1,7 +1,3 @@
-const STATICIMGLY_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
-const JSDELIVR_PUBLIC_PATH = 'https://cdn.jsdelivr.net/npm/@imgly/background-removal-data@1.7.0/dist/';
-const UNPKG_PUBLIC_PATH = 'https://unpkg.com/@imgly/background-removal-data@1.7.0/dist/';
-
 type RemoveConfig = Record<string, unknown>;
 
 type Attempt = {
@@ -9,25 +5,20 @@ type Attempt = {
   config: RemoveConfig;
 };
 
+const STATICIMGLY_LATEST_PUBLIC_PATH = 'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/';
+
 const baseConfig: RemoveConfig = {
   output: { format: 'image/png' },
   device: 'cpu',
 };
 
-const PATH_FALLBACKS = [STATICIMGLY_PUBLIC_PATH, JSDELIVR_PUBLIC_PATH, UNPKG_PUBLIC_PATH] as const;
+const PATH_FALLBACKS = [STATICIMGLY_LATEST_PUBLIC_PATH] as const;
 
-const ATTEMPTS: Attempt[] = [
-  { key: 'default-main', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false } },
-  { key: 'default-worker', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true } },
-  ...PATH_FALLBACKS.flatMap(publicPath => [
-    { key: `quint8-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath } },
-    { key: `quint8-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath } },
-    { key: `fp16-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath } },
-    { key: `fp16-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: true, publicPath } },
-    { key: `isnet-${publicPath}-main`, config: { ...baseConfig, model: 'isnet', proxyToWorker: false, publicPath } },
-    { key: `isnet-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet', proxyToWorker: true, publicPath } },
-  ]),
-];
+const ATTEMPTS: Attempt[] = PATH_FALLBACKS.flatMap(publicPath => [
+  { key: `quint8-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath } },
+  { key: `quint8-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath } },
+  { key: `fp16-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath } },
+]);
 
 let preloadPromise: Promise<void> | null = null;
 let preferredAttemptKey: string | null = null;
@@ -52,14 +43,37 @@ const getOrderedAttempts = () => {
   return [preferred, ...ATTEMPTS.filter(attempt => attempt.key !== preferredAttemptKey)];
 };
 
+const resolveReachablePaths = async () => {
+  const checks = await Promise.all(
+    PATH_FALLBACKS.map(async publicPath => {
+      try {
+        const res = await fetch(`${publicPath}resources.json`, { cache: 'no-store' });
+        if (!res.ok) return null;
+        return publicPath;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const reachable = checks.filter(Boolean) as string[];
+  return reachable.length > 0 ? reachable : [STATICIMGLY_LATEST_PUBLIC_PATH];
+};
+
 async function ensureBackgroundModelReady() {
   if (preloadPromise) return preloadPromise;
 
   preloadPromise = (async () => {
     const { preload } = await import('@imgly/background-removal');
+    const reachablePaths = await resolveReachablePaths();
+    const candidates = getOrderedAttempts().filter(attempt => {
+      const publicPath = String((attempt.config.publicPath as string) ?? '');
+      return reachablePaths.includes(publicPath);
+    });
+
     let lastError: unknown = null;
 
-    for (const attempt of getOrderedAttempts()) {
+    for (const attempt of candidates) {
       try {
         await withTimeout(preload(attempt.config as any), 60000);
         preferredAttemptKey = attempt.key;

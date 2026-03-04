@@ -9,7 +9,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { toast } from 'sonner';
 import { renderTemplatePNG, composeResult } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
-import { extractPreviewMeta } from '@/utils/campaignDesign';
+import { extractPlaceholderMeta, extractPreviewMeta } from '@/utils/campaignDesign';
 import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -54,6 +54,7 @@ const CampaignPublic = () => {
   const [fw, fh] = sizeMap[campaign?.size] || [1080, 1080];
   const previewScale = Math.min(500 / fw, 600 / fh, 1);
   const exampleImage = previewImage;
+  const placeholderMeta = extractPlaceholderMeta(campaign?.design_json);
 
   useEffect(() => {
     if (!slug) return;
@@ -126,6 +127,7 @@ const CampaignPublic = () => {
         photoOffsetY,
         addWatermark: isFree,
         campaignType: campaign.type ?? 'frame',
+        placeholderMeta,
         previewMaxW: 420,
         previewMaxH: 520,
       });
@@ -135,7 +137,7 @@ const CampaignPublic = () => {
     } catch (err) {
       console.error('Compose error:', err);
     }
-  }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree, fw, fh]);
+  }, [templateImage, userPhoto, photoScale, photoOffsetX, photoOffsetY, campaign, isFree, fw, fh, placeholderMeta]);
 
   useEffect(() => {
     if (isInteractingPreview) return;
@@ -395,7 +397,7 @@ const CampaignPublic = () => {
   return (
     <Layout>
       <section className="py-20 md:py-28">
-        <div className="container mx-auto px-4 max-w-2xl">
+        <div className="container mx-auto px-4 max-w-6xl">
           {isFree && (
             <div className="mb-6 rounded-xl border border-dashed border-border bg-secondary/20 p-4 text-center">
               <p className="text-xs text-muted-foreground">— {t.public?.adSpace ?? 'Advertisement'} —</p>
@@ -405,134 +407,139 @@ const CampaignPublic = () => {
             </div>
           )}
 
-          <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle">
-            <h1 className="font-display text-2xl font-bold text-gold-gradient mb-1">{campaign.name}</h1>
-            {campaign.description ? (
-              <p className="text-muted-foreground text-sm mb-6">{campaign.description}</p>
-            ) : (
-              <p className="text-muted-foreground text-sm mb-6">{t.public?.uploadPrompt ?? 'Upload foto kamu untuk membuat twibbon'}</p>
-            )}
-
-            {isOwner && isFree && (
-              <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center gap-3">
-                <Crown className="w-5 h-5 text-primary shrink-0" />
-                <div className="flex-1">
-                  <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>
-                  <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
-                </div>
-                <Button size="sm" className="gold-glow text-xs gap-1 shrink-0" onClick={handleRemoveWatermark}>
-                  <Crown className="w-3 h-3" /> {t.public?.removeWatermark ?? 'Remove Watermark'}
-                </Button>
-              </div>
-            )}
-
-            {exampleImage && (
-              <div className="mb-4 rounded-xl border border-border bg-secondary/20 p-2">
-                <img src={exampleImage} alt="Contoh hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
-              </div>
-            )}
-
-            {userPhoto && (
-              <div
-                ref={previewInteractionRef}
-                onPointerDown={onPointerDown}
-                onPointerMove={onPointerMove}
-                onPointerUp={onPointerUp}
-                onPointerCancel={onPointerUp}
-                onWheelCapture={onWheel}
-                className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-4 flex items-center justify-center p-2"
-              onDragStart={event => event.preventDefault()}
-              style={{
-                touchAction: 'none',
-                overscrollBehavior: 'contain',
-                backgroundImage:
-                  'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
-                backgroundSize: '16px 16px',
-                backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
-                backgroundColor: 'hsl(0 0% 15%)',
-              }}
-            >
-              {resultImage || templateImage ? (
-                <PhotoComposerPreview
-                  templateImage={templateImage}
-                  userPhoto={userPhoto}
-                  campaignType={(campaign?.type ?? 'frame') as 'frame' | 'background'}
-                  width={fw}
-                  height={fh}
-                  previewScale={previewScale}
-                  photoScale={photoScale}
-                  photoOffsetX={photoOffsetX}
-                  photoOffsetY={photoOffsetY}
-                />
-              ) : (
-                <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
-              )}
-
-              {processingPhoto && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
-                  <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing photo...
-                  </div>
+          <div className="grid gap-6 md:grid-cols-2 md:items-start">
+            <div className="space-y-4">
+              {exampleImage && (
+                <div className="rounded-xl border border-border bg-secondary/20 p-2">
+                  <img src={exampleImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
                 </div>
               )}
-              </div>
-            )}
 
-            {!userPhoto ? (
-              <div className="space-y-4">
-                <label className={`block ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-                  <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors text-center">
-                    <Upload className="w-10 h-10 text-primary/50 mx-auto mb-2" />
-                    <p className="text-foreground font-medium">{t.public?.uploadPhoto ?? 'Upload foto kamu'}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{t.public?.clickOrDrag ?? 'Klik atau drag untuk upload'}</p>
-                    {processingPhoto && <p className="text-xs text-muted-foreground mt-2">Processing photo...</p>}
-                  </div>
-                  <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
-                </label>
+              <div className="glass-strong rounded-2xl p-6 border-gold-subtle">
+                <h1 className="font-display text-2xl font-bold text-gold-gradient mb-2">{campaign.name}</h1>
+                {campaign.description ? (
+                  <p className="text-muted-foreground text-sm">{campaign.description}</p>
+                ) : (
+                  <p className="text-muted-foreground text-sm">{t.public?.uploadPrompt ?? 'Upload foto kamu untuk membuat twibbon'}</p>
+                )}
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
-                  <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Move className="w-3 h-3" /> Drag untuk geser
-                  </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
-                  </p>
-                  <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
-                  <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+
+              {campaign.caption && (
+                <div className="glass rounded-xl p-4 border-gold-subtle text-left space-y-3">
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
+                  <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleCopyCaption}>
+                    <Copy className="w-3 h-3" />
+                    {t.public?.copyCaption ?? 'Salin Caption'} / Copy Caption
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle">
+              {isOwner && isFree && (
+                <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-center gap-3">
+                  <Crown className="w-5 h-5 text-primary shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>
+                    <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
+                  </div>
+                  <Button size="sm" className="gold-glow text-xs gap-1 shrink-0" onClick={handleRemoveWatermark}>
+                    <Crown className="w-3 h-3" /> {t.public?.removeWatermark ?? 'Remove Watermark'}
+                  </Button>
+                </div>
+              )}
+
+              {!userPhoto ? (
+                <div className="space-y-4">
+                  <label className={`block ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                    <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors text-center">
+                      <Upload className="w-10 h-10 text-primary/50 mx-auto mb-2" />
+                      <p className="text-foreground font-medium">{t.public?.uploadPhoto ?? 'Upload foto kamu'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{t.public?.clickOrDrag ?? 'Klik atau drag untuk upload'}</p>
+                      {processingPhoto && <p className="text-xs text-muted-foreground mt-2">Processing photo...</p>}
+                    </div>
                     <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
-                    <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>
                   </label>
                 </div>
+              ) : (
+                <div className="space-y-4">
+                  <div
+                    ref={previewInteractionRef}
+                    onPointerDown={onPointerDown}
+                    onPointerMove={onPointerMove}
+                    onPointerUp={onPointerUp}
+                    onPointerCancel={onPointerUp}
+                    onWheelCapture={onWheel}
+                    className="relative rounded-xl overflow-hidden border border-border bg-secondary/20 mb-2 flex items-center justify-center p-2"
+                    onDragStart={event => event.preventDefault()}
+                    style={{
+                      touchAction: 'none',
+                      overscrollBehavior: 'contain',
+                      backgroundImage:
+                        'linear-gradient(45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(-45deg, hsl(0 0% 20%) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(0 0% 20%) 75%), linear-gradient(-45deg, transparent 75%, hsl(0 0% 20%) 75%)',
+                      backgroundSize: '16px 16px',
+                      backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                      backgroundColor: 'hsl(0 0% 15%)',
+                    }}
+                  >
+                    {resultImage || templateImage ? (
+                      <PhotoComposerPreview
+                        templateImage={templateImage}
+                        userPhoto={userPhoto}
+                        campaignType={(campaign?.type ?? 'frame') as 'frame' | 'background'}
+                        width={fw}
+                        height={fh}
+                        previewScale={previewScale}
+                        photoScale={photoScale}
+                        photoOffsetX={photoOffsetX}
+                        photoOffsetY={photoOffsetY}
+                        placeholderMeta={placeholderMeta}
+                      />
+                    ) : (
+                      <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
+                    )}
 
-                <Button className="gold-glow font-semibold gap-2 w-full" onClick={handleDownload}>
-                  <Download className="w-4 h-4" />
-                  {t.public?.downloadResult ?? 'Download Hasil'}
-                </Button>
+                    {processingPhoto && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                        <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Processing photo...
+                        </div>
+                      </div>
+                    )}
+                  </div>
 
-                {campaign.caption && (
-                  <div className="glass rounded-xl p-4 border-gold-subtle text-left">
-                    <p className="text-sm text-foreground mb-2">{campaign.caption}</p>
-                    <Button variant="outline" size="sm" className="border-border gap-1 text-xs" onClick={handleCopyCaption}>
-                      <Copy className="w-3 h-3" />
-                      {t.public?.copyCaption ?? 'Salin Caption'}
+                  <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
+                    <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Move className="w-3 h-3" /> Drag untuk geser
+                    </p>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <ZoomIn className="w-3 h-3" /> Scroll / pinch untuk zoom
+                    </p>
+                    <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
+                    <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                      <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
+                      <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>
+                    </label>
+                  </div>
+
+                  <Button className="gold-glow font-semibold gap-2 w-full" onClick={handleDownload}>
+                    <Download className="w-4 h-4" />
+                    {t.public?.downloadResult ?? 'Download Hasil'}
+                  </Button>
+
+                  <div className="flex gap-2 justify-center">
+                    <Button variant="outline" size="icon" className="border-border" title="WhatsApp" onClick={handleShareWhatsApp}>
+                      <MessageCircle className="w-4 h-4" />
+                    </Button>
+                    <Button variant="outline" size="icon" className="border-border" title="Copy Link" onClick={handleCopyLink}>
+                      <Copy className="w-4 h-4" />
                     </Button>
                   </div>
-                )}
-
-                <div className="flex gap-2 justify-center">
-                  <Button variant="outline" size="icon" className="border-border" title="WhatsApp" onClick={handleShareWhatsApp}>
-                    <MessageCircle className="w-4 h-4" />
-                  </Button>
-                  <Button variant="outline" size="icon" className="border-border" title="Copy Link" onClick={handleCopyLink}>
-                    <Copy className="w-4 h-4" />
-                  </Button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {isFree && (
