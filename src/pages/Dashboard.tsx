@@ -36,7 +36,7 @@ type CampaignItem = {
 
 const Dashboard = () => {
   const { t } = useLanguage();
-  const { pay, paying } = useMidtransPayment();
+  const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
   const { user } = useAuth();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
@@ -302,7 +302,17 @@ const Dashboard = () => {
         </div>
       </section>
 
-      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={(id) => { setStatsDialog(null); toast.info('Memproses pembayaran...'); handleRemoveWatermark(id); }} />
+      <StatsDialog campaign={statsDialog} open={!!statsDialog} onClose={() => setStatsDialog(null)} t={t} onUpgrade={(id) => { setStatsDialog(null); handleRemoveWatermark(id); }} />
+
+      {/* Full-screen loading overlay while Midtrans initialises */}
+      {paymentInitializing && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-foreground font-semibold">Memproses pembayaran...</p>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };

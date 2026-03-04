@@ -11,9 +11,11 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export const useMidtransPayment = () => {
   const [paying, setPaying] = useState(false);
+  const [initializing, setInitializing] = useState(false);
 
   const pay = useCallback(async (campaignId: string): Promise<PaymentResult> => {
     setPaying(true);
+    setInitializing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -49,7 +51,8 @@ export const useMidtransPayment = () => {
         document.head.appendChild(script);
       });
 
-      // Open Snap popup
+      // Open Snap popup — remove initializing overlay so user can interact
+      setInitializing(false);
       return new Promise<PaymentResult>((resolve) => {
         (window as any).snap.pay(snap_token, {
           onSuccess: async () => {
@@ -84,8 +87,9 @@ export const useMidtransPayment = () => {
       return { success: false };
     } finally {
       setPaying(false);
+      setInitializing(false);
     }
   }, []);
 
-  return { pay, paying };
+  return { pay, paying, initializing };
 };
