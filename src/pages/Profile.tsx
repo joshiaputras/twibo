@@ -23,7 +23,7 @@ const Profile = () => {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from('profiles').select('name, phone, avatar_url').eq('id', user.id).single()
+    supabase.from('profiles').select('name, phone, avatar_url').eq('id', user.id).maybeSingle()
       .then(({ data }) => {
         if (data) {
           setName(data.name || '');
@@ -65,13 +65,16 @@ const Profile = () => {
     if (!user) return;
     setSavingName(true);
     const { error } = await supabase.from('profiles').update({ name, phone }).eq('id', user.id);
-    setSavingName(false);
     if (error) {
+      setSavingName(false);
       toast.error(error.message);
-    } else {
-      toast.success(t.profile.saveChanges + ' ✓');
-      await refreshProfile();
+      return;
     }
+    // Also update auth user_metadata so it stays in sync
+    await supabase.auth.updateUser({ data: { name, phone } });
+    await refreshProfile();
+    setSavingName(false);
+    toast.success(t.profile.saveChanges + ' ✓');
   };
 
   const handleChangePassword = async () => {

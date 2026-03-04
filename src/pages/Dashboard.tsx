@@ -222,14 +222,16 @@ const Dashboard = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 mb-3 text-sm">
-                    <span className="text-muted-foreground">
-                      {t.dashboard.supporters}: <strong className="text-foreground">{c.supporters}</strong>
-                    </span>
-                    <span className="text-muted-foreground">
-                      {t.dashboard.downloads}: <strong className="text-foreground">{c.downloads}</strong>
-                    </span>
-                  </div>
+                  {c.tier === 'premium' && (
+                    <div className="flex gap-4 mb-3 text-sm">
+                      <span className="text-muted-foreground">
+                        {t.dashboard.supporters}: <strong className="text-foreground">{c.supporters}</strong>
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t.dashboard.downloads}: <strong className="text-foreground">{c.downloads}</strong>
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex gap-2 flex-wrap">
                     <Button variant="outline" size="sm" className="border-border text-muted-foreground gap-1 text-xs" onClick={() => handleCopyLink(c.slug)}>
@@ -250,10 +252,12 @@ const Dashboard = () => {
                       </Button>
                     </a>
 
-                    <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => setStatsDialog(c)}>
-                      <BarChart3 className="w-3 h-3" />
-                      {t.dashboard.viewStats}
-                    </Button>
+                    {c.tier === 'premium' && (
+                      <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => setStatsDialog(c)}>
+                        <BarChart3 className="w-3 h-3" />
+                        {t.dashboard.viewStats}
+                      </Button>
+                    )}
 
                     {c.tier === 'free' && (
                       <Button variant="outline" size="sm" className="border-primary/30 text-primary gap-1 text-xs" onClick={() => handleRemoveWatermark(c.id)} disabled={paying}>
