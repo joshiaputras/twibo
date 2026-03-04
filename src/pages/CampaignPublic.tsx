@@ -153,7 +153,7 @@ const CampaignPublic = () => {
         ctx.drawImage(img, 0, 0);
 
         // Draw "PREVIEW" text
-        const pvFontSize = Math.max(24, Math.round(img.width * 0.1));
+        const pvFontSize = Math.max(36, Math.round(img.width * 0.16));
         ctx.save();
         ctx.translate(img.width / 2, img.height / 2);
         ctx.rotate(-20 * Math.PI / 180);
@@ -169,10 +169,10 @@ const CampaignPublic = () => {
 
         // Draw watermark badge
         const label = 'Made with TWIBO.id';
-        const fontSize = Math.max(10, Math.round(img.width * 0.028));
-        const padX = Math.max(10, Math.round(fontSize * 0.9));
-        const padY = Math.max(4, Math.round(fontSize * 0.35));
-        const margin = Math.max(10, Math.round(img.width * 0.03));
+        const fontSize = Math.max(14, Math.round(img.width * 0.042));
+        const padX = Math.max(14, Math.round(fontSize * 1.0));
+        const padY = Math.max(6, Math.round(fontSize * 0.45));
+        const margin = Math.max(12, Math.round(img.width * 0.03));
         ctx.save();
         ctx.font = `700 ${fontSize}px "Space Grotesk", "Segoe UI", sans-serif`;
         const tw = ctx.measureText(label).width;
