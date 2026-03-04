@@ -271,8 +271,9 @@ const Dashboard = () => {
                     {/* Hapus Watermark button for free campaigns */}
                     {c.tier === 'free' && (
                       <Button
+                        variant="outline"
                         size="sm"
-                        className="gold-glow gap-1 text-xs"
+                        className="border-primary/30 text-primary gap-1 text-xs"
                         onClick={() => setPaymentConfirmCampaign(c)}
                       >
                         <Crown className="w-3 h-3" />
