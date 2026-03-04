@@ -1,5 +1,5 @@
 import { StaticCanvas } from 'fabric';
-import { extractCanvasDesign } from './campaignDesign';
+import { extractCanvasDesign, type PlaceholderMeta } from './campaignDesign';
 
 const PLACEHOLDER_PREFIX = '__placeholder__';
 const LEGACY_PLACEHOLDER_FILL = 'rgba(255,255,255,0.14';
@@ -24,6 +24,31 @@ const isPlaceholderObject = (obj: any) => {
 };
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
+
+const createRoundedRectPath = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radiusX: number,
+  radiusY: number
+) => {
+  const rx = Math.max(0, Math.min(radiusX, width / 2));
+  const ry = Math.max(0, Math.min(radiusY, height / 2));
+
+  ctx.beginPath();
+  ctx.moveTo(x + rx, y);
+  ctx.lineTo(x + width - rx, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + ry);
+  ctx.lineTo(x + width, y + height - ry);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - rx, y + height);
+  ctx.lineTo(x + rx, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - ry);
+  ctx.lineTo(x, y + ry);
+  ctx.quadraticCurveTo(x, y, x + rx, y);
+  ctx.closePath();
+};
 
 /**
  * Render campaign design_json to PNG data URL.
@@ -116,6 +141,7 @@ export async function composeResult(opts: {
   photoOffsetY: number;
   addWatermark: boolean;
   campaignType?: 'frame' | 'background';
+  placeholderMeta?: PlaceholderMeta | null;
   previewMaxW?: number;
   previewMaxH?: number;
 }): Promise<string> {
@@ -129,6 +155,7 @@ export async function composeResult(opts: {
     photoOffsetY,
     addWatermark,
     campaignType = 'frame',
+    placeholderMeta = null,
   } = opts;
 
   const maxW = opts.previewMaxW ?? 500;
@@ -159,6 +186,16 @@ export async function composeResult(opts: {
     const blurY = (ph - blurH) / 2;
 
     ctx.save();
+    if (placeholderMeta) {
+      const left = placeholderMeta.left * previewScale;
+      const top = placeholderMeta.top * previewScale;
+      const clipW = placeholderMeta.width * placeholderMeta.scaleX * previewScale;
+      const clipH = placeholderMeta.height * placeholderMeta.scaleY * previewScale;
+      const radiusX = placeholderMeta.rx * placeholderMeta.scaleX * previewScale;
+      const radiusY = placeholderMeta.ry * placeholderMeta.scaleY * previewScale;
+      createRoundedRectPath(ctx, left, top, clipW, clipH, radiusX, radiusY);
+      ctx.clip();
+    }
     ctx.filter = `blur(${Math.max(16, Math.round(24 * previewScale))}px)`;
     ctx.globalAlpha = 0.9;
     ctx.drawImage(photo, blurX, blurY, blurW, blurH);
@@ -173,6 +210,23 @@ export async function composeResult(opts: {
     const imgH = photo.height * s;
     const ox = pw / 2 + photoOffsetX * previewScale - imgW / 2;
     const oy = ph / 2 + photoOffsetY * previewScale - imgH / 2;
+
+    if (campaignType === 'frame' && placeholderMeta) {
+      const left = placeholderMeta.left * previewScale;
+      const top = placeholderMeta.top * previewScale;
+      const clipW = placeholderMeta.width * placeholderMeta.scaleX * previewScale;
+      const clipH = placeholderMeta.height * placeholderMeta.scaleY * previewScale;
+      const radiusX = placeholderMeta.rx * placeholderMeta.scaleX * previewScale;
+      const radiusY = placeholderMeta.ry * placeholderMeta.scaleY * previewScale;
+
+      ctx.save();
+      createRoundedRectPath(ctx, left, top, clipW, clipH, radiusX, radiusY);
+      ctx.clip();
+      ctx.drawImage(photo, ox, oy, imgW, imgH);
+      ctx.restore();
+      return;
+    }
+
     ctx.drawImage(photo, ox, oy, imgW, imgH);
   };
 
