@@ -17,9 +17,11 @@ const baseConfig: RemoveConfig = {
 const PATH_FALLBACKS = [STATICIMGLY_PUBLIC_PATH, JSDELIVR_PUBLIC_PATH, UNPKG_PUBLIC_PATH] as const;
 
 const ATTEMPTS: Attempt[] = [
-  { key: 'default-main', config: { ...baseConfig, proxyToWorker: false } },
-  { key: 'default-worker', config: { ...baseConfig, proxyToWorker: true } },
+  { key: 'default-main', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false } },
+  { key: 'default-worker', config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true } },
   ...PATH_FALLBACKS.flatMap(publicPath => [
+    { key: `quint8-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: false, publicPath } },
+    { key: `quint8-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_quint8', proxyToWorker: true, publicPath } },
     { key: `fp16-${publicPath}-main`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: false, publicPath } },
     { key: `fp16-${publicPath}-worker`, config: { ...baseConfig, model: 'isnet_fp16', proxyToWorker: true, publicPath } },
     { key: `isnet-${publicPath}-main`, config: { ...baseConfig, model: 'isnet', proxyToWorker: false, publicPath } },
@@ -59,7 +61,7 @@ async function ensureBackgroundModelReady() {
 
     for (const attempt of getOrderedAttempts()) {
       try {
-        await withTimeout(preload(attempt.config as any), 20000);
+        await withTimeout(preload(attempt.config as any), 60000);
         preferredAttemptKey = attempt.key;
         return;
       } catch (error) {
@@ -130,7 +132,7 @@ async function removeWithFallback(source: Blob | string): Promise<Blob> {
   let lastError: unknown;
   for (const attempt of getOrderedAttempts()) {
     try {
-      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 35000);
+      const resultBlob = await withTimeout(removeBackground(source, attempt.config as any), 90000);
       if (resultBlob && resultBlob.size > 0) {
         preferredAttemptKey = attempt.key;
         return resultBlob;
