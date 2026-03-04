@@ -350,7 +350,15 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments.map((tx: any) => {
+                    {payments.filter((tx: any) => {
+                      // Hide pending payments older than 24 hours (likely expired)
+                      if (tx.status === 'pending') {
+                        const created = new Date(tx.created_at).getTime();
+                        const now = Date.now();
+                        if (now - created > 24 * 60 * 60 * 1000) return false;
+                      }
+                      return true;
+                    }).map((tx: any) => {
                       const camp = campaigns.find((c: any) => c.id === tx.campaign_id);
                       const usr = users.find((u: any) => u.id === tx.user_id);
                       return (

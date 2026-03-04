@@ -368,6 +368,22 @@ export async function composeResult(opts: {
   }
 
   if (addWatermark) {
+    // Draw "PREVIEW" diagonal text
+    const pvFontSize = Math.max(24, Math.round(pw * 0.1));
+    ctx.save();
+    ctx.translate(pw / 2, ph / 2);
+    ctx.rotate(-20 * Math.PI / 180);
+    ctx.font = `900 ${pvFontSize}px "Inter", "Segoe UI", sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+    ctx.fillText('PREVIEW', 0, 0);
+    ctx.restore();
+
+    // Draw watermark badge
     const label = 'Made with TWIBO.id';
     const fontSize = Math.max(10, Math.round(pw * 0.028));
     const padX = Math.max(10, Math.round(fontSize * 0.9));

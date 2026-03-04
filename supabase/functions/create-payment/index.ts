@@ -122,6 +122,14 @@ Deno.serve(async (req) => {
     const orderId = `TWIBO-${campaign_id.substring(0, 8)}-${Date.now()}`;
     const amount = 50000;
 
+    // Delete old pending/failed payments for this campaign before creating a new one
+    await adminClient
+      .from("payments")
+      .delete()
+      .eq("campaign_id", campaign_id)
+      .eq("user_id", userId)
+      .in("status", ["pending", "failed"]);
+
     // Create payment record
     const { error: insertErr } = await adminClient.from("payments").insert({
       user_id: userId,
