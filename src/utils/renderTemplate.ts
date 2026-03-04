@@ -371,7 +371,7 @@ export async function composeResult(opts: {
     const label = 'Made with TWIBO.id';
     const fontSize = Math.max(10, Math.round(pw * 0.028));
     const padX = Math.max(10, Math.round(fontSize * 0.9));
-    const padY = Math.max(6, Math.round(fontSize * 0.45));
+    const padY = Math.max(4, Math.round(fontSize * 0.35));
     const margin = Math.max(10, Math.round(pw * 0.03));
 
     ctx.save();
@@ -401,7 +401,7 @@ export async function composeResult(opts: {
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = 'hsl(46 95% 48%)';
+    ctx.fillStyle = 'hsl(46, 95%, 48%)';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, x + padX, y + badgeH / 2);

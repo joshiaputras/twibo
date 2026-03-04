@@ -33,6 +33,7 @@ const CampaignPublic = () => {
   const [bgUnderImage, setBgUnderImage] = useState<string>('');
   const [resultImage, setResultImage] = useState<string>('');
   const [previewImage, setPreviewImage] = useState<string>('');
+  const [bakedPreviewImage, setBakedPreviewImage] = useState<string>('');
   const [photoScale, setPhotoScale] = useState(100);
   const [photoOffsetX, setPhotoOffsetX] = useState(0);
   const [photoOffsetY, setPhotoOffsetY] = useState(0);
@@ -42,7 +43,7 @@ const CampaignPublic = () => {
   const [bgThreshold, setBgThreshold] = useState(50);
   const [applyingThreshold, setApplyingThreshold] = useState(false);
 
-  const { pay, paying } = useMidtransPayment();
+  const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
   const isFree = campaign?.tier !== 'premium';
   const composeVersionRef = useRef(0);
   const supporterTrackedRef = useRef(false);
@@ -133,6 +134,84 @@ const CampaignPublic = () => {
   useEffect(() => {
     setIsOwner(!!user?.id && !!campaign?.user_id && campaign.user_id === user.id);
   }, [user?.id, campaign?.user_id]);
+
+  // Bake watermark + PREVIEW text into the example preview image so users can't save-as clean
+  useEffect(() => {
+    if (!previewImage) { setBakedPreviewImage(''); return; }
+    if (!isFree) { setBakedPreviewImage(previewImage); return; }
+
+    let cancelled = false;
+    const bake = async () => {
+      try {
+        const img = await loadImage(previewImage);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.drawImage(img, 0, 0);
+
+        // Draw "PREVIEW" text
+        const pvFontSize = Math.max(24, Math.round(img.width * 0.1));
+        ctx.save();
+        ctx.translate(img.width / 2, img.height / 2);
+        ctx.rotate(-20 * Math.PI / 180);
+        ctx.font = `900 ${pvFontSize}px "Inter", "Segoe UI", sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetY = 2;
+        ctx.fillText('PREVIEW', 0, 0);
+        ctx.restore();
+
+        // Draw watermark badge
+        const label = 'Made with TWIBO.id';
+        const fontSize = Math.max(10, Math.round(img.width * 0.028));
+        const padX = Math.max(10, Math.round(fontSize * 0.9));
+        const padY = Math.max(4, Math.round(fontSize * 0.35));
+        const margin = Math.max(10, Math.round(img.width * 0.03));
+        ctx.save();
+        ctx.font = `700 ${fontSize}px "Space Grotesk", "Segoe UI", sans-serif`;
+        const tw = ctx.measureText(label).width;
+        const badgeW = tw + padX * 2;
+        const badgeH = fontSize + padY * 2;
+        const bx = img.width - margin - badgeW;
+        const by = img.height - margin - badgeH;
+        const radius = badgeH / 2;
+        ctx.fillStyle = 'rgba(255,255,255,0.94)';
+        ctx.beginPath();
+        if (typeof (ctx as any).roundRect === 'function') {
+          (ctx as any).roundRect(bx, by, badgeW, badgeH, radius);
+        } else {
+          ctx.moveTo(bx + radius, by);
+          ctx.lineTo(bx + badgeW - radius, by);
+          ctx.quadraticCurveTo(bx + badgeW, by, bx + badgeW, by + radius);
+          ctx.lineTo(bx + badgeW, by + badgeH - radius);
+          ctx.quadraticCurveTo(bx + badgeW, by + badgeH, bx + badgeW - radius, by + badgeH);
+          ctx.lineTo(bx + radius, by + badgeH);
+          ctx.quadraticCurveTo(bx, by + badgeH, bx, by + badgeH - radius);
+          ctx.lineTo(bx, by + radius);
+          ctx.quadraticCurveTo(bx, by, bx + radius, by);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = 'hsl(46, 95%, 48%)';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, bx + padX, by + badgeH / 2);
+        ctx.restore();
+
+        if (!cancelled) setBakedPreviewImage(canvas.toDataURL('image/png'));
+      } catch {
+        if (!cancelled) setBakedPreviewImage(previewImage);
+      }
+    };
+    bake();
+    return () => { cancelled = true; };
+  }, [previewImage, isFree]);
 
   useEffect(() => {
     if (campaign?.type !== 'background') return;
@@ -577,22 +656,10 @@ const CampaignPublic = () => {
                   <p className="text-muted-foreground text-sm">{t.public?.uploadPrompt ?? 'Upload foto kamu untuk membuat twibbon'}</p>
                 )}
 
-                {exampleImage && (
+                {bakedPreviewImage && (
                   <div className="pt-1">
                     <div className="relative mx-auto w-[70%] max-w-[320px] rounded-xl border border-border bg-secondary/20 p-2">
-                      <img src={exampleImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" />
-                      {isFree && (
-                        <>
-                          <div className="absolute inset-2 flex items-center justify-center pointer-events-none">
-                            <span className="text-white/30 text-4xl font-black tracking-widest rotate-[-20deg] select-none" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>PREVIEW</span>
-                          </div>
-                          <div className="absolute bottom-3 right-3 pointer-events-none">
-                            <div className="bg-white/95 rounded-full px-2.5 py-0.5 shadow-sm">
-                              <span className="text-[8px] font-bold tracking-wide" style={{ color: 'hsl(46 95% 48%)', fontFamily: '"Space Grotesk", "Segoe UI", sans-serif' }}>Made with TWIBO.id</span>
-                            </div>
-                          </div>
-                        </>
-                      )}
+                      <img src={bakedPreviewImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
                     </div>
                   </div>
                 )}
@@ -760,6 +827,14 @@ const CampaignPublic = () => {
           )}
         </div>
       </section>
+      {paymentInitializing && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-foreground font-semibold">Memproses pembayaran...</p>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
