@@ -330,5 +330,10 @@
     "paymentMethod": "Payment Method",
     "paidAt": "Paid At",
     "sendInvoice": "Send Invoice"
+  },
+  "blog": {
+    "title": "Blog",
+    "subtitle": "Tips, tutorials, and the latest updates from TWIBO.id",
+    "noPosts": "No articles yet."
   }
 }
