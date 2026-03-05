@@ -806,6 +806,34 @@ const Admin = () => {
                   ))}
                 </div>
                 <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">PayPal</h3>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={settings['paypal_enabled'] === 'true'}
+                      onCheckedChange={(checked) => setSettings(prev => ({ ...prev, paypal_enabled: checked ? 'true' : 'false' }))}
+                    />
+                    <Label className="text-sm text-foreground">{t.admin?.paypalEnable ?? 'Enable PayPal'}</Label>
+                  </div>
+                  {['paypal_client_id', 'paypal_price_usd'].map(key => (
+                    <div key={key}>
+                      <Label className="text-sm text-muted-foreground capitalize">{key === 'paypal_price_usd' ? 'Price (USD)' : key.replace(/_/g, ' ')}</Label>
+                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder={key === 'paypal_price_usd' ? '3' : 'Enter PayPal Client ID'} />
+                    </div>
+                  ))}
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Mode</Label>
+                    <Select value={settings['paypal_mode'] || 'sandbox'} onValueChange={v => setSettings(prev => ({ ...prev, paypal_mode: v }))}>
+                      <SelectTrigger className="mt-1 bg-secondary/50 border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sandbox">Sandbox</SelectItem>
+                        <SelectItem value="production">Production</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
                   <h3 className="font-display font-semibold text-foreground">Google AdSense</h3>
                   {['adsense_client_id', 'adsense_slot_id'].map(key => (
                     <div key={key}>

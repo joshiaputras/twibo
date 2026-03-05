@@ -1,30 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Crown, Ticket, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useLanguage } from '@/i18n/LanguageContext';
+
+type PaymentMethod = 'midtrans' | 'paypal';
 
 interface PaymentConfirmDialogProps {
   open: boolean;
   onClose: () => void;
   onConfirm: (voucherCode?: string) => void;
+  onPayPalSuccess?: () => void;
   basePrice: number;
   originalPrice: number;
   campaignName: string;
+  campaignId?: string;
   paying: boolean;
+  paypalEnabled?: boolean;
+  paypalClientId?: string;
+  paypalMode?: string;
+  paypalPriceUsd?: number;
 }
 
 const PaymentConfirmDialog = ({
   open,
   onClose,
   onConfirm,
+  onPayPalSuccess,
   basePrice,
   originalPrice,
   campaignName,
+  campaignId,
   paying,
+  paypalEnabled = false,
+  paypalClientId = '',
+  paypalMode = 'sandbox',
+  paypalPriceUsd = 3,
 }: PaymentConfirmDialogProps) => {
+  const { t } = useLanguage();
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherValidating, setVoucherValidating] = useState(false);
   const [voucherError, setVoucherError] = useState('');
@@ -33,6 +49,11 @@ const PaymentConfirmDialog = ({
     value: number;
     code: string;
   } | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('midtrans');
+  const [paypalReady, setPaypalReady] = useState(false);
+  const [paypalProcessing, setPaypalProcessing] = useState(false);
+  const paypalContainerRef = useRef<HTMLDivElement>(null);
+  const paypalButtonsRendered = useRef(false);
 
   const discountAmount = voucherDiscount
     ? voucherDiscount.type === 'percentage'
@@ -40,6 +61,85 @@ const PaymentConfirmDialog = ({
       : voucherDiscount.value
     : 0;
   const finalPrice = Math.max(0, basePrice - discountAmount);
+
+  // Load PayPal SDK when PayPal is selected
+  useEffect(() => {
+    if (!open || paymentMethod !== 'paypal' || !paypalEnabled || !paypalClientId) return;
+
+    paypalButtonsRendered.current = false;
+    setPaypalReady(false);
+
+    const existingScript = document.querySelector('script[src*="paypal.com/sdk"]');
+    if (existingScript) existingScript.remove();
+
+    const script = document.createElement('script');
+    script.src = `https://www.paypal.com/sdk/js?client-id=${paypalClientId}&currency=USD`;
+    script.onload = () => setPaypalReady(true);
+    script.onerror = () => toast.error(t.payment?.paypalLoadFailed ?? 'Failed to load PayPal');
+    document.head.appendChild(script);
+
+    return () => {
+      paypalButtonsRendered.current = false;
+    };
+  }, [open, paymentMethod, paypalEnabled, paypalClientId]);
+
+  // Render PayPal buttons
+  useEffect(() => {
+    if (!paypalReady || !paypalContainerRef.current || paypalButtonsRendered.current) return;
+    if (!(window as any).paypal) return;
+
+    paypalButtonsRendered.current = true;
+    paypalContainerRef.current.innerHTML = '';
+
+    (window as any).paypal.Buttons({
+      style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay' },
+      createOrder: (_data: any, actions: any) => {
+        return actions.order.create({
+          purchase_units: [{
+            description: `Premium: ${campaignName.substring(0, 40)}`,
+            amount: { currency_code: 'USD', value: paypalPriceUsd.toFixed(2) },
+          }],
+        });
+      },
+      onApprove: async (_data: any, actions: any) => {
+        setPaypalProcessing(true);
+        try {
+          const details = await actions.order.capture();
+          
+          // Record payment in DB
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && campaignId) {
+            const orderId = `PAYPAL-${details.id}`;
+            await supabase.from('payments' as any).insert({
+              user_id: session.user.id,
+              campaign_id: campaignId,
+              amount: Math.round(paypalPriceUsd * 100), // store cents
+              midtrans_order_id: orderId,
+              midtrans_transaction_id: details.id,
+              status: 'paid',
+              payment_method: 'paypal',
+              paid_at: new Date().toISOString(),
+            });
+
+            // Upgrade campaign
+            await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaignId);
+          }
+
+          toast.success(t.payment?.paypalSuccess ?? 'Payment successful! Campaign upgraded to Premium.');
+          onClose();
+          onPayPalSuccess?.();
+        } catch (err: any) {
+          toast.error(err.message || 'PayPal payment failed');
+        } finally {
+          setPaypalProcessing(false);
+        }
+      },
+      onError: (err: any) => {
+        console.error('PayPal error:', err);
+        toast.error(t.payment?.paypalFailed ?? 'PayPal payment failed');
+      },
+    }).render(paypalContainerRef.current);
+  }, [paypalReady, campaignId, campaignName, paypalPriceUsd, onClose, onPayPalSuccess, t]);
 
   const handleValidateVoucher = async () => {
     if (!voucherCode.trim()) return;
@@ -54,45 +154,51 @@ const PaymentConfirmDialog = ({
         .maybeSingle();
 
       if (error || !data) {
-        setVoucherError('Kode voucher tidak valid');
+        setVoucherError(t.payment?.voucherInvalid ?? 'Kode voucher tidak valid');
         setVoucherDiscount(null);
         return;
       }
 
       const v = data as any;
       if (v.max_uses && v.used_count >= v.max_uses) {
-        setVoucherError('Voucher sudah habis digunakan');
+        setVoucherError(t.payment?.voucherExhausted ?? 'Voucher sudah habis digunakan');
         setVoucherDiscount(null);
         return;
       }
       if (v.valid_until && new Date(v.valid_until) < new Date()) {
-        setVoucherError('Voucher sudah kadaluarsa');
+        setVoucherError(t.payment?.voucherExpired ?? 'Voucher sudah kadaluarsa');
         setVoucherDiscount(null);
         return;
       }
       if (v.valid_from && new Date(v.valid_from) > new Date()) {
-        setVoucherError('Voucher belum berlaku');
+        setVoucherError(t.payment?.voucherNotActive ?? 'Voucher belum berlaku');
         setVoucherDiscount(null);
         return;
       }
 
       setVoucherDiscount({ type: v.discount_type, value: v.discount_value, code: v.code });
-      toast.success(`Voucher "${v.code}" berhasil diterapkan!`);
+      toast.success(`Voucher "${v.code}" ${t.payment?.voucherApplied ?? 'berhasil diterapkan!'}`);
     } catch {
-      setVoucherError('Gagal memvalidasi voucher');
+      setVoucherError(t.payment?.voucherValidateFailed ?? 'Gagal memvalidasi voucher');
     } finally {
       setVoucherValidating(false);
     }
   };
 
   const handleConfirm = () => {
-    // Close dialog first, then trigger payment
     onClose();
-    // Small delay to let dialog close before Midtrans opens
     setTimeout(() => {
       onConfirm(voucherDiscount?.code);
     }, 300);
   };
+
+  const premiumFeatures = [
+    t.pricing?.premiumFeatures?.f2 ?? 'No watermark',
+    t.pricing?.premiumFeatures?.f3 ?? 'No ads',
+    t.pricing?.premiumFeatures?.f4 ?? 'Full statistics',
+    t.pricing?.premiumFeatures?.f5 ?? 'Priority support',
+    t.pricing?.premiumFeatures?.f6 ?? 'Upload custom banner',
+  ];
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
@@ -100,7 +206,7 @@ const PaymentConfirmDialog = ({
         <DialogHeader>
           <DialogTitle className="font-display text-gold-gradient flex items-center gap-2">
             <Crown className="w-5 h-5 text-primary" />
-            Upgrade ke Premium
+            {t.campaign?.upgradeToPremium ?? 'Upgrade ke Premium'}
           </DialogTitle>
         </DialogHeader>
 
@@ -110,77 +216,123 @@ const PaymentConfirmDialog = ({
             <p className="text-foreground font-semibold">{campaignName}</p>
           </div>
 
+          {/* Payment method selection */}
+          {paypalEnabled && paypalClientId && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">{t.payment?.selectMethod ?? 'Pilih metode pembayaran'}</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPaymentMethod('midtrans')}
+                  className={`rounded-xl border p-3 text-center text-sm font-medium transition-all ${
+                    paymentMethod === 'midtrans'
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border bg-secondary/20 text-muted-foreground hover:border-primary/50'
+                  }`}
+                >
+                  <span className="block text-xs text-muted-foreground mb-0.5">🏦</span>
+                  Midtrans
+                  <span className="block text-xs text-muted-foreground mt-0.5">IDR</span>
+                </button>
+                <button
+                  onClick={() => setPaymentMethod('paypal')}
+                  className={`rounded-xl border p-3 text-center text-sm font-medium transition-all ${
+                    paymentMethod === 'paypal'
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border bg-secondary/20 text-muted-foreground hover:border-primary/50'
+                  }`}
+                >
+                  <span className="block text-xs text-muted-foreground mb-0.5">💳</span>
+                  PayPal
+                  <span className="block text-xs text-muted-foreground mt-0.5">USD</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Price breakdown */}
           <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Harga Premium</span>
-              <span className="text-muted-foreground line-through">Rp {originalPrice.toLocaleString('id-ID')}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Harga Promo</span>
-              <span className="text-foreground font-semibold">Rp {basePrice.toLocaleString('id-ID')}</span>
-            </div>
-            {discountAmount > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-green-400">Diskon Voucher</span>
-                <span className="text-green-400 font-semibold">-Rp {discountAmount.toLocaleString('id-ID')}</span>
-              </div>
+            {paymentMethod === 'midtrans' ? (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{t.payment?.premiumPrice ?? 'Harga Premium'}</span>
+                  <span className="text-muted-foreground line-through">Rp {originalPrice.toLocaleString('id-ID')}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{t.payment?.promoPrice ?? 'Harga Promo'}</span>
+                  <span className="text-foreground font-semibold">Rp {basePrice.toLocaleString('id-ID')}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-green-400">{t.payment?.voucherDiscount ?? 'Diskon Voucher'}</span>
+                    <span className="text-green-400 font-semibold">-Rp {discountAmount.toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                <hr className="border-border/30" />
+                <div className="flex justify-between">
+                  <span className="text-foreground font-semibold">{t.payment?.totalPay ?? 'Total Bayar'}</span>
+                  <span className="text-gold-gradient font-display font-bold text-xl">Rp {finalPrice.toLocaleString('id-ID')}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-foreground font-semibold">{t.payment?.totalPay ?? 'Total Bayar'}</span>
+                  <span className="text-gold-gradient font-display font-bold text-xl">${paypalPriceUsd.toFixed(2)} USD</span>
+                </div>
+              </>
             )}
-            <hr className="border-border/30" />
-            <div className="flex justify-between">
-              <span className="text-foreground font-semibold">Total Bayar</span>
-              <span className="text-gold-gradient font-display font-bold text-xl">Rp {finalPrice.toLocaleString('id-ID')}</span>
-            </div>
           </div>
 
-          {/* Voucher input */}
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Punya kode promo?</p>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <Ticket className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Masukkan kode voucher"
-                  value={voucherCode}
-                  onChange={e => { setVoucherCode(e.target.value.toUpperCase()); setVoucherError(''); }}
-                  className="pl-9 bg-secondary/50 border-border text-sm uppercase"
-                  disabled={!!voucherDiscount}
-                />
+          {/* Voucher input - only for Midtrans */}
+          {paymentMethod === 'midtrans' && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">{t.payment?.havePromo ?? 'Punya kode promo?'}</p>
+              <div className="flex gap-2">
+                <div className="flex-1 relative">
+                  <Ticket className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder={t.payment?.enterVoucher ?? 'Masukkan kode voucher'}
+                    value={voucherCode}
+                    onChange={e => { setVoucherCode(e.target.value.toUpperCase()); setVoucherError(''); }}
+                    className="pl-9 bg-secondary/50 border-border text-sm uppercase"
+                    disabled={!!voucherDiscount}
+                  />
+                </div>
+                {voucherDiscount ? (
+                  <Button size="sm" variant="outline" className="text-xs shrink-0 text-green-400 border-green-400/30" disabled>
+                    <Check className="w-3 h-3 mr-1" /> Applied
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs shrink-0"
+                    onClick={handleValidateVoucher}
+                    disabled={voucherValidating || !voucherCode.trim()}
+                  >
+                    {voucherValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
+                  </Button>
+                )}
               </div>
-              {voucherDiscount ? (
-                <Button size="sm" variant="outline" className="text-xs shrink-0 text-green-400 border-green-400/30" disabled>
-                  <Check className="w-3 h-3 mr-1" /> Applied
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs shrink-0"
-                  onClick={handleValidateVoucher}
-                  disabled={voucherValidating || !voucherCode.trim()}
+              {voucherError && (
+                <p className="text-xs text-destructive">{voucherError}</p>
+              )}
+              {voucherDiscount && (
+                <button
+                  className="text-xs text-muted-foreground underline"
+                  onClick={() => { setVoucherDiscount(null); setVoucherCode(''); setVoucherError(''); }}
                 >
-                  {voucherValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
-                </Button>
+                  {t.payment?.removeVoucher ?? 'Hapus voucher'}
+                </button>
               )}
             </div>
-            {voucherError && (
-              <p className="text-xs text-destructive">{voucherError}</p>
-            )}
-            {voucherDiscount && (
-              <button
-                className="text-xs text-muted-foreground underline"
-                onClick={() => { setVoucherDiscount(null); setVoucherCode(''); setVoucherError(''); }}
-              >
-                Hapus voucher
-              </button>
-            )}
-          </div>
+          )}
 
           {/* Features included */}
           <div className="rounded-xl border border-border bg-secondary/20 p-4">
-            <p className="text-xs text-muted-foreground mb-2">Yang kamu dapatkan:</p>
+            <p className="text-xs text-muted-foreground mb-2">{t.payment?.whatYouGet ?? 'Yang kamu dapatkan:'}</p>
             <ul className="space-y-1.5">
-              {['Tanpa watermark', 'Tanpa iklan', 'Statistik lengkap', 'Prioritas support', 'Upload banner kustom'].map((f, i) => (
+              {premiumFeatures.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-xs text-foreground">
                   <Check className="w-3 h-3 text-primary shrink-0" /> {f}
                 </li>
@@ -188,14 +340,33 @@ const PaymentConfirmDialog = ({
             </ul>
           </div>
 
-          <Button
-            className="w-full gold-glow-strong font-display font-semibold text-lg py-5"
-            onClick={handleConfirm}
-            disabled={paying}
-          >
-            {paying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
-            {paying ? 'Memproses...' : `Bayar Rp ${finalPrice.toLocaleString('id-ID')}`}
-          </Button>
+          {/* Payment action */}
+          {paymentMethod === 'midtrans' ? (
+            <Button
+              className="w-full gold-glow-strong font-display font-semibold text-lg py-5"
+              onClick={handleConfirm}
+              disabled={paying}
+            >
+              {paying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
+              {paying ? (t.payment?.processing ?? 'Memproses...') : `${t.payment?.pay ?? 'Bayar'} Rp ${finalPrice.toLocaleString('id-ID')}`}
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              {paypalProcessing && (
+                <div className="flex items-center justify-center gap-2 py-3">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-sm text-foreground">{t.payment?.processing ?? 'Memproses...'}</span>
+                </div>
+              )}
+              <div ref={paypalContainerRef} className={paypalProcessing ? 'opacity-50 pointer-events-none' : ''} />
+              {!paypalReady && !paypalProcessing && (
+                <div className="flex items-center justify-center gap-2 py-4">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t.payment?.loadingPaypal ?? 'Loading PayPal...'}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

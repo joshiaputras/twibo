@@ -372,7 +372,8 @@
     "removeCover": "Hapus",
     "commaSeparated": "pisah koma",
     "faviconUploaded": "Favicon berhasil diunggah",
-    "logoUploaded": "Logo berhasil diunggah"
+    "logoUploaded": "Logo berhasil diunggah",
+    "paypalEnable": "Aktifkan PayPal"
   },
   "blog": {
     "title": "Blog",
@@ -401,5 +402,28 @@
     "readyTitle": "Siap Membuat Twibbon Pertamamu?",
     "readyDesc": "Mulai buat campaign twibbon gratis sekarang. Tanpa biaya, tanpa ribet, langsung jadi!",
     "viewPricing": "Lihat Harga"
+  },
+  "payment": {
+    "selectMethod": "Pilih metode pembayaran",
+    "premiumPrice": "Harga Premium",
+    "promoPrice": "Harga Promo",
+    "voucherDiscount": "Diskon Voucher",
+    "totalPay": "Total Bayar",
+    "havePromo": "Punya kode promo?",
+    "enterVoucher": "Masukkan kode voucher",
+    "removeVoucher": "Hapus voucher",
+    "whatYouGet": "Yang kamu dapatkan:",
+    "processing": "Memproses...",
+    "pay": "Bayar",
+    "voucherInvalid": "Kode voucher tidak valid",
+    "voucherExhausted": "Voucher sudah habis digunakan",
+    "voucherExpired": "Voucher sudah kadaluarsa",
+    "voucherNotActive": "Voucher belum berlaku",
+    "voucherApplied": "berhasil diterapkan!",
+    "voucherValidateFailed": "Gagal memvalidasi voucher",
+    "paypalLoadFailed": "Gagal memuat PayPal",
+    "paypalSuccess": "Pembayaran berhasil! Campaign di-upgrade ke Premium.",
+    "paypalFailed": "Pembayaran PayPal gagal",
+    "loadingPaypal": "Memuat PayPal..."
   }
 }

@@ -53,7 +53,7 @@ const CampaignPublic = () => {
   const [applyingThreshold, setApplyingThreshold] = useState(false);
 
   const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
-  const { premiumPrice, originalPrice } = usePricing();
+  const { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd } = usePricing();
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const isFree = campaign?.tier !== 'premium';
   const [showInterstitialAd, setShowInterstitialAd] = useState(false);
@@ -908,10 +908,16 @@ const CampaignPublic = () => {
         open={showPaymentConfirm}
         onClose={() => setShowPaymentConfirm(false)}
         onConfirm={(voucherCode) => handleRemoveWatermark(voucherCode)}
+        onPayPalSuccess={() => setCampaign((prev: any) => ({ ...prev, tier: 'premium' }))}
         basePrice={premiumPrice}
         originalPrice={originalPrice}
         campaignName={campaign?.name ?? ''}
+        campaignId={campaign?.id}
         paying={paying}
+        paypalEnabled={paypalEnabled}
+        paypalClientId={paypalClientId}
+        paypalMode={paypalMode}
+        paypalPriceUsd={paypalPriceUsd}
       />
 
       {paymentInitializing && (
