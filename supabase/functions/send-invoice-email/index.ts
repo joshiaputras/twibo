@@ -43,9 +43,13 @@ const headerStyle = `background:#1a1a2e;background-image:linear-gradient(rgba(25
 
 function buildLogoBlock(logoUrl: string) {
   const logoImg = logoUrl
-    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;vertical-align:middle;background:none;mix-blend-mode:normal;" />`
+    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;width:36px;border-radius:8px;object-fit:cover;vertical-align:middle;background:transparent;" />`
     : '';
-  return `<div style="display:inline-flex;align-items:center;gap:14px;justify-content:center;">${logoImg}<span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;vertical-align:middle;">TWIBO.id</span></div>`;
+  // Use table layout for reliable gap in email clients
+  if (logoImg) {
+    return `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td style="vertical-align:middle;">${logoImg}</td><td style="width:14px;"></td><td style="vertical-align:middle;"><span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;">TWIBO.id</span></td></tr></table>`;
+  }
+  return `<span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;">TWIBO.id</span>`;
 }
 
 function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string, logoUrl: string) {
@@ -122,7 +126,7 @@ function buildAdminNotificationHtml(payment: any, campaign: any, profile: any, l
 </body></html>`;
 }
 
-async function generateInvoicePdf(payment: any, campaign: any, profile: any): Promise<Uint8Array> {
+async function generateInvoicePdf(payment: any, campaign: any, profile: any, logoUrl: string): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   const page = doc.addPage([595, 842]); // A4
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -134,11 +138,30 @@ async function generateInvoicePdf(payment: any, campaign: any, profile: any): Pr
 
   let y = height - 60;
 
-  // Header
-  page.drawText("TWIBO.id", { x: 50, y, size: 28, font: fontBold, color: gold });
+  // Header - embed logo if available
+  let logoXOffset = 50;
+  if (logoUrl) {
+    try {
+      const logoRes = await fetch(logoUrl);
+      const logoBytes = new Uint8Array(await logoRes.arrayBuffer());
+      const contentType = logoRes.headers.get("content-type") || "";
+      let logoImage;
+      if (contentType.includes("png") || logoUrl.endsWith(".png") || logoUrl.endsWith(".webp")) {
+        logoImage = await doc.embedPng(logoBytes);
+      } else {
+        logoImage = await doc.embedJpg(logoBytes);
+      }
+      const logoDim = logoImage.scale(32 / logoImage.height);
+      page.drawImage(logoImage, { x: 50, y: y - 4, width: logoDim.width, height: logoDim.height });
+      logoXOffset = 50 + logoDim.width + 10;
+    } catch (e) {
+      console.error("Failed to embed logo in PDF:", e);
+    }
+  }
+  page.drawText("TWIBO.id", { x: logoXOffset, y, size: 28, font: fontBold, color: gold });
   page.drawText("INVOICE", { x: 430, y, size: 22, font: fontBold, color: black });
   y -= 20;
-  page.drawText("www.twibo.id", { x: 50, y, size: 10, font, color: gray });
+  page.drawText("www.twibo.id", { x: logoXOffset, y, size: 10, font, color: gray });
 
   const isPaid = payment.status === "paid";
   page.drawText(isPaid ? "PAID" : (payment.status || "").toUpperCase(), {
@@ -200,13 +223,15 @@ async function generateInvoicePdf(payment: any, campaign: any, profile: any): Pr
   page.drawText("Total", { x: 50, y, size: 14, font: fontBold, color: black });
   page.drawText(amountStr, { x: 430, y, size: 14, font: fontBold, color: gold });
 
-  // Footer
-  page.drawText("TWIBO.id — www.twibo.id — cs@twibo.id", {
-    x: 160, y: 40, size: 9, font, color: gray,
-  });
-  page.drawText("Thank you for your purchase!", {
-    x: 210, y: 26, size: 9, font, color: gray,
-  });
+  // Footer - centered line separator + text
+  const pageWidth = 595;
+  page.drawLine({ start: { x: 50, y: 55 }, end: { x: 545, y: 55 }, thickness: 0.5, color: rgb(0.85, 0.85, 0.85) });
+  const footerText1 = "TWIBO.id  —  www.twibo.id  —  cs@twibo.id";
+  const footerText2 = "Thank you for your purchase!";
+  const ft1Width = font.widthOfTextAtSize(footerText1, 9);
+  const ft2Width = font.widthOfTextAtSize(footerText2, 9);
+  page.drawText(footerText1, { x: (pageWidth - ft1Width) / 2, y: 40, size: 9, font, color: gray });
+  page.drawText(footerText2, { x: (pageWidth - ft2Width) / 2, y: 26, size: 9, font, color: gray });
 
   return await doc.save();
 }
@@ -262,7 +287,7 @@ Deno.serve(async (req) => {
     // Generate PDF
     let pdfBytes: Uint8Array | null = null;
     try {
-      pdfBytes = await generateInvoicePdf(payment, campaign, profile);
+      pdfBytes = await generateInvoicePdf(payment, campaign, profile, logoUrl);
     } catch (pdfErr: any) {
       console.error("PDF generation failed:", pdfErr.message);
     }

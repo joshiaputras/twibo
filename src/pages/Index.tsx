@@ -143,7 +143,7 @@ const SaleCountdownInline = () => {
 
 const Index = () => {
   const { t, lang } = useLanguage();
-  const { premiumPrice, originalPrice } = usePricing();
+  const { premiumPrice, originalPrice, paypalPriceUsd, paypalOriginalPriceUsd } = usePricing();
   const { campaigns: featuredCampaigns, loading: featuredLoading } = useFeaturedCampaigns();
   const [isPaused, setIsPaused] = useState(false);
   const isId = lang === 'id';
@@ -471,6 +471,12 @@ const Index = () => {
                   <span className="font-display text-4xl font-bold text-gold-gradient">{formatPrice(premiumPrice)}</span>
                   <span className="text-sm text-muted-foreground">{t.pricing.perCampaign}</span>
                 </div>
+                {paypalOriginalPriceUsd && (
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    <span className="line-through">${paypalOriginalPriceUsd} USD</span>{' '}
+                    <span className="text-primary font-semibold">${paypalPriceUsd} USD</span>
+                  </div>
+                )}
               </div>
               <ul className="space-y-3 mb-8 flex-1">
                 {Object.values(t.pricing.premiumFeatures).map((f, i) => (
