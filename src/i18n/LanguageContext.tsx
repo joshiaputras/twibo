@@ -21,7 +21,10 @@ const LanguageContext = createContext<LanguageContextType | null>(null);
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
   const [lang, setLangState] = useState<Language>(() => {
     const saved = localStorage.getItem('twibo-lang');
-    return (saved === 'en' || saved === 'id') ? saved : 'id';
+    if (saved === 'en' || saved === 'id') return saved;
+    // Auto-detect: Indonesian locale → 'id', otherwise 'en'
+    const browserLang = typeof navigator !== 'undefined' ? (navigator.language || (navigator as any).userLanguage || '') : '';
+    return browserLang.toLowerCase().startsWith('id') ? 'id' : 'en';
   });
 
   const setLang = useCallback((l: Language) => {
