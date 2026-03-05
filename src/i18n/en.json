@@ -372,7 +372,8 @@
     "removeCover": "Remove",
     "commaSeparated": "comma separated",
     "faviconUploaded": "Favicon uploaded",
-    "logoUploaded": "Logo uploaded"
+    "logoUploaded": "Logo uploaded",
+    "paypalEnable": "Enable PayPal"
   },
   "blog": {
     "title": "Blog",
@@ -401,5 +402,28 @@
     "readyTitle": "Ready to Create Your First Twibbon?",
     "readyDesc": "Start creating your free twibbon campaign now. No cost, no hassle, instant results!",
     "viewPricing": "View Pricing"
+  },
+  "payment": {
+    "selectMethod": "Select payment method",
+    "premiumPrice": "Premium Price",
+    "promoPrice": "Promo Price",
+    "voucherDiscount": "Voucher Discount",
+    "totalPay": "Total",
+    "havePromo": "Have a promo code?",
+    "enterVoucher": "Enter voucher code",
+    "removeVoucher": "Remove voucher",
+    "whatYouGet": "What you get:",
+    "processing": "Processing...",
+    "pay": "Pay",
+    "voucherInvalid": "Invalid voucher code",
+    "voucherExhausted": "Voucher fully used",
+    "voucherExpired": "Voucher expired",
+    "voucherNotActive": "Voucher not yet active",
+    "voucherApplied": "applied!",
+    "voucherValidateFailed": "Failed to validate voucher",
+    "paypalLoadFailed": "Failed to load PayPal",
+    "paypalSuccess": "Payment successful! Campaign upgraded to Premium.",
+    "paypalFailed": "PayPal payment failed",
+    "loadingPaypal": "Loading PayPal..."
   }
 }
