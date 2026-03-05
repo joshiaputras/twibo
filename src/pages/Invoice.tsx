@@ -162,7 +162,7 @@ const Invoice = () => {
               <tfoot>
                 <tr className="border-t-2 border-gray-200">
                   <td className="py-3 font-bold text-gray-900">Total</td>
-                  <td className="py-3 text-right font-bold text-gray-900 text-lg">
+                  <td className="py-3 text-right font-bold text-gray-900 text-lg" style={{ color: '#000000' }}>
                     {isPaypal
                       ? `$${(tx.amount / 100).toFixed(2)} USD`
                       : `Rp ${(tx.amount || 0).toLocaleString('id-ID')}`}

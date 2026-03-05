@@ -88,7 +88,7 @@ function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl:
         <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Payment Date</td><td style="padding:10px 0;text-align:right;color:#333;">${paidAt}</td></tr>
         <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Subtotal</td><td style="padding:10px 0;text-align:right;color:#333;">${subtotalStr}</td></tr>
         ${discountRow}
-        <tr><td style="padding:14px 0;color:#b8860b;font-weight:bold;font-size:16px;">Total</td><td style="padding:14px 0;text-align:right;color:#b8860b;font-weight:bold;font-size:16px;">${totalStr}</td></tr>
+        <tr><td style="padding:14px 0;color:#000000;font-weight:bold;font-size:16px;">Total</td><td style="padding:14px 0;text-align:right;color:#000000;font-weight:bold;font-size:16px;">${totalStr}</td></tr>
       </table>
       <p style="margin:20px 0 0;color:#888;font-size:12px;">A PDF invoice is also attached to this email.</p>
       <div style="margin-top:24px;text-align:center;">
@@ -126,7 +126,7 @@ function buildAdminNotificationHtml(payment: any, campaign: any, profile: any, l
         <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Order ID</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-size:12px;color:#333;">${payment.midtrans_order_id}</td></tr>
         <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Method</td><td style="padding:10px 0;text-align:right;text-transform:capitalize;color:#333;">${payment.payment_method || "-"}</td></tr>
         <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Payment Date</td><td style="padding:10px 0;text-align:right;color:#333;">${paidAt}</td></tr>
-        <tr><td style="padding:14px 0;color:#b8860b;font-weight:bold;font-size:16px;">Total</td><td style="padding:14px 0;text-align:right;color:#b8860b;font-weight:bold;font-size:16px;">${amount}</td></tr>
+        <tr><td style="padding:14px 0;color:#000000;font-weight:bold;font-size:16px;">Total</td><td style="padding:14px 0;text-align:right;color:#000000;font-weight:bold;font-size:16px;">${amount}</td></tr>
       </table>
     </div>
     <div style="padding:16px 32px;background:#fafafa;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;">TWIBO.id — Admin Notification</div>
@@ -248,7 +248,7 @@ async function generateInvoicePdf(payment: any, campaign: any, profile: any, log
   y -= 22;
 
   page.drawText("Total", { x: 50, y, size: 14, font: fontBold, color: black });
-  page.drawText(amountStr, { x: 430, y, size: 14, font: fontBold, color: gold });
+  page.drawText(amountStr, { x: 430, y, size: 14, font: fontBold, color: black });
 
   // Footer - centered line separator + text
   const pageWidth = 595;
