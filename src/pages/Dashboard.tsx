@@ -39,7 +39,7 @@ type CampaignItem = {
 const Dashboard = () => {
   const { t } = useLanguage();
   const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
-  const { premiumPrice, originalPrice } = usePricing();
+  const { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd } = usePricing();
   const { user } = useAuth();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
@@ -329,10 +329,21 @@ const Dashboard = () => {
         onConfirm={(voucherCode) => {
           if (paymentConfirmCampaign) handleRemoveWatermark(paymentConfirmCampaign.id, voucherCode);
         }}
+        onPayPalSuccess={() => {
+          if (paymentConfirmCampaign) {
+            setCampaigns(prev => prev.map(c => (c.id === paymentConfirmCampaign.id ? { ...c, tier: 'premium' } : c)));
+          }
+          setPaymentConfirmCampaign(null);
+        }}
         basePrice={premiumPrice}
         originalPrice={originalPrice}
         campaignName={paymentConfirmCampaign?.name ?? ''}
+        campaignId={paymentConfirmCampaign?.id}
         paying={paying}
+        paypalEnabled={paypalEnabled}
+        paypalClientId={paypalClientId}
+        paypalMode={paypalMode}
+        paypalPriceUsd={paypalPriceUsd}
       />
 
       {/* Full-screen loading overlay while Midtrans initialises */}

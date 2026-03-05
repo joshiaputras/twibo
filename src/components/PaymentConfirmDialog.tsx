@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useLanguage } from '@/i18n/LanguageContext';
 
-type PaymentMethod = 'midtrans' | 'paypal';
+type PaymentTab = 'local' | 'international';
 
 interface PaymentConfirmDialogProps {
   open: boolean;
@@ -49,7 +49,7 @@ const PaymentConfirmDialog = ({
     value: number;
     code: string;
   } | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('midtrans');
+  const [activeTab, setActiveTab] = useState<PaymentTab>('local');
   const [paypalReady, setPaypalReady] = useState(false);
   const [paypalProcessing, setPaypalProcessing] = useState(false);
   const paypalContainerRef = useRef<HTMLDivElement>(null);
@@ -62,9 +62,9 @@ const PaymentConfirmDialog = ({
     : 0;
   const finalPrice = Math.max(0, basePrice - discountAmount);
 
-  // Load PayPal SDK when PayPal is selected
+  // Load PayPal SDK when International tab is selected
   useEffect(() => {
-    if (!open || paymentMethod !== 'paypal' || !paypalEnabled || !paypalClientId) return;
+    if (!open || activeTab !== 'international' || !paypalEnabled || !paypalClientId) return;
 
     paypalButtonsRendered.current = false;
     setPaypalReady(false);
@@ -81,7 +81,7 @@ const PaymentConfirmDialog = ({
     return () => {
       paypalButtonsRendered.current = false;
     };
-  }, [open, paymentMethod, paypalEnabled, paypalClientId]);
+  }, [open, activeTab, paypalEnabled, paypalClientId]);
 
   // Render PayPal buttons
   useEffect(() => {
@@ -106,14 +106,13 @@ const PaymentConfirmDialog = ({
         try {
           const details = await actions.order.capture();
           
-          // Record payment in DB
           const { data: { session } } = await supabase.auth.getSession();
           if (session && campaignId) {
             const orderId = `PAYPAL-${details.id}`;
             await supabase.from('payments' as any).insert({
               user_id: session.user.id,
               campaign_id: campaignId,
-              amount: Math.round(paypalPriceUsd * 100), // store cents
+              amount: Math.round(paypalPriceUsd * 100),
               midtrans_order_id: orderId,
               midtrans_transaction_id: details.id,
               status: 'paid',
@@ -121,7 +120,6 @@ const PaymentConfirmDialog = ({
               paid_at: new Date().toISOString(),
             });
 
-            // Upgrade campaign
             await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaignId);
           }
 
@@ -200,6 +198,8 @@ const PaymentConfirmDialog = ({
     t.pricing?.premiumFeatures?.f6 ?? 'Upload custom banner',
   ];
 
+  const showInternational = paypalEnabled && paypalClientId;
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="glass-strong border-gold-subtle max-w-md">
@@ -216,43 +216,42 @@ const PaymentConfirmDialog = ({
             <p className="text-foreground font-semibold">{campaignName}</p>
           </div>
 
-          {/* Payment method selection */}
-          {paypalEnabled && paypalClientId && (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">{t.payment?.selectMethod ?? 'Pilih metode pembayaran'}</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setPaymentMethod('midtrans')}
-                  className={`rounded-xl border p-3 text-center text-sm font-medium transition-all ${
-                    paymentMethod === 'midtrans'
-                      ? 'border-primary bg-primary/10 text-foreground'
-                      : 'border-border bg-secondary/20 text-muted-foreground hover:border-primary/50'
-                  }`}
-                >
-                  <span className="block text-xs text-muted-foreground mb-0.5">🏦</span>
-                  Midtrans
-                  <span className="block text-xs text-muted-foreground mt-0.5">IDR</span>
-                </button>
-                <button
-                  onClick={() => setPaymentMethod('paypal')}
-                  className={`rounded-xl border p-3 text-center text-sm font-medium transition-all ${
-                    paymentMethod === 'paypal'
-                      ? 'border-primary bg-primary/10 text-foreground'
-                      : 'border-border bg-secondary/20 text-muted-foreground hover:border-primary/50'
-                  }`}
-                >
-                  <span className="block text-xs text-muted-foreground mb-0.5">💳</span>
-                  PayPal
-                  <span className="block text-xs text-muted-foreground mt-0.5">USD</span>
-                </button>
-              </div>
+          {/* Payment method tabs */}
+          {showInternational && (
+            <div className="flex rounded-xl border border-border overflow-hidden">
+              <button
+                onClick={() => setActiveTab('local')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium transition-all ${
+                  activeTab === 'local'
+                    ? 'bg-primary/10 text-foreground border-b-2 border-primary'
+                    : 'bg-secondary/20 text-muted-foreground hover:bg-secondary/40'
+                }`}
+              >
+                <span className="text-base">🇮🇩</span>
+                <span className="text-xs sm:text-sm">{t.payment?.localPayment ?? 'Pembayaran Lokal'}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('international')}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium transition-all ${
+                  activeTab === 'international'
+                    ? 'bg-primary/10 text-foreground border-b-2 border-primary'
+                    : 'bg-secondary/20 text-muted-foreground hover:bg-secondary/40'
+                }`}
+              >
+                <span className="text-base">🌍</span>
+                <span className="text-xs sm:text-sm">{t.payment?.internationalPayment ?? 'International'}</span>
+              </button>
             </div>
           )}
 
-          {/* Price breakdown */}
-          <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
-            {paymentMethod === 'midtrans' ? (
-              <>
+          {/* === LOCAL (Midtrans) Tab === */}
+          {activeTab === 'local' && (
+            <>
+              {/* Price breakdown */}
+              <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-muted-foreground">🏦 QRIS / Bank Transfer</span>
+                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{t.payment?.premiumPrice ?? 'Harga Premium'}</span>
                   <span className="text-muted-foreground line-through">Rp {originalPrice.toLocaleString('id-ID')}</span>
@@ -272,105 +271,118 @@ const PaymentConfirmDialog = ({
                   <span className="text-foreground font-semibold">{t.payment?.totalPay ?? 'Total Bayar'}</span>
                   <span className="text-gold-gradient font-display font-bold text-xl">Rp {finalPrice.toLocaleString('id-ID')}</span>
                 </div>
-              </>
-            ) : (
-              <>
+              </div>
+
+              {/* Voucher input */}
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">{t.payment?.havePromo ?? 'Punya kode promo?'}</p>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <Ticket className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder={t.payment?.enterVoucher ?? 'Masukkan kode voucher'}
+                      value={voucherCode}
+                      onChange={e => { setVoucherCode(e.target.value.toUpperCase()); setVoucherError(''); }}
+                      className="pl-9 bg-secondary/50 border-border text-sm uppercase"
+                      disabled={!!voucherDiscount}
+                    />
+                  </div>
+                  {voucherDiscount ? (
+                    <Button size="sm" variant="outline" className="text-xs shrink-0 text-green-400 border-green-400/30" disabled>
+                      <Check className="w-3 h-3 mr-1" /> Applied
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-xs shrink-0"
+                      onClick={handleValidateVoucher}
+                      disabled={voucherValidating || !voucherCode.trim()}
+                    >
+                      {voucherValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
+                    </Button>
+                  )}
+                </div>
+                {voucherError && (
+                  <p className="text-xs text-destructive">{voucherError}</p>
+                )}
+                {voucherDiscount && (
+                  <button
+                    className="text-xs text-muted-foreground underline"
+                    onClick={() => { setVoucherDiscount(null); setVoucherCode(''); setVoucherError(''); }}
+                  >
+                    {t.payment?.removeVoucher ?? 'Hapus voucher'}
+                  </button>
+                )}
+              </div>
+
+              {/* Features */}
+              <PremiumFeatures features={premiumFeatures} label={t.payment?.whatYouGet ?? 'Yang kamu dapatkan:'} />
+
+              {/* Pay button */}
+              <Button
+                className="w-full gold-glow-strong font-display font-semibold text-lg py-5"
+                onClick={handleConfirm}
+                disabled={paying}
+              >
+                {paying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
+                {paying ? (t.payment?.processing ?? 'Memproses...') : `${t.payment?.pay ?? 'Bayar'} Rp ${finalPrice.toLocaleString('id-ID')}`}
+              </Button>
+            </>
+          )}
+
+          {/* === INTERNATIONAL (PayPal) Tab === */}
+          {activeTab === 'international' && (
+            <>
+              {/* Price */}
+              <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-muted-foreground">💳 PayPal / Credit Card</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-foreground font-semibold">{t.payment?.totalPay ?? 'Total Bayar'}</span>
                   <span className="text-gold-gradient font-display font-bold text-xl">${paypalPriceUsd.toFixed(2)} USD</span>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
 
-          {/* Voucher input - only for Midtrans */}
-          {paymentMethod === 'midtrans' && (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">{t.payment?.havePromo ?? 'Punya kode promo?'}</p>
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
-                  <Ticket className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder={t.payment?.enterVoucher ?? 'Masukkan kode voucher'}
-                    value={voucherCode}
-                    onChange={e => { setVoucherCode(e.target.value.toUpperCase()); setVoucherError(''); }}
-                    className="pl-9 bg-secondary/50 border-border text-sm uppercase"
-                    disabled={!!voucherDiscount}
-                  />
-                </div>
-                {voucherDiscount ? (
-                  <Button size="sm" variant="outline" className="text-xs shrink-0 text-green-400 border-green-400/30" disabled>
-                    <Check className="w-3 h-3 mr-1" /> Applied
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-xs shrink-0"
-                    onClick={handleValidateVoucher}
-                    disabled={voucherValidating || !voucherCode.trim()}
-                  >
-                    {voucherValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Apply'}
-                  </Button>
+              {/* Features */}
+              <PremiumFeatures features={premiumFeatures} label={t.payment?.whatYouGet ?? 'Yang kamu dapatkan:'} />
+
+              {/* PayPal buttons */}
+              <div className="space-y-3">
+                {paypalProcessing && (
+                  <div className="flex items-center justify-center gap-2 py-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    <span className="text-sm text-foreground">{t.payment?.processing ?? 'Memproses...'}</span>
+                  </div>
+                )}
+                <div ref={paypalContainerRef} className={paypalProcessing ? 'opacity-50 pointer-events-none' : ''} />
+                {!paypalReady && !paypalProcessing && (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{t.payment?.loadingPaypal ?? 'Loading PayPal...'}</span>
+                  </div>
                 )}
               </div>
-              {voucherError && (
-                <p className="text-xs text-destructive">{voucherError}</p>
-              )}
-              {voucherDiscount && (
-                <button
-                  className="text-xs text-muted-foreground underline"
-                  onClick={() => { setVoucherDiscount(null); setVoucherCode(''); setVoucherError(''); }}
-                >
-                  {t.payment?.removeVoucher ?? 'Hapus voucher'}
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Features included */}
-          <div className="rounded-xl border border-border bg-secondary/20 p-4">
-            <p className="text-xs text-muted-foreground mb-2">{t.payment?.whatYouGet ?? 'Yang kamu dapatkan:'}</p>
-            <ul className="space-y-1.5">
-              {premiumFeatures.map((f, i) => (
-                <li key={i} className="flex items-center gap-2 text-xs text-foreground">
-                  <Check className="w-3 h-3 text-primary shrink-0" /> {f}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Payment action */}
-          {paymentMethod === 'midtrans' ? (
-            <Button
-              className="w-full gold-glow-strong font-display font-semibold text-lg py-5"
-              onClick={handleConfirm}
-              disabled={paying}
-            >
-              {paying ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Crown className="w-4 h-4 mr-2" />}
-              {paying ? (t.payment?.processing ?? 'Memproses...') : `${t.payment?.pay ?? 'Bayar'} Rp ${finalPrice.toLocaleString('id-ID')}`}
-            </Button>
-          ) : (
-            <div className="space-y-3">
-              {paypalProcessing && (
-                <div className="flex items-center justify-center gap-2 py-3">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-sm text-foreground">{t.payment?.processing ?? 'Memproses...'}</span>
-                </div>
-              )}
-              <div ref={paypalContainerRef} className={paypalProcessing ? 'opacity-50 pointer-events-none' : ''} />
-              {!paypalReady && !paypalProcessing && (
-                <div className="flex items-center justify-center gap-2 py-4">
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">{t.payment?.loadingPaypal ?? 'Loading PayPal...'}</span>
-                </div>
-              )}
-            </div>
+            </>
           )}
         </div>
       </DialogContent>
     </Dialog>
   );
 };
+
+const PremiumFeatures = ({ features, label }: { features: string[]; label: string }) => (
+  <div className="rounded-xl border border-border bg-secondary/20 p-4">
+    <p className="text-xs text-muted-foreground mb-2">{label}</p>
+    <ul className="space-y-1.5">
+      {features.map((f, i) => (
+        <li key={i} className="flex items-center gap-2 text-xs text-foreground">
+          <Check className="w-3 h-3 text-primary shrink-0" /> {f}
+        </li>
+      ))}
+    </ul>
+  </div>
+);
 
 export default PaymentConfirmDialog;
