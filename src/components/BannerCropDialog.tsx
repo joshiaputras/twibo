@@ -119,7 +119,7 @@ const BannerCropDialog = ({ file, open, onClose, onCropped, uploading }: BannerC
 
     canvas.toBlob(
       blob => { if (blob) onCropped(blob); },
-      'image/jpeg',
+      'image/webp',
       0.85
     );
   };

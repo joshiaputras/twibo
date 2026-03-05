@@ -52,11 +52,11 @@ const Profile = () => {
     if (!user) return;
     setUploadingAvatar(true);
     try {
-      const filePath = `${user.id}/avatar.jpg`;
+      const filePath = `${user.id}/avatar.webp`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' });
+        .upload(filePath, blob, { upsert: true, contentType: 'image/webp' });
 
       if (uploadError) throw uploadError;
 
@@ -83,7 +83,7 @@ const Profile = () => {
     setResettingAvatar(true);
     try {
       // Try to remove the file from storage
-      await supabase.storage.from('avatars').remove([`${user.id}/avatar.jpg`]);
+      await supabase.storage.from('avatars').remove([`${user.id}/avatar.webp`, `${user.id}/avatar.jpg`]);
 
       // Set avatar_url to null
       const { error } = await supabase.from('profiles').update({ avatar_url: null }).eq('id', user.id);

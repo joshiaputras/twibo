@@ -3,7 +3,7 @@ import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart, Image, ChevronRight, BookOpen, Calendar } from 'lucide-react';
+import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart, Image, ChevronRight, BookOpen, Calendar, Clock } from 'lucide-react';
 import { usePricing } from '@/hooks/usePricing';
 import { useFeaturedCampaigns } from '@/hooks/useFeaturedCampaigns';
 import { useRef, useState, useEffect } from 'react';
@@ -12,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 
 const LatestBlogPosts = () => {
+  const { lang } = useLanguage();
+  const isId = lang === 'id';
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,8 +38,8 @@ const LatestBlogPosts = () => {
     <section className="py-20">
       <div className="container mx-auto px-4">
         <div className="text-center mb-10">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">Blog Terbaru</h2>
-          <p className="text-muted-foreground">Tips, tutorial, dan update terbaru</p>
+          <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">{isId ? 'Blog Terbaru' : 'Latest Blog'}</h2>
+          <p className="text-muted-foreground">{isId ? 'Tips, tutorial, dan update terbaru' : 'Tips, tutorials, and latest updates'}</p>
         </div>
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
@@ -79,7 +81,7 @@ const LatestBlogPosts = () => {
         <div className="text-center mt-8">
           <Link to="/blog">
             <Button variant="outline" className="border-border hover:border-primary/50 gap-2">
-              Lihat Semua Artikel <ArrowRight className="w-4 h-4" />
+              {isId ? 'Lihat Semua Artikel' : 'View All Articles'} <ArrowRight className="w-4 h-4" />
             </Button>
           </Link>
         </div>
@@ -94,12 +96,57 @@ const FloatingCard = ({ className, children }: { className?: string; children: R
   </div>
 );
 
+const SaleCountdownInline = () => {
+  const { t } = useLanguage();
+  const FIXED_H = 5;
+  const FIXED_M = 18;
+  const [timeLeft, setTimeLeft] = useState({ hours: FIXED_H, minutes: FIXED_M, seconds: 0 });
+
+  useEffect(() => {
+    const target = Date.now() + (FIXED_H * 3600000 + FIXED_M * 60000);
+    const update = () => {
+      const diff = Math.max(0, target - Date.now());
+      setTimeLeft({
+        hours: Math.floor(diff / 3600000),
+        minutes: Math.floor((diff % 3600000) / 60000),
+        seconds: Math.floor((diff % 60000) / 1000),
+      });
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const pad = (n: number) => n.toString().padStart(2, '0');
+
+  return (
+    <div className="mb-8 max-w-2xl mx-auto text-center">
+      <div className="flex items-center justify-center gap-2 mb-3">
+        <Clock className="w-5 h-5 text-primary animate-pulse" />
+        <span className="text-base font-semibold text-primary">{t.saleCountdown?.label ?? '🔥 Promo Spesial!'}</span>
+      </div>
+      <div className="flex items-center justify-center gap-6">
+        {[
+          { val: pad(timeLeft.hours), label: t.saleCountdown?.hours ?? 'Hours' },
+          { val: pad(timeLeft.minutes), label: t.saleCountdown?.minutes ?? 'Minutes' },
+          { val: pad(timeLeft.seconds), label: t.saleCountdown?.seconds ?? 'Seconds' },
+        ].map((item, i) => (
+          <div key={i} className="flex flex-col items-center">
+            <span className="font-display text-4xl md:text-5xl font-bold text-gold-gradient tabular-nums">{item.val}</span>
+            <span className="text-xs text-muted-foreground uppercase mt-1">{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const Index = () => {
   const { t, lang } = useLanguage();
   const { premiumPrice, originalPrice } = usePricing();
   const { campaigns: featuredCampaigns, loading: featuredLoading } = useFeaturedCampaigns();
   const [isPaused, setIsPaused] = useState(false);
-
+  const isId = lang === 'id';
   // Triple the campaigns to ensure seamless loop - translateX(-33.333%) = exactly 1 set
   const triplicatedCampaigns = featuredCampaigns.length > 0
     ? [...featuredCampaigns, ...featuredCampaigns, ...featuredCampaigns]
@@ -126,9 +173,9 @@ const Index = () => {
   ];
 
   const useCases = [
-    { icon: Heart, title: 'Komunitas & Organisasi', desc: 'Buat campaign branding untuk anggota komunitas, alumni, atau organisasi sosial.' },
-    { icon: Star, title: 'Event & Acara', desc: 'Frame foto untuk konferensi, seminar, wisuda, atau perayaan spesial.' },
-    { icon: Sparkles, title: 'Brand & Marketing', desc: 'Tingkatkan brand awareness dengan frame campaign yang dibagikan oleh supporter.' },
+    { icon: Heart, title: isId ? 'Komunitas & Organisasi' : 'Communities & Organizations', desc: isId ? 'Buat campaign branding untuk anggota komunitas, alumni, atau organisasi sosial.' : 'Create branding campaigns for community members, alumni, or social organizations.' },
+    { icon: Star, title: isId ? 'Event & Acara' : 'Events & Occasions', desc: isId ? 'Frame foto untuk konferensi, seminar, wisuda, atau perayaan spesial.' : 'Photo frames for conferences, seminars, graduations, or special celebrations.' },
+    { icon: Sparkles, title: isId ? 'Brand & Marketing' : 'Brand & Marketing', desc: isId ? 'Tingkatkan brand awareness dengan frame campaign yang dibagikan oleh supporter.' : 'Boost brand awareness with campaign frames shared by supporters.' },
   ];
 
   const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
@@ -139,7 +186,6 @@ const Index = () => {
   const speed = 40; // pixels per second
   const duration = oneSetWidth / speed;
 
-  const isId = lang === 'id';
 
   return (
     <Layout>
@@ -209,8 +255,8 @@ const Index = () => {
                 <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Paintbrush className="w-10 h-10 text-primary" />
                 </div>
-                <p className="text-sm text-foreground font-semibold">Desain Frame</p>
-                <p className="text-xs text-muted-foreground mt-1">Canvas editor yang powerful</p>
+                <p className="text-sm text-foreground font-semibold">{isId ? 'Desain Frame' : 'Design Frame'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isId ? 'Canvas editor yang powerful' : 'Powerful canvas editor'}</p>
               </div>
             </div>
             <div className="glass rounded-2xl border-gold-subtle overflow-hidden aspect-square flex items-center justify-center">
@@ -218,8 +264,8 @@ const Index = () => {
                 <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Upload className="w-10 h-10 text-primary" />
                 </div>
-                <p className="text-sm text-foreground font-semibold">Upload & Gabungkan</p>
-                <p className="text-xs text-muted-foreground mt-1">Supporter upload foto langsung</p>
+                <p className="text-sm text-foreground font-semibold">{isId ? 'Upload & Gabungkan' : 'Upload & Merge'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isId ? 'Supporter upload foto langsung' : 'Supporters upload photos instantly'}</p>
               </div>
             </div>
             <div className="glass rounded-2xl border-gold-subtle overflow-hidden aspect-square flex items-center justify-center">
@@ -227,8 +273,8 @@ const Index = () => {
                 <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
                   <Image className="w-10 h-10 text-primary" />
                 </div>
-                <p className="text-sm text-foreground font-semibold">Hasil Profesional</p>
-                <p className="text-xs text-muted-foreground mt-1">Download langsung dalam HD</p>
+                <p className="text-sm text-foreground font-semibold">{isId ? 'Hasil Profesional' : 'Professional Results'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{isId ? 'Download langsung dalam HD' : 'Download directly in HD'}</p>
               </div>
             </div>
           </div>
@@ -240,9 +286,9 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-10">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">
-              Campaign Gratis untuk Kamu
+              {isId ? 'Campaign Gratis untuk Kamu' : 'Free Campaigns for You'}
             </h2>
-            <p className="text-muted-foreground">Langsung pakai frame campaign populer berikut ini</p>
+            <p className="text-muted-foreground">{isId ? 'Langsung pakai frame campaign populer berikut ini' : 'Use these popular campaign frames right away'}</p>
           </div>
 
           {featuredLoading ? (
@@ -297,7 +343,7 @@ const Index = () => {
                         <div className="p-3">
                           <p className="text-sm font-semibold text-foreground truncate">{fc.name}</p>
                           <p className="text-xs text-primary flex items-center gap-1 mt-1">
-                            Gunakan <ChevronRight className="w-3 h-3" />
+                            {isId ? 'Gunakan' : 'Use'} <ChevronRight className="w-3 h-3" />
                           </p>
                         </div>
                       </div>
@@ -358,9 +404,9 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-14">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">
-              Cocok Untuk Siapa?
+              {isId ? 'Cocok Untuk Siapa?' : 'Who Is It For?'}
             </h2>
-            <p className="text-muted-foreground">TWIBO.id digunakan oleh ribuan komunitas dan organisasi</p>
+            <p className="text-muted-foreground">{isId ? 'TWIBO.id digunakan oleh ribuan komunitas dan organisasi' : 'TWIBO.id is used by thousands of communities and organizations'}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
             {useCases.map((uc, i) => (
@@ -379,10 +425,12 @@ const Index = () => {
       {/* Pricing Section - Dynamic */}
       <section className="py-20" id="pricing">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-14">
+          <div className="text-center mb-8">
             <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">{t.pricing.title}</h2>
             <p className="text-muted-foreground">{t.pricing.subtitle}</p>
           </div>
+
+          <SaleCountdownInline />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
             {/* Free */}

@@ -166,6 +166,8 @@
     "avatar": "Avatar",
     "uploadAvatar": "Unggah",
     "avatarUpdated": "Avatar berhasil diperbarui!",
+    "avatarReset": "Avatar berhasil direset!",
+    "cropAvatar": "Crop Avatar",
     "enterCurrentPassword": "Masukkan password saat ini",
     "newPasswordMinLength": "Password baru minimal 6 karakter",
     "wrongCurrentPassword": "Password saat ini salah"
@@ -276,7 +278,9 @@
     "tolerance": "Toleransi",
     "feather": "Feather",
     "bgSettings": "Pengaturan Background",
-    "processingPhoto": "Memproses foto..."
+    "processingPhoto": "Memproses foto...",
+    "aboutCampaign": "Tentang Campaign Ini",
+    "supporters": "supporter"
   },
   "admin": {
     "title": "Admin Dashboard",

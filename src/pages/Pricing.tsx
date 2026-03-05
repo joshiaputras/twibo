@@ -8,28 +8,23 @@ import { usePricing } from '@/hooks/usePricing';
 import AnchorAd from '@/components/AnchorAd';
 import { useEffect, useState } from 'react';
 
-const SaleCountdown = ({ label }: { label: string }) => {
-  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+const SaleCountdown = () => {
+  const { t } = useLanguage();
+  const FIXED_H = 5;
+  const FIXED_M = 18;
+  const [timeLeft, setTimeLeft] = useState({ hours: FIXED_H, minutes: FIXED_M, seconds: 0 });
 
   useEffect(() => {
-    const getEndOfDay = () => {
-      const now = new Date();
-      const end = new Date(now);
-      end.setHours(23, 59, 59, 999);
-      return end;
-    };
-
+    // Use a fixed target: 5h18m from start of current "session" (page load)
+    const target = Date.now() + (FIXED_H * 3600000 + FIXED_M * 60000);
     const update = () => {
-      const now = new Date();
-      const end = getEndOfDay();
-      const diff = Math.max(0, end.getTime() - now.getTime());
+      const diff = Math.max(0, target - Date.now());
       setTimeLeft({
         hours: Math.floor(diff / 3600000),
         minutes: Math.floor((diff % 3600000) / 60000),
         seconds: Math.floor((diff % 60000) / 1000),
       });
     };
-
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
@@ -38,20 +33,20 @@ const SaleCountdown = ({ label }: { label: string }) => {
   const pad = (n: number) => n.toString().padStart(2, '0');
 
   return (
-    <div className="glass-strong rounded-2xl border-gold-subtle gold-glow p-4 mb-10 max-w-xl mx-auto text-center">
-      <div className="flex items-center justify-center gap-2 mb-2">
-        <Clock className="w-4 h-4 text-primary animate-pulse" />
-        <span className="text-sm font-semibold text-primary">{label}</span>
+    <div className="mb-10 max-w-2xl mx-auto text-center">
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <Clock className="w-5 h-5 text-primary animate-pulse" />
+        <span className="text-base font-semibold text-primary">{t.saleCountdown?.label ?? '🔥 Promo Spesial Berakhir Hari Ini!'}</span>
       </div>
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-6">
         {[
-          { val: pad(timeLeft.hours), label: 'Jam' },
-          { val: pad(timeLeft.minutes), label: 'Menit' },
-          { val: pad(timeLeft.seconds), label: 'Detik' },
-        ].map((t, i) => (
+          { val: pad(timeLeft.hours), label: t.saleCountdown?.hours ?? 'Hours' },
+          { val: pad(timeLeft.minutes), label: t.saleCountdown?.minutes ?? 'Minutes' },
+          { val: pad(timeLeft.seconds), label: t.saleCountdown?.seconds ?? 'Seconds' },
+        ].map((item, i) => (
           <div key={i} className="flex flex-col items-center">
-            <span className="font-display text-2xl md:text-3xl font-bold text-foreground tabular-nums">{t.val}</span>
-            <span className="text-[10px] text-muted-foreground uppercase">{t.label}</span>
+            <span className="font-display text-4xl md:text-5xl font-bold text-gold-gradient tabular-nums">{item.val}</span>
+            <span className="text-xs text-muted-foreground uppercase mt-1">{item.label}</span>
           </div>
         ))}
       </div>
@@ -90,7 +85,7 @@ const Pricing = () => {
             <p className="text-muted-foreground text-lg">{t.pricing.subtitle}</p>
           </div>
 
-          <SaleCountdown label={isId ? '🔥 Promo Spesial Berakhir Hari Ini!' : '🔥 Special Promo Ends Today!'} />
+          <SaleCountdown />
 
           {/* Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-20">

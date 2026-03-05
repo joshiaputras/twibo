@@ -673,7 +673,7 @@ const CampaignPublic = () => {
                   {new Date(campaign.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </span>
                 <span className="flex items-center gap-1">
-                  <Users className="w-3 h-3" /> {supportersCount} supporters
+                  <Users className="w-3 h-3" /> {supportersCount} {t.public?.supporters ?? 'supporters'}
                 </span>
               </div>
 
@@ -681,7 +681,7 @@ const CampaignPublic = () => {
               {campaign.description && (
                 <div>
                   <hr className="border-border/40 my-2" />
-                  <h3 className="text-lg font-display font-semibold text-foreground mb-2">Tentang Campaign Ini</h3>
+                  <h3 className="text-lg font-display font-semibold text-foreground mb-2">{t.public?.aboutCampaign ?? 'Tentang Campaign Ini'}</h3>
                   <p className="text-foreground/80 text-sm">{campaign.description}</p>
                 </div>
               )}
