@@ -650,7 +650,7 @@ const CampaignPublic = () => {
         title={`${campaign.name} — Twibbon TWIBO.id`}
         description={getSeoDescription()}
         canonical={`https://twibo.id/c/${slug}`}
-        ogImage={bakedPreviewImage || previewImage || undefined}
+        ogImage={campaign.banner_url || undefined}
         robots={getRobotsMeta()}
       />
       <section className="py-10 md:py-24">
