@@ -28,107 +28,117 @@ async function sendEmail(smtp: Record<string, string>, to: string, subject: stri
   await transporter.sendMail({ from, to, subject, html });
 }
 
-function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string) {
+function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string, logoUrl: string) {
   const isPaypal = payment.payment_method === 'paypal';
   const amount = isPaypal
     ? `$${(payment.amount / 100).toFixed(2)} USD`
     : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
   const paidAt = payment.paid_at
-    ? new Date(payment.paid_at).toLocaleDateString("id-ID", {
+    ? new Date(payment.paid_at).toLocaleDateString("en-US", {
         day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
       })
     : "-";
 
+  const logoBlock = logoUrl
+    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:32px;margin-bottom:8px;" />`
+    : `<span style="font-size:20px;font-weight:800;color:#FFD700;">TWIBO.id</span>`;
+
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
-  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5; overflow: hidden;">
-    <div style="background: #111; color: #fff; padding: 24px 32px;">
-      <h1 style="margin: 0; font-size: 20px;">✅ Pembayaran Berhasil</h1>
-      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.7;">Twibbo Creator Hub</p>
+<body style="font-family: Arial, sans-serif; background: #111; padding: 24px;">
+  <div style="max-width: 560px; margin: 0 auto; background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden;">
+    <div style="background: #0a0e1a; color: #fff; padding: 24px 32px; text-align: center;">
+      ${logoBlock}
+      <h1 style="margin: 8px 0 0; font-size: 20px; color: #FFD700;">✅ Payment Successful</h1>
+      <p style="margin: 4px 0 0; font-size: 13px; color: #999;">TWIBO.id Creator Hub</p>
     </div>
     <div style="padding: 32px;">
-      <p style="margin: 0 0 16px; color: #333;">Halo <strong>${profile?.name || "Customer"}</strong>,</p>
-      <p style="margin: 0 0 24px; color: #555; line-height: 1.6;">
-        Terima kasih! Pembayaran upgrade premium untuk campaign 
-        <strong>"${campaign?.name || "-"}"</strong> telah berhasil dikonfirmasi.
+      <p style="margin: 0 0 16px; color: #e5e5e5;">Hello <strong style="color: #FFD700;">${profile?.name || "Customer"}</strong>,</p>
+      <p style="margin: 0 0 24px; color: #999; line-height: 1.6;">
+        Thank you! Your premium upgrade payment for the campaign 
+        <strong style="color: #e5e5e5;">"${campaign?.name || "-"}"</strong> has been confirmed.
       </p>
       <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px 0; color: #888;">Order ID</td>
-          <td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 12px;">${payment.midtrans_order_id}</td>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px 0; color: #888;">Order ID</td>
+          <td style="padding: 10px 0; text-align: right; font-family: monospace; font-size: 12px; color: #e5e5e5;">${payment.midtrans_order_id}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px 0; color: #888;">Metode</td>
-          <td style="padding: 8px 0; text-align: right; text-transform: capitalize;">${payment.payment_method || "-"}</td>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px 0; color: #888;">Method</td>
+          <td style="padding: 10px 0; text-align: right; text-transform: capitalize; color: #e5e5e5;">${payment.payment_method || "-"}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px 0; color: #888;">Tanggal Bayar</td>
-          <td style="padding: 8px 0; text-align: right;">${paidAt}</td>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px 0; color: #888;">Payment Date</td>
+          <td style="padding: 10px 0; text-align: right; color: #e5e5e5;">${paidAt}</td>
         </tr>
         <tr>
-          <td style="padding: 12px 0; color: #333; font-weight: bold; font-size: 16px;">Total</td>
-          <td style="padding: 12px 0; text-align: right; color: #333; font-weight: bold; font-size: 16px;">${amount}</td>
+          <td style="padding: 14px 0; color: #FFD700; font-weight: bold; font-size: 16px;">Total</td>
+          <td style="padding: 14px 0; text-align: right; color: #FFD700; font-weight: bold; font-size: 16px;">${amount}</td>
         </tr>
       </table>
       <div style="margin-top: 24px; text-align: center;">
-        <a href="${invoiceUrl}" style="display: inline-block; padding: 12px 28px; background: #111; color: #fff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">Lihat Invoice</a>
+        <a href="${invoiceUrl}" style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, #b8860b, #FFD700); color: #0a0e1a; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 700;">View Invoice</a>
       </div>
     </div>
-    <div style="padding: 16px 32px; background: #fafafa; text-align: center; font-size: 11px; color: #aaa;">Twibbo Creator Hub — Invoice otomatis</div>
+    <div style="padding: 16px 32px; background: #111; text-align: center; font-size: 11px; color: #666;">TWIBO.id — Automatic Invoice</div>
   </div>
 </body></html>`;
 }
 
-function buildAdminNotificationHtml(payment: any, campaign: any, profile: any) {
+function buildAdminNotificationHtml(payment: any, campaign: any, profile: any, logoUrl: string) {
   const isPaypal = payment.payment_method === 'paypal';
   const amount = isPaypal
     ? `$${(payment.amount / 100).toFixed(2)} USD`
     : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
   const paidAt = payment.paid_at
-    ? new Date(payment.paid_at).toLocaleDateString("id-ID", {
+    ? new Date(payment.paid_at).toLocaleDateString("en-US", {
         day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
       })
     : "-";
 
+  const logoBlock = logoUrl
+    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:32px;margin-bottom:8px;" />`
+    : `<span style="font-size:20px;font-weight:800;color:#FFD700;">TWIBO.id</span>`;
+
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
-  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5; overflow: hidden;">
-    <div style="background: #2563eb; color: #fff; padding: 24px 32px;">
-      <h1 style="margin: 0; font-size: 20px;">💰 Transaksi Baru Berhasil</h1>
-      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.7;">TWIBO.id Admin Notification</p>
+<body style="font-family: Arial, sans-serif; background: #111; padding: 24px;">
+  <div style="max-width: 560px; margin: 0 auto; background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden;">
+    <div style="background: #0a0e1a; color: #fff; padding: 24px 32px; text-align: center;">
+      ${logoBlock}
+      <h1 style="margin: 8px 0 0; font-size: 20px; color: #FFD700;">💰 New Transaction</h1>
+      <p style="margin: 4px 0 0; font-size: 13px; color: #999;">TWIBO.id Admin Notification</p>
     </div>
     <div style="padding: 32px;">
-      <p style="margin: 0 0 16px; color: #333;">Ada transaksi premium baru yang berhasil!</p>
+      <p style="margin: 0 0 16px; color: #e5e5e5;">A new premium transaction has been completed!</p>
       <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px 0; color: #888;">Customer</td>
-          <td style="padding: 8px 0; text-align: right;">${profile?.name || "-"} (${profile?.email || "-"})</td>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px 0; color: #888;">Customer</td>
+          <td style="padding: 10px 0; text-align: right; color: #e5e5e5;">${profile?.name || "-"} (${profile?.email || "-"})</td>
         </tr>
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px 0; color: #888;">Campaign</td>
-          <td style="padding: 8px 0; text-align: right;">${campaign?.name || "-"}</td>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px 0; color: #888;">Campaign</td>
+          <td style="padding: 10px 0; text-align: right; color: #e5e5e5;">${campaign?.name || "-"}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px 0; color: #888;">Order ID</td>
-          <td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 12px;">${payment.midtrans_order_id}</td>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px 0; color: #888;">Order ID</td>
+          <td style="padding: 10px 0; text-align: right; font-family: monospace; font-size: 12px; color: #e5e5e5;">${payment.midtrans_order_id}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px 0; color: #888;">Metode</td>
-          <td style="padding: 8px 0; text-align: right; text-transform: capitalize;">${payment.payment_method || "-"}</td>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px 0; color: #888;">Method</td>
+          <td style="padding: 10px 0; text-align: right; text-transform: capitalize; color: #e5e5e5;">${payment.payment_method || "-"}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #eee;">
-          <td style="padding: 8px 0; color: #888;">Tanggal Bayar</td>
-          <td style="padding: 8px 0; text-align: right;">${paidAt}</td>
+        <tr style="border-bottom: 1px solid #333;">
+          <td style="padding: 10px 0; color: #888;">Payment Date</td>
+          <td style="padding: 10px 0; text-align: right; color: #e5e5e5;">${paidAt}</td>
         </tr>
         <tr>
-          <td style="padding: 12px 0; color: #333; font-weight: bold; font-size: 16px;">Total</td>
-          <td style="padding: 12px 0; text-align: right; color: #2563eb; font-weight: bold; font-size: 16px;">${amount}</td>
+          <td style="padding: 14px 0; color: #FFD700; font-weight: bold; font-size: 16px;">Total</td>
+          <td style="padding: 14px 0; text-align: right; color: #FFD700; font-weight: bold; font-size: 16px;">${amount}</td>
         </tr>
       </table>
     </div>
-    <div style="padding: 16px 32px; background: #fafafa; text-align: center; font-size: 11px; color: #aaa;">TWIBO.id — Admin Notification</div>
+    <div style="padding: 16px 32px; background: #111; text-align: center; font-size: 11px; color: #666;">TWIBO.id — Admin Notification</div>
   </div>
 </body></html>`;
 }
@@ -152,15 +162,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: smtpRows } = await adminClient
+    const { data: settingsRows } = await adminClient
       .from("site_settings")
       .select("key, value")
-      .in("key", ["smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_from_email", "smtp_from_name", "admin_notification_email"]);
+      .in("key", ["smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_from_email", "smtp_from_name", "admin_notification_email", "logo_url"]);
 
-    const smtp: Record<string, string> = {};
-    (smtpRows ?? []).forEach((r: any) => { smtp[r.key] = r.value; });
+    const settings: Record<string, string> = {};
+    (settingsRows ?? []).forEach((r: any) => { settings[r.key] = r.value; });
 
-    if (!smtp.smtp_host || !smtp.smtp_username || !smtp.smtp_password) {
+    if (!settings.smtp_host || !settings.smtp_username || !settings.smtp_password) {
       return new Response(JSON.stringify({ error: "SMTP not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -178,18 +188,19 @@ Deno.serve(async (req) => {
       adminClient.from("profiles").select("name, email, phone").eq("id", (payment as any).user_id).single(),
     ]);
 
+    const logoUrl = settings.logo_url || '';
     const invoiceUrl = `${app_url || "https://twibbo-creator-hub.lovable.app"}/invoice/${order_id}`;
 
     if ((profile as any)?.email) {
-      const html = buildInvoiceHtml(payment, campaign, profile, invoiceUrl);
-      await sendEmail(smtp, (profile as any).email, `Invoice Pembayaran - ${(payment as any).midtrans_order_id}`, html);
+      const html = buildInvoiceHtml(payment, campaign, profile, invoiceUrl, logoUrl);
+      await sendEmail(settings, (profile as any).email, `Payment Invoice - ${(payment as any).midtrans_order_id}`, html);
       console.log("Invoice email sent to customer:", (profile as any).email);
     }
 
-    const adminEmail = smtp.admin_notification_email || "twibo.id@gmail.com";
+    const adminEmail = settings.admin_notification_email || "twibo.id@gmail.com";
     try {
-      const adminHtml = buildAdminNotificationHtml(payment, campaign, profile);
-      await sendEmail(smtp, adminEmail, `[TWIBO] Transaksi Baru - ${(payment as any).midtrans_order_id}`, adminHtml);
+      const adminHtml = buildAdminNotificationHtml(payment, campaign, profile, logoUrl);
+      await sendEmail(settings, adminEmail, `[TWIBO] New Transaction - ${(payment as any).midtrans_order_id}`, adminHtml);
       console.log("Admin notification email sent to:", adminEmail);
     } catch (adminEmailErr: any) {
       console.error("Failed to send admin notification email:", adminEmailErr.message);

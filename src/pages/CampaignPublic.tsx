@@ -654,7 +654,12 @@ const CampaignPublic = () => {
       />
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-6xl">
-          {/* Top AdSense removed for better UX */}
+          {/* Top AdSense - desktop only */}
+          {!isMobile && isFree && adsenseEnabled && (
+            <div className="mb-6">
+              <AdSenseBanner />
+            </div>
+          )}
 
           {/* ─── MOBILE LAYOUT ─── */}
           {isMobile ? (
@@ -829,9 +834,9 @@ const CampaignPublic = () => {
 
               {/* About section below on mobile */}
               {campaign.description && (
-                <div className="glass-strong rounded-2xl p-4 border-gold-subtle mb-6">
+                <div className="glass-strong rounded-2xl p-4 border-gold-subtle mb-6 overflow-hidden">
                   <h3 className="text-lg font-display font-semibold text-foreground mb-2">{t.public?.aboutCampaign ?? 'Tentang Campaign Ini'}</h3>
-                  <p className="text-foreground/80 text-sm">{campaign.description}</p>
+                  <p className="text-foreground/80 text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap">{campaign.description}</p>
                 </div>
               )}
 
@@ -899,10 +904,10 @@ const CampaignPublic = () => {
                     </span>
                   </div>
                   {campaign.description && (
-                    <div>
+                    <div className="overflow-hidden">
                       <hr className="border-border/40 my-2" />
                       <h3 className="text-lg font-display font-semibold text-foreground mb-2">{t.public?.aboutCampaign ?? 'Tentang Campaign Ini'}</h3>
-                      <p className="text-foreground/80 text-sm">{campaign.description}</p>
+                      <p className="text-foreground/80 text-sm break-words overflow-wrap-anywhere whitespace-pre-wrap">{campaign.description}</p>
                     </div>
                   )}
                   <div className="flex items-center gap-2 flex-wrap">
