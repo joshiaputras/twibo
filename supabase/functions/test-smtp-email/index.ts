@@ -44,9 +44,11 @@ Deno.serve(async (req) => {
     const logoUrl = settings.logo_url || '';
 
     const logoImg = logoUrl
-      ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;vertical-align:middle;background:none;mix-blend-mode:normal;" />`
+      ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;width:36px;border-radius:8px;object-fit:cover;vertical-align:middle;background:none;border:0;" />`
       : '';
-    const logoBlock = `<div style="display:inline-flex;align-items:center;gap:14px;justify-content:center;">${logoImg}<span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;vertical-align:middle;">TWIBO.id</span></div>`;
+    const logoBlock = logoImg
+      ? `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td style="vertical-align:middle;">${logoImg}</td><td style="width:10px;"></td><td style="vertical-align:middle;"><span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;">TWIBO.id</span></td></tr></table>`
+      : `<span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;">TWIBO.id</span>`;
 
     const headerStyle = `background:#1a1a2e;background-image:linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);background-size:24px 24px;color:#fff;padding:24px;text-align:center;`;
 

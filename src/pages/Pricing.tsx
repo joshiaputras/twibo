@@ -132,6 +132,7 @@ const Pricing = () => {
                   <div className="mt-1 text-sm text-muted-foreground">
                     <span className="line-through">${paypalOriginalPriceUsd} USD</span>{' '}
                     <span className="text-primary font-semibold">${paypalPriceUsd} USD</span>
+                    <span className="text-muted-foreground"> /campaign</span>
                   </div>
                 )}
               </div>
