@@ -19,6 +19,7 @@ import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 import AdSenseBanner from '@/components/AdSenseBanner';
 import AnchorAd from '@/components/AnchorAd';
 import InterstitialAdDialog from '@/components/InterstitialAdDialog';
+import { useAdsenseEnabled } from '@/hooks/useAdsenseEnabled';
 import { useMidtransPayment } from '@/hooks/useMidtransPayment';
 import { usePricing } from '@/hooks/usePricing';
 import PaymentConfirmDialog from '@/components/PaymentConfirmDialog';
@@ -76,6 +77,7 @@ const CampaignPublic = () => {
   };
 
   const isMobile = useIsMobile();
+  const adsenseEnabled = useAdsenseEnabled();
   const previewMeta = extractPreviewMeta(campaign?.design_json);
   const placeholderMeta = extractPlaceholderMeta(campaign?.design_json);
   const [fw, fh] = sizeMap[campaign?.size] || [1080, 1080];
@@ -624,26 +626,35 @@ const CampaignPublic = () => {
   const getRobotsMeta = () => {
     if (!campaign) return 'noindex, nofollow';
     if (campaign.is_private) return 'noindex, nofollow';
-    const desc = (campaign.description || '').trim();
-    if (!desc || desc.length < 150) return 'noindex, nofollow';
     return 'index, follow';
+  };
+
+  // Auto-generate SEO meta description if too short
+  const getSeoDescription = () => {
+    const desc = (campaign?.description || '').trim();
+    if (desc.length >= 150) return desc;
+    const name = campaign?.name || 'Campaign';
+    const templates = [
+      `Dukung kampanye ${name} dengan membuat twibbon gratis di TWIBO.id. ${desc} Upload foto kamu dan bagikan dukunganmu sekarang!`,
+      `${desc} Buat twibbon ${name} secara gratis di TWIBO.id. Mudah, cepat, dan bisa langsung dibagikan ke media sosial.`,
+      `Ikuti kampanye ${name} di TWIBO.id! ${desc} Buat twibbon kamu sendiri dan tunjukkan dukunganmu kepada semua orang.`,
+      `${name} — ${desc} Bergabung dengan kampanye ini dan buat twibbon gratis di TWIBO.id sekarang juga!`,
+    ];
+    const idx = name.length % templates.length;
+    return templates[idx].slice(0, 160);
   };
 
   return (
     <Layout>
       <SEOHead
         title={`${campaign.name} — Twibbon TWIBO.id`}
-        description={campaign.description || campaign.name}
+        description={getSeoDescription()}
         canonical={`https://twibo.id/c/${slug}`}
         robots={getRobotsMeta()}
       />
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-6xl">
-          {isFree && (
-            <div className="mb-6">
-              <AdSenseBanner />
-            </div>
-          )}
+          {/* Top AdSense removed for better UX */}
 
           {/* ─── MOBILE LAYOUT ─── */}
           {isMobile ? (
@@ -803,7 +814,7 @@ const CampaignPublic = () => {
                     )}
 
                     <Button className="gold-glow font-semibold gap-2 w-full" onClick={() => {
-                      if (isFree) {
+                      if (isFree && adsenseEnabled) {
                         setShowInterstitialAd(true);
                       } else {
                         handleDownload();
@@ -1060,7 +1071,7 @@ const CampaignPublic = () => {
                       )}
 
                       <Button className="gold-glow font-semibold gap-2 w-full" onClick={() => {
-                        if (isFree) {
+                        if (isFree && adsenseEnabled) {
                           setShowInterstitialAd(true);
                         } else {
                           handleDownload();
@@ -1076,13 +1087,13 @@ const CampaignPublic = () => {
             </>
           )}
 
-          {isFree && (
+          {isFree && adsenseEnabled && (
             <div className="mt-6">
               <AdSenseBanner />
             </div>
           )}
         </div>
-        {isFree && <AnchorAd />}
+        {isFree && adsenseEnabled && <AnchorAd />}
       </section>
 
       <InterstitialAdDialog
