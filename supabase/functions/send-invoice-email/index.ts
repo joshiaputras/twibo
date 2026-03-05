@@ -20,12 +20,19 @@ async function sendEmail(smtp: Record<string, string>, to: string, subject: stri
       user: smtp.smtp_username,
       pass: smtp.smtp_password,
     },
-    tls: {
-      rejectUnauthorized: false,
-    },
+    tls: { rejectUnauthorized: false },
   });
 
-  await transporter.sendMail({ from, to, subject, html });
+  await transporter.sendMail({
+    from: `"${smtp.smtp_from_name || 'TWIBO.id'}" <${smtp.smtp_username}>`,
+    to,
+    subject,
+    html,
+    envelope: {
+      from: smtp.smtp_username,
+      to,
+    },
+  });
 }
 
 function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string, logoUrl: string) {
@@ -40,47 +47,47 @@ function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl:
     : "-";
 
   const logoBlock = logoUrl
-    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:32px;margin-bottom:8px;" />`
-    : `<span style="font-size:20px;font-weight:800;color:#FFD700;">TWIBO.id</span>`;
+    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;margin-bottom:8px;" />`
+    : `<span style="font-size:22px;font-weight:800;color:#b8860b;">TWIBO.id</span>`;
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, sans-serif; background: #111; padding: 24px;">
-  <div style="max-width: 560px; margin: 0 auto; background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden;">
-    <div style="background: #0a0e1a; color: #fff; padding: 24px 32px; text-align: center;">
+<body style="font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; padding: 24px; margin: 0;">
+  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #b8860b, #FFD700); color: #fff; padding: 28px 32px; text-align: center;">
       ${logoBlock}
-      <h1 style="margin: 8px 0 0; font-size: 20px; color: #FFD700;">✅ Payment Successful</h1>
-      <p style="margin: 4px 0 0; font-size: 13px; color: #999;">TWIBO.id Creator Hub</p>
+      <h1 style="margin: 8px 0 0; font-size: 20px; color: #ffffff;">✅ Payment Successful</h1>
+      <p style="margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.85);">TWIBO.id Creator Hub</p>
     </div>
     <div style="padding: 32px;">
-      <p style="margin: 0 0 16px; color: #e5e5e5;">Hello <strong style="color: #FFD700;">${profile?.name || "Customer"}</strong>,</p>
-      <p style="margin: 0 0 24px; color: #999; line-height: 1.6;">
+      <p style="margin: 0 0 16px; color: #333;">Hello <strong style="color: #b8860b;">${profile?.name || "Customer"}</strong>,</p>
+      <p style="margin: 0 0 24px; color: #666; line-height: 1.6;">
         Thank you! Your premium upgrade payment for the campaign 
-        <strong style="color: #e5e5e5;">"${campaign?.name || "-"}"</strong> has been confirmed.
+        <strong style="color: #333;">"${campaign?.name || "-"}"</strong> has been confirmed.
       </p>
       <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr style="border-bottom: 1px solid #333;">
+        <tr style="border-bottom: 1px solid #eee;">
           <td style="padding: 10px 0; color: #888;">Order ID</td>
-          <td style="padding: 10px 0; text-align: right; font-family: monospace; font-size: 12px; color: #e5e5e5;">${payment.midtrans_order_id}</td>
+          <td style="padding: 10px 0; text-align: right; font-family: monospace; font-size: 12px; color: #333;">${payment.midtrans_order_id}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #333;">
+        <tr style="border-bottom: 1px solid #eee;">
           <td style="padding: 10px 0; color: #888;">Method</td>
-          <td style="padding: 10px 0; text-align: right; text-transform: capitalize; color: #e5e5e5;">${payment.payment_method || "-"}</td>
+          <td style="padding: 10px 0; text-align: right; text-transform: capitalize; color: #333;">${payment.payment_method || "-"}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #333;">
+        <tr style="border-bottom: 1px solid #eee;">
           <td style="padding: 10px 0; color: #888;">Payment Date</td>
-          <td style="padding: 10px 0; text-align: right; color: #e5e5e5;">${paidAt}</td>
+          <td style="padding: 10px 0; text-align: right; color: #333;">${paidAt}</td>
         </tr>
         <tr>
-          <td style="padding: 14px 0; color: #FFD700; font-weight: bold; font-size: 16px;">Total</td>
-          <td style="padding: 14px 0; text-align: right; color: #FFD700; font-weight: bold; font-size: 16px;">${amount}</td>
+          <td style="padding: 14px 0; color: #b8860b; font-weight: bold; font-size: 16px;">Total</td>
+          <td style="padding: 14px 0; text-align: right; color: #b8860b; font-weight: bold; font-size: 16px;">${amount}</td>
         </tr>
       </table>
       <div style="margin-top: 24px; text-align: center;">
-        <a href="${invoiceUrl}" style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, #b8860b, #FFD700); color: #0a0e1a; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 700;">View Invoice</a>
+        <a href="${invoiceUrl}" style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, #b8860b, #FFD700); color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 700;">View Invoice</a>
       </div>
     </div>
-    <div style="padding: 16px 32px; background: #111; text-align: center; font-size: 11px; color: #666;">TWIBO.id — Automatic Invoice</div>
+    <div style="padding: 16px 32px; background: #fafafa; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #eee;">TWIBO.id — Automatic Invoice</div>
   </div>
 </body></html>`;
 }
@@ -97,48 +104,48 @@ function buildAdminNotificationHtml(payment: any, campaign: any, profile: any, l
     : "-";
 
   const logoBlock = logoUrl
-    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:32px;margin-bottom:8px;" />`
-    : `<span style="font-size:20px;font-weight:800;color:#FFD700;">TWIBO.id</span>`;
+    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;margin-bottom:8px;" />`
+    : `<span style="font-size:22px;font-weight:800;color:#b8860b;">TWIBO.id</span>`;
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, sans-serif; background: #111; padding: 24px;">
-  <div style="max-width: 560px; margin: 0 auto; background: #1a1a1a; border-radius: 12px; border: 1px solid #333; overflow: hidden;">
-    <div style="background: #0a0e1a; color: #fff; padding: 24px 32px; text-align: center;">
+<body style="font-family: 'Segoe UI', Arial, sans-serif; background: #f5f5f5; padding: 24px; margin: 0;">
+  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #b8860b, #FFD700); color: #fff; padding: 28px 32px; text-align: center;">
       ${logoBlock}
-      <h1 style="margin: 8px 0 0; font-size: 20px; color: #FFD700;">💰 New Transaction</h1>
-      <p style="margin: 4px 0 0; font-size: 13px; color: #999;">TWIBO.id Admin Notification</p>
+      <h1 style="margin: 8px 0 0; font-size: 20px; color: #ffffff;">💰 New Transaction</h1>
+      <p style="margin: 4px 0 0; font-size: 13px; color: rgba(255,255,255,0.85);">TWIBO.id Admin Notification</p>
     </div>
     <div style="padding: 32px;">
-      <p style="margin: 0 0 16px; color: #e5e5e5;">A new premium transaction has been completed!</p>
+      <p style="margin: 0 0 16px; color: #333;">A new premium transaction has been completed!</p>
       <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-        <tr style="border-bottom: 1px solid #333;">
+        <tr style="border-bottom: 1px solid #eee;">
           <td style="padding: 10px 0; color: #888;">Customer</td>
-          <td style="padding: 10px 0; text-align: right; color: #e5e5e5;">${profile?.name || "-"} (${profile?.email || "-"})</td>
+          <td style="padding: 10px 0; text-align: right; color: #333;">${profile?.name || "-"} (${profile?.email || "-"})</td>
         </tr>
-        <tr style="border-bottom: 1px solid #333;">
+        <tr style="border-bottom: 1px solid #eee;">
           <td style="padding: 10px 0; color: #888;">Campaign</td>
-          <td style="padding: 10px 0; text-align: right; color: #e5e5e5;">${campaign?.name || "-"}</td>
+          <td style="padding: 10px 0; text-align: right; color: #333;">${campaign?.name || "-"}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #333;">
+        <tr style="border-bottom: 1px solid #eee;">
           <td style="padding: 10px 0; color: #888;">Order ID</td>
-          <td style="padding: 10px 0; text-align: right; font-family: monospace; font-size: 12px; color: #e5e5e5;">${payment.midtrans_order_id}</td>
+          <td style="padding: 10px 0; text-align: right; font-family: monospace; font-size: 12px; color: #333;">${payment.midtrans_order_id}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #333;">
+        <tr style="border-bottom: 1px solid #eee;">
           <td style="padding: 10px 0; color: #888;">Method</td>
-          <td style="padding: 10px 0; text-align: right; text-transform: capitalize; color: #e5e5e5;">${payment.payment_method || "-"}</td>
+          <td style="padding: 10px 0; text-align: right; text-transform: capitalize; color: #333;">${payment.payment_method || "-"}</td>
         </tr>
-        <tr style="border-bottom: 1px solid #333;">
+        <tr style="border-bottom: 1px solid #eee;">
           <td style="padding: 10px 0; color: #888;">Payment Date</td>
-          <td style="padding: 10px 0; text-align: right; color: #e5e5e5;">${paidAt}</td>
+          <td style="padding: 10px 0; text-align: right; color: #333;">${paidAt}</td>
         </tr>
         <tr>
-          <td style="padding: 14px 0; color: #FFD700; font-weight: bold; font-size: 16px;">Total</td>
-          <td style="padding: 14px 0; text-align: right; color: #FFD700; font-weight: bold; font-size: 16px;">${amount}</td>
+          <td style="padding: 14px 0; color: #b8860b; font-weight: bold; font-size: 16px;">Total</td>
+          <td style="padding: 14px 0; text-align: right; color: #b8860b; font-weight: bold; font-size: 16px;">${amount}</td>
         </tr>
       </table>
     </div>
-    <div style="padding: 16px 32px; background: #111; text-align: center; font-size: 11px; color: #666;">TWIBO.id — Admin Notification</div>
+    <div style="padding: 16px 32px; background: #fafafa; text-align: center; font-size: 11px; color: #999; border-top: 1px solid #eee;">TWIBO.id — Admin Notification</div>
   </div>
 </body></html>`;
 }

@@ -101,6 +101,7 @@ const CampaignEditor = () => {
   const [simOffsetY, setSimOffsetY] = useState(0);
   const [previewResult, setPreviewResult] = useState<string>('');
   const [showPayment, setShowPayment] = useState(false);
+  const [justPaid, setJustPaid] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle');
   const [processingPhoto, setProcessingPhoto] = useState(false);
@@ -478,6 +479,7 @@ const CampaignEditor = () => {
       setCampaignTier('premium');
       setStep(4);
       setShowPayment(true);
+      setJustPaid(true);
       toast.success(t.campaign.premiumSuccess ?? 'Campaign berhasil diupgrade ke Premium!');
     }
   };
@@ -1003,7 +1005,7 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {step === 4 && showPayment && campaignTier === 'premium' && (
+            {step === 4 && showPayment && campaignTier === 'premium' && justPaid && (
               <div className="space-y-6 text-center py-8">
                 <div className="relative">
                   <div className="absolute inset-0 rounded-full bg-green-500/20 blur-3xl w-32 h-32 mx-auto" />
@@ -1090,6 +1092,7 @@ const CampaignEditor = () => {
           setShowPaymentDialog(false);
           setStep(4);
           setShowPayment(true);
+          setJustPaid(true);
           toast.success(t.campaign.premiumSuccess ?? 'Campaign berhasil diupgrade ke Premium!');
         }}
         basePrice={premiumPrice}
