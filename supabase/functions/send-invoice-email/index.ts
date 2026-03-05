@@ -283,9 +283,10 @@ Deno.serve(async (req) => {
 
     const fromEmail = smtp.smtp_from_email || smtp.smtp_username;
     const invoiceUrl = `${app_url || "https://twibbo-creator-hub.lovable.app"}/invoice/${order_id}`;
+    const cleanHost = smtp.smtp_host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
 
     const smtpOpts = {
-      host: smtp.smtp_host,
+      host: cleanHost,
       port: parseInt(smtp.smtp_port || "587"),
       username: smtp.smtp_username,
       password: smtp.smtp_password,
