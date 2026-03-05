@@ -400,8 +400,14 @@ const CampaignPublic = () => {
     toast.success(t.public?.captionCopied ?? 'Caption disalin!');
   };
 
+  const getOgShareUrl = () => {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const appUrl = window.location.origin;
+    return `${supabaseUrl}/functions/v1/og-share?type=campaign&slug=${encodeURIComponent(slug || '')}&app_url=${encodeURIComponent(appUrl)}`;
+  };
+
   const handleShareWhatsApp = async () => {
-    const url = `${window.location.origin}/c/${slug}`;
+    const url = getOgShareUrl();
     const text = campaign?.caption ? `${campaign.caption}\n\n${url}` : url;
     if (campaign?.caption) {
       try { await navigator.clipboard.writeText(campaign.caption); toast.success(t.public?.captionCopied ?? 'Caption disalin!'); } catch {}
@@ -417,7 +423,7 @@ const CampaignPublic = () => {
   };
 
   const handleShareUniversal = async () => {
-    const url = `${window.location.origin}/c/${slug}`;
+    const url = getOgShareUrl();
     if (campaign?.caption) {
       try { await navigator.clipboard.writeText(campaign.caption); toast.success(t.public?.captionCopied ?? 'Caption disalin!'); } catch {}
     }
@@ -447,7 +453,7 @@ const CampaignPublic = () => {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/c/${slug}`);
+    navigator.clipboard.writeText(getOgShareUrl());
     toast.success(t.public?.linkCopied ?? 'Link disalin!');
   };
 
