@@ -1,15 +1,69 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
-import { Check, X, Crown, Zap } from 'lucide-react';
+import { Check, X, Crown, Zap, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePricing } from '@/hooks/usePricing';
 import AnchorAd from '@/components/AnchorAd';
+import { useEffect, useState } from 'react';
+
+const SaleCountdown = ({ label }: { label: string }) => {
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const getEndOfDay = () => {
+      const now = new Date();
+      const end = new Date(now);
+      end.setHours(23, 59, 59, 999);
+      return end;
+    };
+
+    const update = () => {
+      const now = new Date();
+      const end = getEndOfDay();
+      const diff = Math.max(0, end.getTime() - now.getTime());
+      setTimeLeft({
+        hours: Math.floor(diff / 3600000),
+        minutes: Math.floor((diff % 3600000) / 60000),
+        seconds: Math.floor((diff % 60000) / 1000),
+      });
+    };
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const pad = (n: number) => n.toString().padStart(2, '0');
+
+  return (
+    <div className="glass-strong rounded-2xl border-gold-subtle gold-glow p-4 mb-10 max-w-xl mx-auto text-center">
+      <div className="flex items-center justify-center gap-2 mb-2">
+        <Clock className="w-4 h-4 text-primary animate-pulse" />
+        <span className="text-sm font-semibold text-primary">{label}</span>
+      </div>
+      <div className="flex items-center justify-center gap-3">
+        {[
+          { val: pad(timeLeft.hours), label: 'Jam' },
+          { val: pad(timeLeft.minutes), label: 'Menit' },
+          { val: pad(timeLeft.seconds), label: 'Detik' },
+        ].map((t, i) => (
+          <div key={i} className="flex flex-col items-center">
+            <span className="font-display text-2xl md:text-3xl font-bold text-foreground tabular-nums">{t.val}</span>
+            <span className="text-[10px] text-muted-foreground uppercase">{t.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const Pricing = () => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { premiumPrice, originalPrice } = usePricing();
   const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
+  const isId = lang === 'id';
 
   const comparison = [
     { feature: 'TWIBO Frame Editor', free: true, premium: true },
@@ -24,12 +78,19 @@ const Pricing = () => {
 
   return (
     <Layout>
-      <section className="py-24 md:py-32">
+      <SEOHead
+        title={isId ? 'Harga & Paket TWIBO.id — Buat Twibbon Gratis atau Premium' : 'Pricing & Plans — TWIBO.id Free & Premium Twibbon Maker'}
+        description={isId ? 'Bandingkan paket gratis dan premium TWIBO.id. Mulai buat twibbon gratis atau upgrade ke Premium untuk fitur tanpa watermark, tanpa iklan, dan statistik lengkap.' : 'Compare TWIBO.id free and premium plans. Start creating twibbons for free or upgrade to Premium for no watermark, no ads, and full statistics.'}
+        canonical="https://twibo.id/pricing"
+      />
+      <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
+          <div className="text-center mb-8">
             <h1 className="font-display text-4xl md:text-5xl font-bold text-gold-gradient mb-4">{t.pricing.title}</h1>
             <p className="text-muted-foreground text-lg">{t.pricing.subtitle}</p>
           </div>
+
+          <SaleCountdown label={isId ? '🔥 Promo Spesial Berakhir Hari Ini!' : '🔥 Special Promo Ends Today!'} />
 
           {/* Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-20">

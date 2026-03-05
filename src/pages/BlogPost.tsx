@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -95,12 +96,18 @@ const BlogPost = () => {
 
   return (
     <Layout>
+      <SEOHead
+        title={`${post.meta_title || post.title} — TWIBO.id Blog`}
+        description={post.meta_description || post.excerpt}
+        canonical={`https://twibo.id/blog/${post.slug}`}
+        ogImage={post.cover_image_url}
+        ogType="article"
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {post.meta_title && <title>{post.meta_title}</title>}
-      <article className="py-24 md:py-32">
+      <article className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-3xl">
           <Link to="/blog" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
             <ArrowLeft className="w-4 h-4" /> Kembali ke Blog

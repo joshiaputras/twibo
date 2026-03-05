@@ -814,10 +814,10 @@ const Admin = () => {
                 </div>
                 <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
                   <h3 className="font-display font-semibold text-foreground">Lainnya</h3>
-                  {['site_name', 'site_description', 'contact_email'].map(key => (
+                  {['site_name', 'site_description', 'contact_email', 'chat_url'].map(key => (
                     <div key={key}>
-                      <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
-                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="Enter value" />
+                      <Label className="text-sm text-muted-foreground capitalize">{key === 'chat_url' ? 'Chat URL (WhatsApp/Telegram)' : key.replace(/_/g, ' ')}</Label>
+                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder={key === 'chat_url' ? 'https://wa.me/628xxx' : 'Enter value'} />
                     </div>
                   ))}
                 </div>

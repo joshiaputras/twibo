@@ -334,6 +334,29 @@
   "blog": {
     "title": "Blog",
     "subtitle": "Tips, tutorials, and the latest updates from TWIBO.id",
-    "noPosts": "No articles yet."
+    "noPosts": "No articles yet.",
+    "backToBlog": "Back to Blog",
+    "relatedArticles": "Related Articles",
+    "notFound": "Article not found"
+  },
+  "interstitial": {
+    "title": "Your download will begin...",
+    "msg1": "Preparing your twibbon...",
+    "msg2": "Processing image...",
+    "msg3": "Applying visual effects...",
+    "msg4": "Almost done...",
+    "downloadNow": "Download Now",
+    "upgradeHint": "Upgrade to Premium for ad-free downloads"
+  },
+  "saleCountdown": {
+    "label": "🔥 Special Promo Ends Today!",
+    "hours": "Hours",
+    "minutes": "Minutes",
+    "seconds": "Seconds"
+  },
+  "cta": {
+    "readyTitle": "Ready to Create Your First Twibbon?",
+    "readyDesc": "Start creating your free twibbon campaign now. No cost, no hassle, instant results!",
+    "viewPricing": "View Pricing"
   }
 }

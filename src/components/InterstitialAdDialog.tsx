@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Download } from 'lucide-react';
 import AdSenseBanner from '@/components/AdSenseBanner';
+import { useLanguage } from '@/i18n/LanguageContext';
 
 interface InterstitialAdDialogProps {
   open: boolean;
@@ -15,16 +16,17 @@ const TOTAL_MS = 4000;
 const INTERVAL_MS = 50;
 const STEPS = TOTAL_MS / INTERVAL_MS;
 
-const messages = [
-  'Menyiapkan twibbon kamu...',
-  'Memproses gambar...',
-  'Menerapkan efek visual...',
-  'Hampir selesai...',
-];
-
 const InterstitialAdDialog = ({ open, onClose, onDownload }: InterstitialAdDialogProps) => {
+  const { t } = useLanguage();
   const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
+
+  const messages = [
+    t.interstitial?.msg1 ?? 'Menyiapkan twibbon kamu...',
+    t.interstitial?.msg2 ?? 'Memproses gambar...',
+    t.interstitial?.msg3 ?? 'Menerapkan efek visual...',
+    t.interstitial?.msg4 ?? 'Hampir selesai...',
+  ];
 
   useEffect(() => {
     if (!open) {
@@ -54,8 +56,10 @@ const InterstitialAdDialog = ({ open, onClose, onDownload }: InterstitialAdDialo
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="glass-strong border-border max-w-sm mx-4 rounded-2xl text-center space-y-4">
-        <h3 className="font-display text-lg font-bold text-foreground">Download akan dimulai...</h3>
+      <DialogContent className="glass-strong border-border max-w-[calc(100vw-2rem)] sm:max-w-sm mx-auto rounded-2xl text-center space-y-4">
+        <h3 className="font-display text-lg font-bold text-foreground">
+          {t.interstitial?.title ?? 'Download akan dimulai...'}
+        </h3>
 
         <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 text-center">
           <AdSenseBanner />
@@ -70,13 +74,13 @@ const InterstitialAdDialog = ({ open, onClose, onDownload }: InterstitialAdDialo
           ) : (
             <Button className="gold-glow font-semibold gap-2 w-full" onClick={handleDownload}>
               <Download className="w-4 h-4" />
-              Download Sekarang
+              {t.interstitial?.downloadNow ?? 'Download Sekarang'}
             </Button>
           )}
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Upgrade ke Premium untuk download tanpa iklan
+          {t.interstitial?.upgradeHint ?? 'Upgrade ke Premium untuk download tanpa iklan'}
         </p>
       </DialogContent>
     </Dialog>
