@@ -468,10 +468,7 @@ const CampaignEditor = () => {
   const handleNext = async () => {
     if (step === 0) {
       const ok = await validateStep1();
-      if (!ok) {
-        toast.error(t.campaign.slugTaken);
-        return;
-      }
+      if (!ok) return;
     }
     setStep(s => Math.min(s + 1, steps.length - 1));
   };
