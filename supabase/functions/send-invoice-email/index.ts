@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
     const { data: settingsRows } = await adminClient
       .from("site_settings")
       .select("key, value")
-      .in("key", ["smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_from_email", "smtp_from_name", "admin_notification_email", "logo_url"]);
+      .in("key", ["smtp_host", "smtp_port", "smtp_username", "smtp_password", "smtp_from_email", "smtp_from_name", "admin_notification_email", "logo_url", "invoice_logo_url"]);
 
     const settings: Record<string, string> = {};
     (settingsRows ?? []).forEach((r: any) => { settings[r.key] = r.value; });
@@ -292,12 +292,13 @@ Deno.serve(async (req) => {
     ]);
 
     const logoUrl = settings.logo_url || '';
+    const invoiceLogoUrl = settings.invoice_logo_url || logoUrl; // PNG version for PDF
     const invoiceUrl = `${app_url || "https://twibbo-creator-hub.lovable.app"}/invoice/${order_id}`;
 
-    // Generate PDF
+    // Generate PDF with PNG invoice logo
     let pdfBytes: Uint8Array | null = null;
     try {
-      pdfBytes = await generateInvoicePdf(payment, campaign, profile, logoUrl);
+      pdfBytes = await generateInvoicePdf(payment, campaign, profile, invoiceLogoUrl);
     } catch (pdfErr: any) {
       console.error("PDF generation failed:", pdfErr.message);
     }
