@@ -19,6 +19,7 @@ const Footer = () => {
             <h4 className="font-semibold text-foreground mb-3">{t.footer.product}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><Link to="/pricing" className="hover:text-foreground transition-colors">{t.nav.pricing}</Link></li>
+              <li><Link to="/blog" className="hover:text-foreground transition-colors">Blog</Link></li>
               <li><Link to="/login" className="hover:text-foreground transition-colors">{t.nav.login}</Link></li>
               <li><Link to="/signup" className="hover:text-foreground transition-colors">{t.nav.signup}</Link></li>
             </ul>

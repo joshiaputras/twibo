@@ -330,5 +330,10 @@
     "paymentMethod": "Metode Pembayaran",
     "paidAt": "Tanggal Bayar",
     "sendInvoice": "Kirim Invoice"
+  },
+  "blog": {
+    "title": "Blog",
+    "subtitle": "Tips, tutorial, dan update terbaru dari TWIBO.id",
+    "noPosts": "Belum ada artikel."
   }
 }

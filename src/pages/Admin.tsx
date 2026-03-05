@@ -2,6 +2,7 @@ import Layout from '@/components/Layout';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
@@ -26,6 +27,8 @@ import {
   Loader2,
   Star,
   ArrowUpDown,
+  BookOpen,
+  Pencil,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,6 +60,7 @@ const Admin = () => {
   const [payments, setPayments] = useState<any[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [vouchers, setVouchers] = useState<any[]>([]);
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchCampaign, setSearchCampaign] = useState('');
   const [searchUser, setSearchUser] = useState('');
@@ -77,16 +81,26 @@ const Admin = () => {
   const [savingVoucher, setSavingVoucher] = useState(false);
   const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null);
 
+  // Blog form
+  const [blogDialogOpen, setBlogDialogOpen] = useState(false);
+  const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
+  const [savingBlog, setSavingBlog] = useState(false);
+  const [blogForm, setBlogForm] = useState({
+    title: '', slug: '', content: '', excerpt: '', cover_image_url: '',
+    meta_title: '', meta_description: '', tags: '', status: 'draft',
+  });
+
   const load = async () => {
     setLoading(true);
 
-    const [{ data: cData }, { data: pData }, { data: txData }, { data: sData }, { data: rolesData }, { data: vData }] = await Promise.all([
+    const [{ data: cData }, { data: pData }, { data: txData }, { data: sData }, { data: rolesData }, { data: vData }, { data: bData }] = await Promise.all([
       supabase.from('campaigns' as any).select('*').order('created_at', { ascending: false }),
       supabase.from('profiles' as any).select('*').order('created_at', { ascending: false }),
       supabase.from('payments' as any).select('*').order('created_at', { ascending: false }),
       supabase.from('site_settings' as any).select('*'),
       supabase.from('user_roles' as any).select('user_id, role'),
       supabase.from('vouchers' as any).select('*').order('created_at', { ascending: false }),
+      supabase.from('blog_posts' as any).select('*').order('created_at', { ascending: false }),
     ]);
 
     const adminSet = new Set(((rolesData as any[]) ?? []).filter(r => r.role === 'admin').map(r => r.user_id));
@@ -95,6 +109,7 @@ const Admin = () => {
     setPayments((txData as any[]) ?? []);
     setUsers(((pData as any[]) ?? []).map((u: any) => ({ ...u, is_admin: adminSet.has(u.id) })));
     setVouchers((vData as any[]) ?? []);
+    setBlogPosts((bData as any[]) ?? []);
 
     const settingsMap: Record<string, string> = {};
     ((sData as any[]) ?? []).forEach((s: any) => {
@@ -306,6 +321,67 @@ const Admin = () => {
     );
   }
 
+  // Blog CRUD
+  const resetBlogForm = () => {
+    setBlogForm({ title: '', slug: '', content: '', excerpt: '', cover_image_url: '', meta_title: '', meta_description: '', tags: '', status: 'draft' });
+    setEditingBlogId(null);
+  };
+
+  const handleSaveBlog = async () => {
+    if (!blogForm.title.trim() || !blogForm.slug.trim()) {
+      toast.error('Title dan slug wajib diisi');
+      return;
+    }
+    setSavingBlog(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    const payload: any = {
+      title: blogForm.title,
+      slug: blogForm.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+      content: blogForm.content,
+      excerpt: blogForm.excerpt,
+      cover_image_url: blogForm.cover_image_url || null,
+      meta_title: blogForm.meta_title || blogForm.title,
+      meta_description: blogForm.meta_description || blogForm.excerpt,
+      tags: blogForm.tags ? blogForm.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+      status: blogForm.status,
+      published_at: blogForm.status === 'published' ? new Date().toISOString() : null,
+    };
+    if (!editingBlogId) payload.author_id = user?.id;
+
+    if (editingBlogId) {
+      const { error } = await supabase.from('blog_posts' as any).update(payload).eq('id', editingBlogId);
+      if (error) { toast.error(error.message); setSavingBlog(false); return; }
+      setBlogPosts(prev => prev.map(p => p.id === editingBlogId ? { ...p, ...payload } : p));
+      toast.success('Artikel diperbarui');
+    } else {
+      const { data, error } = await supabase.from('blog_posts' as any).insert(payload).select().single();
+      if (error) { toast.error(error.message); setSavingBlog(false); return; }
+      setBlogPosts(prev => [data, ...prev]);
+      toast.success('Artikel dibuat');
+    }
+    setSavingBlog(false);
+    setBlogDialogOpen(false);
+    resetBlogForm();
+  };
+
+  const handleEditBlog = (p: any) => {
+    setBlogForm({
+      title: p.title, slug: p.slug, content: p.content, excerpt: p.excerpt,
+      cover_image_url: p.cover_image_url || '', meta_title: p.meta_title || '',
+      meta_description: p.meta_description || '', tags: (p.tags || []).join(', '),
+      status: p.status,
+    });
+    setEditingBlogId(p.id);
+    setBlogDialogOpen(true);
+  };
+
+  const handleDeleteBlog = async (id: string) => {
+    const { error } = await supabase.from('blog_posts' as any).delete().eq('id', id);
+    if (error) { toast.error(error.message); return; }
+    setBlogPosts(prev => prev.filter(p => p.id !== id));
+    toast.success('Artikel dihapus');
+  };
+
   const SortHeader = ({ label, sortKeyName }: { label: string; sortKeyName: SortKey }) => (
     <TableHead className="cursor-pointer select-none" onClick={() => toggleSort(sortKeyName)}>
       <div className="flex items-center gap-1">
@@ -358,6 +434,10 @@ const Admin = () => {
               <TabsTrigger value="vouchers" className="gap-1">
                 <Ticket className="w-3 h-3" />
                 Voucher
+              </TabsTrigger>
+              <TabsTrigger value="blog" className="gap-1">
+                <BookOpen className="w-3 h-3" />
+                Blog
               </TabsTrigger>
               <TabsTrigger value="settings" className="gap-1">
                 <Settings className="w-3 h-3" />
@@ -678,6 +758,121 @@ const Admin = () => {
                       <TableRow>
                         <TableCell colSpan={6} className="p-8 text-center text-muted-foreground">
                           Belum ada voucher
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </TabsContent>
+
+            {/* Blog Tab */}
+            <TabsContent value="blog" className="space-y-3">
+              <div className="flex justify-end">
+                <Dialog open={blogDialogOpen} onOpenChange={(open) => { setBlogDialogOpen(open); if (!open) resetBlogForm(); }}>
+                  <DialogTrigger asChild>
+                    <Button className="gold-glow gap-2 text-sm" onClick={() => { resetBlogForm(); setBlogDialogOpen(true); }}>
+                      <Plus className="w-4 h-4" /> Artikel Baru
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="font-display">{editingBlogId ? 'Edit Artikel' : 'Buat Artikel Baru'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Judul</Label>
+                        <Input value={blogForm.title} onChange={e => setBlogForm(prev => ({ ...prev, title: e.target.value }))} className="mt-1 bg-secondary/50 border-border" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Slug URL</Label>
+                        <Input value={blogForm.slug} onChange={e => setBlogForm(prev => ({ ...prev, slug: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="judul-artikel" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Excerpt (ringkasan singkat)</Label>
+                        <Textarea value={blogForm.excerpt} onChange={e => setBlogForm(prev => ({ ...prev, excerpt: e.target.value }))} className="mt-1 bg-secondary/50 border-border" rows={2} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Konten (HTML)</Label>
+                        <Textarea value={blogForm.content} onChange={e => setBlogForm(prev => ({ ...prev, content: e.target.value }))} className="mt-1 bg-secondary/50 border-border font-mono text-xs" rows={10} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Cover Image URL (opsional)</Label>
+                        <Input value={blogForm.cover_image_url} onChange={e => setBlogForm(prev => ({ ...prev, cover_image_url: e.target.value }))} className="mt-1 bg-secondary/50 border-border" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Meta Title (SEO)</Label>
+                          <Input value={blogForm.meta_title} onChange={e => setBlogForm(prev => ({ ...prev, meta_title: e.target.value }))} className="mt-1 bg-secondary/50 border-border" />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Tags (pisah koma)</Label>
+                          <Input value={blogForm.tags} onChange={e => setBlogForm(prev => ({ ...prev, tags: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="tips, tutorial" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Meta Description (SEO)</Label>
+                        <Textarea value={blogForm.meta_description} onChange={e => setBlogForm(prev => ({ ...prev, meta_description: e.target.value }))} className="mt-1 bg-secondary/50 border-border" rows={2} />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Status</Label>
+                        <Select value={blogForm.status} onValueChange={v => setBlogForm(prev => ({ ...prev, status: v }))}>
+                          <SelectTrigger className="mt-1 bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="draft">Draft</SelectItem>
+                            <SelectItem value="published">Published</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button className="w-full gold-glow" onClick={handleSaveBlog} disabled={savingBlog}>
+                        {savingBlog ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                        {editingBlogId ? 'Update Artikel' : 'Publish Artikel'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Judul</TableHead>
+                      <TableHead>Slug</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Tanggal</TableHead>
+                      <TableHead>Aksi</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {blogPosts.map((p: any) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-medium">{p.title}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs">{p.slug}</TableCell>
+                        <TableCell>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
+                            {p.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {new Date(p.created_at).toLocaleDateString('id-ID')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => handleEditBlog(p)}>
+                              <Pencil className="w-3 h-3" /> Edit
+                            </Button>
+                            <Button size="sm" variant="outline" className="text-xs border-destructive/30 text-destructive" onClick={() => handleDeleteBlog(p.id)}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {blogPosts.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="p-8 text-center text-muted-foreground">
+                          Belum ada artikel
                         </TableCell>
                       </TableRow>
                     )}

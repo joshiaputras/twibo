@@ -1,10 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Globe, Menu, X, User, LogOut, LayoutDashboard, Shield } from 'lucide-react';
+import { Globe, Menu, X, User, LogOut, LayoutDashboard, Shield, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
+import ThemeToggle from '@/components/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,10 +40,14 @@ const Navbar = () => {
           <Link to="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             {t.nav.pricing}
           </Link>
+          <Link to="/blog" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            Blog
+          </Link>
           <button onClick={toggleLang} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
             <Globe className="w-4 h-4" />
             {lang.toUpperCase()}
           </button>
+          <ThemeToggle />
 
           {user ? (
             <DropdownMenu>
@@ -88,10 +93,17 @@ const Navbar = () => {
           )}
         </div>
 
-        {/* Mobile toggle */}
-        <button className="md:hidden text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
-          {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        {/* Mobile: language + theme toggle + burger */}
+        <div className="flex md:hidden items-center gap-2">
+          <button onClick={toggleLang} className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <Globe className="w-4 h-4" />
+            {lang.toUpperCase()}
+          </button>
+          <ThemeToggle />
+          <button className="text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
+            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}
@@ -100,9 +112,9 @@ const Navbar = () => {
           <Link to="/pricing" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
             {t.nav.pricing}
           </Link>
-          <button onClick={toggleLang} className="flex items-center gap-1.5 text-sm text-muted-foreground text-left">
-            <Globe className="w-4 h-4" /> {lang.toUpperCase()}
-          </button>
+          <Link to="/blog" className="text-sm text-muted-foreground" onClick={() => setMobileOpen(false)}>
+            Blog
+          </Link>
           {user ? (
             <>
               <div className="flex items-center gap-2 py-1">

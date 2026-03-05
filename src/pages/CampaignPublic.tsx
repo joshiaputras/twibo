@@ -1,7 +1,7 @@
 import Layout from '@/components/Layout';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2, SlidersHorizontal, Users, Link2 } from 'lucide-react';
+import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, Share2, SlidersHorizontal, Users, Link2, Calendar } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Slider } from '@/components/ui/slider';
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -31,6 +31,7 @@ const CampaignPublic = () => {
   const [isOwner, setIsOwner] = useState(false);
   const [creatorName, setCreatorName] = useState('');
   const [creatorAvatarUrl, setCreatorAvatarUrl] = useState('');
+  const [supportersCount, setSupportersCount] = useState(0);
 
   const [userPhoto, setUserPhoto] = useState<string>('');
   const [templateImage, setTemplateImage] = useState<string>('');
@@ -111,6 +112,16 @@ const CampaignPublic = () => {
       if (!cancelled && profile) {
         setCreatorName((profile as any).name || '');
         setCreatorAvatarUrl((profile as any).avatar_url || '');
+      }
+
+      // Fetch supporters count
+      const { data: stats } = await supabase
+        .from('campaign_stats' as any)
+        .select('supporters_count')
+        .eq('campaign_id', data.id)
+        .maybeSingle();
+      if (!cancelled && stats) {
+        setSupportersCount((stats as any).supporters_count || 0);
       }
 
       const previewMeta = extractPreviewMeta(data.design_json);
@@ -705,6 +716,15 @@ const CampaignPublic = () => {
                 </AvatarFallback>
               </Avatar>
               <span className="text-sm text-foreground font-medium">{creatorName || 'User'}</span>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Users className="w-3 h-3" /> {supportersCount} supporters
+              </span>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {new Date(campaign.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
               {campaign.tier === 'premium' && (
                 <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
                   <Crown className="w-3 h-3" />

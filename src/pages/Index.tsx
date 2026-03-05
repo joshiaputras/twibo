@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart, Image, ChevronRight } from 'lucide-react';
 import { usePricing } from '@/hooks/usePricing';
 import { useFeaturedCampaigns } from '@/hooks/useFeaturedCampaigns';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { extractPreviewMeta } from '@/utils/campaignDesign';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -19,55 +19,13 @@ const Index = () => {
   const { t } = useLanguage();
   const { premiumPrice, originalPrice } = usePricing();
   const { campaigns: featuredCampaigns, loading: featuredLoading } = useFeaturedCampaigns();
-  const carouselRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
-  // Auto-scroll infinite carousel
-  useEffect(() => {
-    const el = carouselRef.current;
-    if (!el || featuredCampaigns.length === 0) return;
-
-    // Wait for layout to render
-    const initTimer = setTimeout(() => {
-      if (!el.scrollWidth || el.scrollWidth <= el.clientWidth) return;
-
-      let animId: number;
-      let lastTime = 0;
-      let paused = false;
-      const speed = 0.4;
-
-      const animate = (time: number) => {
-        if (!paused && lastTime) {
-          const delta = time - lastTime;
-          const move = speed * (delta / 16.67);
-          el.scrollLeft += move;
-          const third = el.scrollWidth / 3;
-          if (el.scrollLeft >= third * 2) {
-            el.scrollLeft -= third;
-          }
-        }
-        lastTime = time;
-        animId = requestAnimationFrame(animate);
-      };
-
-      const pause = () => { paused = true; };
-      const resume = () => { paused = false; lastTime = 0; };
-
-      animId = requestAnimationFrame(animate);
-      el.addEventListener('mouseenter', pause);
-      el.addEventListener('mouseleave', resume);
-
-      (el as any).__carouselCleanup = () => {
-        cancelAnimationFrame(animId);
-        el.removeEventListener('mouseenter', pause);
-        el.removeEventListener('mouseleave', resume);
-      };
-    }, 100);
-
-    return () => {
-      clearTimeout(initTimer);
-      if ((el as any).__carouselCleanup) (el as any).__carouselCleanup();
-    };
-  }, [featuredCampaigns.length]);
+  // CSS animation-based infinite carousel
+  const duplicatedCampaigns = featuredCampaigns.length > 0
+    ? [...featuredCampaigns, ...featuredCampaigns]
+    : [];
 
   const steps = [
     { icon: Paintbrush, title: t.howItWorks.step1Title, desc: t.howItWorks.step1Desc },
@@ -96,6 +54,12 @@ const Index = () => {
   ];
 
   const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
+
+  // Calculate animation duration based on number of items
+  const itemWidth = 256; // w-[240px] + gap
+  const totalWidth = featuredCampaigns.length * itemWidth;
+  const speed = 40; // pixels per second
+  const duration = totalWidth / speed;
 
   return (
     <Layout>
@@ -211,43 +175,51 @@ const Index = () => {
             </div>
           ) : featuredCampaigns.length > 0 ? (
             <div
-              ref={carouselRef}
-              className="flex gap-4 overflow-x-hidden pb-4"
+              className="overflow-hidden"
               style={{
-                scrollBehavior: 'auto',
                 maskImage: 'linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)',
                 WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)',
               }}
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
             >
-              {/* Duplicate list 3x for seamless infinite loop */}
-              {[...featuredCampaigns, ...featuredCampaigns, ...featuredCampaigns].map((fc, i) => {
-                const previewMeta = extractPreviewMeta(fc.design_json);
-                const previewUrl = previewMeta.previewImageDataUrl;
+              <div
+                ref={trackRef}
+                className="flex gap-4 w-max"
+                style={{
+                  animation: `carousel-scroll ${duration}s linear infinite`,
+                  animationPlayState: isPaused ? 'paused' : 'running',
+                }}
+              >
+                {duplicatedCampaigns.map((fc, i) => {
+                  const previewMeta = extractPreviewMeta(fc.design_json);
+                  const previewUrl = previewMeta.previewImageDataUrl;
 
-                return (
-                  <Link
-                    key={`${fc.id}-${i}`}
-                    to={`/c/${fc.slug}`}
-                    className="shrink-0 w-[200px] md:w-[240px] group"
-                  >
-                    <div className="glass rounded-2xl border-gold-subtle overflow-hidden hover:gold-glow transition-shadow">
-                      <div className="aspect-square bg-secondary/30 flex items-center justify-center overflow-hidden">
-                        {previewUrl ? (
-                          <img src={previewUrl} alt={fc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                        ) : (
-                          <Image className="w-12 h-12 text-muted-foreground/30" />
-                        )}
+                  return (
+                    <Link
+                      key={`${fc.id}-${i}`}
+                      to={`/c/${fc.slug}`}
+                      className="shrink-0 w-[200px] md:w-[240px] group"
+                    >
+                      <div className="glass rounded-2xl border-gold-subtle overflow-hidden hover:gold-glow transition-shadow">
+                        <div className="aspect-square bg-secondary/30 flex items-center justify-center overflow-hidden">
+                          {previewUrl ? (
+                            <img src={previewUrl} alt={fc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                          ) : (
+                            <Image className="w-12 h-12 text-muted-foreground/30" />
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <p className="text-sm font-semibold text-foreground truncate">{fc.name}</p>
+                          <p className="text-xs text-primary flex items-center gap-1 mt-1">
+                            Gunakan <ChevronRight className="w-3 h-3" />
+                          </p>
+                        </div>
                       </div>
-                      <div className="p-3">
-                        <p className="text-sm font-semibold text-foreground truncate">{fc.name}</p>
-                        <p className="text-xs text-primary flex items-center gap-1 mt-1">
-                          Gunakan <ChevronRight className="w-3 h-3" />
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           ) : null}
         </div>
@@ -375,50 +347,29 @@ const Index = () => {
                 ))}
               </ul>
               <Link to="/campaign/new">
-                <Button className="w-full gold-glow font-semibold">{t.pricing.premiumCta}</Button>
+                <Button className="w-full gold-glow-strong font-semibold">{t.pricing.premiumCta}</Button>
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Privacy / Why TWIBO.id */}
+      {/* Privacy */}
       <section className="py-20">
         <div className="container mx-auto px-4">
-          <div className="glass-strong rounded-3xl p-8 md:p-12 max-w-3xl mx-auto border-gold-subtle gold-glow">
-            <div className="text-center mb-8">
-              <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">{t.privacy.title}</h2>
-              <p className="text-muted-foreground">{t.privacy.subtitle}</p>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="glass-strong rounded-3xl p-8 md:p-12 border-gold-subtle max-w-4xl mx-auto text-center">
+            <Shield className="w-12 h-12 text-primary mx-auto mb-4" />
+            <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">{t.privacy.title}</h2>
+            <p className="text-muted-foreground mb-8">{t.privacy.subtitle}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
               {privacyPoints.map((p, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-secondary/50">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <p.icon className="w-4 h-4 text-primary" />
-                  </div>
-                  <span className="text-sm text-foreground">{p.text}</span>
+                <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/30">
+                  <p.icon className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <span className="text-sm text-foreground/80">{p.text}</span>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section className="py-20">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-4">
-            Siap Buat Campaign Pertamamu?
-          </h2>
-          <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-            Bergabung dengan ribuan komunitas yang sudah menggunakan TWIBO.id
-          </p>
-          <Link to="/signup">
-            <Button size="lg" className="gold-glow-strong font-display font-semibold text-lg px-10 py-6 rounded-xl">
-              {t.hero.cta}
-              <ArrowRight className="w-5 h-5 ml-1" />
-            </Button>
-          </Link>
         </div>
       </section>
     </Layout>
