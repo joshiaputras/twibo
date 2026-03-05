@@ -1,5 +1,6 @@
 import Layout from '@/components/Layout';
 import PhotoComposerPreview from '@/components/PhotoComposerPreview';
+import { Switch } from '@/components/ui/switch';
 import BannerCropDialog from '@/components/BannerCropDialog';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
@@ -52,6 +53,7 @@ type FormState = {
   slug: string;
   size: CampaignSize;
   type: CampaignType;
+  is_private: boolean;
 };
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
@@ -79,6 +81,7 @@ const CampaignEditor = () => {
     slug: '',
     size: 'square',
     type: 'frame',
+    is_private: false,
   });
 
   const [templateImage, setTemplateImage] = useState<string>('');
@@ -147,6 +150,7 @@ const CampaignEditor = () => {
         slug: data.slug ?? '',
         size: (data.size as CampaignSize) ?? 'square',
         type: (data.type as CampaignType) ?? 'frame',
+        is_private: data.is_private ?? false,
       });
       setSlugStatus('available');
 
@@ -275,6 +279,11 @@ const CampaignEditor = () => {
       return false;
     }
 
+    if (form.description.trim().length < 150) {
+      toast.error(t.campaign?.descMinLength ?? 'Deskripsi minimal 150 karakter untuk SEO yang optimal.');
+      return false;
+    }
+
     return await checkSlugAvailability(normalized);
   };
 
@@ -329,6 +338,7 @@ const CampaignEditor = () => {
       status,
       design_json: designWithPreview,
       banner_url: bannerUrl || null,
+      is_private: form.is_private,
     };
 
     if (campaignId) {
@@ -664,8 +674,12 @@ const CampaignEditor = () => {
                   />
                 </div>
                 <div>
-                  <Label className="text-sm text-muted-foreground">{t.campaign.descLabel}</Label>
-                  <Textarea value={form.description} onChange={e => update('description', e.target.value)} className="mt-1 bg-secondary/50 border-border" rows={3} />
+                  <Label className="text-sm text-muted-foreground">{t.campaign.descLabel} <span className="text-destructive">*</span></Label>
+                  <Textarea value={form.description} onChange={e => update('description', e.target.value)} className="mt-1 bg-secondary/50 border-border" rows={4} required minLength={150} />
+                  <p className={`text-xs mt-1 ${form.description.length >= 150 ? 'text-primary' : 'text-muted-foreground'}`}>
+                    {form.description.length}/150 {t.campaign?.descCharHint ?? 'karakter minimum untuk SEO'}
+                    {form.description.length >= 150 && ' ✓'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">{t.campaign.captionLabel}</Label>
@@ -744,6 +758,30 @@ const CampaignEditor = () => {
                       <div className="h-16 bg-secondary/30 rounded-lg" />
                     </div>
                   )}
+                </div>
+
+                {/* Private Campaign Toggle */}
+                <div>
+                  <div className="relative rounded-xl border border-border p-4">
+                    {campaignTier !== 'premium' && (
+                      <div className="absolute inset-0 bg-secondary/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2 rounded-xl">
+                        <Crown className="w-6 h-6 text-primary" />
+                        <p className="text-sm font-semibold text-foreground">Premium Feature</p>
+                        <p className="text-xs text-muted-foreground text-center px-4">{t.campaign?.privateUpgradeHint ?? 'Upgrade ke Premium untuk menyembunyikan campaign dari mesin pencari'}</p>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1">
+                        <Label className="text-sm font-medium text-foreground">{t.campaign?.privateCampaign ?? 'Private Campaign'}</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t.campaign?.privateCampaignDesc ?? 'Sembunyikan halaman ini dari Google & Mesin Pencari'}</p>
+                      </div>
+                      <Switch
+                        checked={form.is_private}
+                        onCheckedChange={v => update('is_private', v)}
+                        disabled={campaignTier !== 'premium'}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

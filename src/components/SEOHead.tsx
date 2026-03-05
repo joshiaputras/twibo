@@ -6,9 +6,10 @@ interface SEOHeadProps {
   canonical?: string;
   ogImage?: string;
   ogType?: string;
+  robots?: string;
 }
 
-const SEOHead = ({ title, description, canonical, ogImage, ogType = 'website' }: SEOHeadProps) => {
+const SEOHead = ({ title, description, canonical, ogImage, ogType = 'website', robots }: SEOHeadProps) => {
   useEffect(() => {
     document.title = title;
 
@@ -34,6 +35,13 @@ const SEOHead = ({ title, description, canonical, ogImage, ogType = 'website' }:
       setMeta('name', 'twitter:image', ogImage);
     }
 
+    if (robots) {
+      setMeta('name', 'robots', robots);
+    } else {
+      const existing = document.querySelector('meta[name="robots"]');
+      if (existing) existing.remove();
+    }
+
     if (canonical) {
       let link = document.querySelector('link[rel="canonical"]') as HTMLLinkElement;
       if (!link) {
@@ -43,7 +51,7 @@ const SEOHead = ({ title, description, canonical, ogImage, ogType = 'website' }:
       }
       link.href = canonical;
     }
-  }, [title, description, canonical, ogImage, ogType]);
+  }, [title, description, canonical, ogImage, ogType, robots]);
 
   return null;
 };
