@@ -8,6 +8,7 @@ export const usePricing = () => {
   const [paypalClientId, setPaypalClientId] = useState('');
   const [paypalMode, setPaypalMode] = useState('sandbox');
   const [paypalPriceUsd, setPaypalPriceUsd] = useState(3);
+  const [paypalOriginalPriceUsd, setPaypalOriginalPriceUsd] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -15,7 +16,7 @@ export const usePricing = () => {
       const { data } = await supabase
         .from('site_settings' as any)
         .select('key, value')
-        .in('key', ['premium_price', 'premium_original_price', 'paypal_enabled', 'paypal_client_id', 'paypal_mode', 'paypal_price_usd']);
+        .in('key', ['premium_price', 'premium_original_price', 'paypal_enabled', 'paypal_client_id', 'paypal_mode', 'paypal_price_usd', 'paypal_original_price_usd']);
 
       if (data) {
         (data as any[]).forEach((r: any) => {
@@ -25,6 +26,7 @@ export const usePricing = () => {
           if (r.key === 'paypal_client_id' && r.value) setPaypalClientId(r.value);
           if (r.key === 'paypal_mode' && r.value) setPaypalMode(r.value);
           if (r.key === 'paypal_price_usd' && r.value) setPaypalPriceUsd(Number(r.value));
+          if (r.key === 'paypal_original_price_usd' && r.value) setPaypalOriginalPriceUsd(Number(r.value));
         });
       }
       setLoading(false);
@@ -32,5 +34,5 @@ export const usePricing = () => {
     load();
   }, []);
 
-  return { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd, loading };
+  return { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd, paypalOriginalPriceUsd, loading };
 };

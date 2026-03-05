@@ -10,6 +10,7 @@ import {
 import {
   Users, Megaphone, CreditCard, Settings, Crown, Ban, Shield, Trash2, Unlock, Ticket,
   Plus, Loader2, Star, ArrowUpDown, BookOpen, Pencil, Upload, Clock, Eye,
+  ChevronLeft, ChevronRight, Search, DollarSign,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +28,43 @@ import { Label } from '@/components/ui/label';
 type SortKey = 'name' | 'slug' | 'tier' | 'status' | 'userName' | 'email';
 type SortDir = 'asc' | 'desc';
 
+const ITEMS_PER_PAGE = 10;
+
+// Reusable pagination component
+const Pagination = ({ currentPage, totalPages, onPageChange }: { currentPage: number; totalPages: number; onPageChange: (p: number) => void }) => {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <span className="text-xs text-muted-foreground">Halaman {currentPage} dari {totalPages}</span>
+      <div className="flex gap-1">
+        <Button size="sm" variant="outline" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}>
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+          let page: number;
+          if (totalPages <= 5) page = i + 1;
+          else if (currentPage <= 3) page = i + 1;
+          else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
+          else page = currentPage - 2 + i;
+          return (
+            <Button key={page} size="sm" variant={page === currentPage ? 'default' : 'outline'} className="h-8 w-8 p-0 text-xs" onClick={() => onPageChange(page)}>
+              {page}
+            </Button>
+          );
+        })}
+        <Button size="sm" variant="outline" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}>
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+const paginate = <T,>(data: T[], page: number): T[] => {
+  const start = (page - 1) * ITEMS_PER_PAGE;
+  return data.slice(start, start + ITEMS_PER_PAGE);
+};
+
 const Admin = () => {
   const { t } = useLanguage();
   const [campaigns, setCampaigns] = useState<any[]>([]);
@@ -38,8 +76,20 @@ const Admin = () => {
   const [loading, setLoading] = useState(true);
   const [searchCampaign, setSearchCampaign] = useState('');
   const [searchUser, setSearchUser] = useState('');
+  const [searchTransaction, setSearchTransaction] = useState('');
+  const [searchVoucher, setSearchVoucher] = useState('');
+  const [searchBlog, setSearchBlog] = useState('');
+  const [filterTxStatus, setFilterTxStatus] = useState('all');
+  const [filterTxMethod, setFilterTxMethod] = useState('all');
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+
+  // Pagination states
+  const [pageCampaigns, setPageCampaigns] = useState(1);
+  const [pageUsers, setPageUsers] = useState(1);
+  const [pageTransactions, setPageTransactions] = useState(1);
+  const [pageVouchers, setPageVouchers] = useState(1);
+  const [pageBlog, setPageBlog] = useState(1);
 
   // Voucher form
   const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
@@ -87,7 +137,11 @@ const Admin = () => {
 
   useEffect(() => { load(); }, []);
 
-  const totalRevenue = payments.filter((p: any) => p.status === 'paid').reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  // Revenue calculations
+  const paidPayments = useMemo(() => payments.filter((p: any) => p.status === 'paid'), [payments]);
+  const revenueIDR = useMemo(() => paidPayments.filter((p: any) => p.payment_method !== 'paypal').reduce((sum: number, p: any) => sum + (p.amount || 0), 0), [paidPayments]);
+  const revenueUSD = useMemo(() => paidPayments.filter((p: any) => p.payment_method === 'paypal').reduce((sum: number, p: any) => sum + (p.amount || 0), 0), [paidPayments]);
+  const totalRevenue = revenueIDR; // For the main card, show IDR
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -118,6 +172,43 @@ const Admin = () => {
     if (!key) return users;
     return users.filter((u: any) => `${u.name} ${u.email} ${u.phone}`.toLowerCase().includes(key));
   }, [users, searchUser]);
+
+  const filteredTransactions = useMemo(() => {
+    let filtered = payments;
+    const key = searchTransaction.toLowerCase().trim();
+    if (key) {
+      filtered = filtered.filter((tx: any) => {
+        const txUser = users.find((u: any) => u.id === tx.user_id);
+        const txCampaign = campaigns.find((c: any) => c.id === tx.campaign_id);
+        return `${tx.midtrans_order_id || ''} ${txUser?.name || ''} ${txUser?.email || ''} ${txCampaign?.name || ''} ${tx.payment_method || ''}`.toLowerCase().includes(key);
+      });
+    }
+    if (filterTxStatus !== 'all') filtered = filtered.filter((tx: any) => tx.status === filterTxStatus);
+    if (filterTxMethod !== 'all') {
+      if (filterTxMethod === 'paypal') filtered = filtered.filter((tx: any) => tx.payment_method === 'paypal');
+      else if (filterTxMethod === 'midtrans') filtered = filtered.filter((tx: any) => tx.payment_method !== 'paypal' && tx.payment_method !== '');
+    }
+    return filtered;
+  }, [payments, searchTransaction, filterTxStatus, filterTxMethod, users, campaigns]);
+
+  const filteredVouchers = useMemo(() => {
+    const key = searchVoucher.toLowerCase().trim();
+    if (!key) return vouchers;
+    return vouchers.filter((v: any) => `${v.code}`.toLowerCase().includes(key));
+  }, [vouchers, searchVoucher]);
+
+  const filteredBlogPosts = useMemo(() => {
+    const key = searchBlog.toLowerCase().trim();
+    if (!key) return blogPosts;
+    return blogPosts.filter((p: any) => `${p.title} ${p.slug} ${(p.tags || []).join(' ')}`.toLowerCase().includes(key));
+  }, [blogPosts, searchBlog]);
+
+  // Reset pages on filter change
+  useEffect(() => { setPageCampaigns(1); }, [searchCampaign, sortKey, sortDir]);
+  useEffect(() => { setPageUsers(1); }, [searchUser]);
+  useEffect(() => { setPageTransactions(1); }, [searchTransaction, filterTxStatus, filterTxMethod]);
+  useEffect(() => { setPageVouchers(1); }, [searchVoucher]);
+  useEffect(() => { setPageBlog(1); }, [searchBlog]);
 
   const handleSaveSettings = async () => {
     for (const [key, value] of Object.entries(settings)) {
@@ -282,13 +373,11 @@ const Admin = () => {
       return;
     }
 
-    // Get content from contentEditable
     const htmlContent = contentEditableRef.current?.innerHTML || blogForm.content;
 
     setSavingBlog(true);
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Check slug uniqueness
     const slugToUse = blogForm.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-');
     const { data: existingSlug } = await supabase
       .from('blog_posts' as any)
@@ -303,7 +392,6 @@ const Admin = () => {
       return;
     }
 
-    // Determine published_at based on status and schedule
     let publishedAt: string | null = null;
     if (blogForm.status === 'published') {
       publishedAt = new Date().toISOString();
@@ -351,7 +439,6 @@ const Admin = () => {
     });
     setEditingBlogId(p.id);
     setBlogDialogOpen(true);
-    // Set content after dialog opens
     setTimeout(() => {
       if (contentEditableRef.current) {
         contentEditableRef.current.innerHTML = p.content || '';
@@ -375,17 +462,31 @@ const Admin = () => {
     </TableHead>
   );
 
+  // Pagination calculations
+  const totalPagesCampaigns = Math.ceil(filteredCampaigns.length / ITEMS_PER_PAGE);
+  const totalPagesUsers = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  const totalPagesTransactions = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
+  const totalPagesVouchers = Math.ceil(filteredVouchers.length / ITEMS_PER_PAGE);
+  const totalPagesBlog = Math.ceil(filteredBlogPosts.length / ITEMS_PER_PAGE);
+
+  const paginatedCampaigns = paginate(filteredCampaigns, pageCampaigns);
+  const paginatedUsers = paginate(filteredUsers, pageUsers);
+  const paginatedTransactions = paginate(filteredTransactions, pageTransactions);
+  const paginatedVouchers = paginate(filteredVouchers, pageVouchers);
+  const paginatedBlog = paginate(filteredBlogPosts, pageBlog);
+
   return (
     <Layout>
       <section className="py-24 md:py-32">
         <div className="container mx-auto px-4 space-y-6">
           <h1 className="font-display text-3xl font-bold text-gold-gradient">{t.admin.title}</h1>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { label: t.admin.totalCampaigns, value: campaigns.length.toString(), icon: Megaphone },
               { label: t.admin.totalUsers, value: users.length.toString(), icon: Users },
-              { label: t.admin.totalRevenue, value: `Rp ${totalRevenue.toLocaleString('id-ID')}`, icon: CreditCard },
+              { label: 'Pendapatan IDR', value: `Rp ${revenueIDR.toLocaleString('id-ID')}`, icon: CreditCard },
+              { label: 'Pendapatan USD', value: `$${(revenueUSD / 100).toFixed(2)}`, icon: DollarSign },
             ].map((s, i) => (
               <div key={i} className="glass rounded-xl p-6 border-gold-subtle">
                 <div className="flex items-center gap-3">
@@ -429,7 +530,7 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredCampaigns.map((c: any) => (
+                    {paginatedCampaigns.map((c: any) => (
                       <TableRow key={c.id}>
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell className="text-muted-foreground text-xs">{users.find((u: any) => u.id === c.user_id)?.name || '-'}</TableCell>
@@ -468,6 +569,7 @@ const Admin = () => {
                     {filteredCampaigns.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
+                <Pagination currentPage={pageCampaigns} totalPages={totalPagesCampaigns} onPageChange={setPageCampaigns} />
               </div>
             </TabsContent>
 
@@ -487,7 +589,7 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map((u: any) => (
+                    {paginatedUsers.map((u: any) => (
                       <TableRow key={u.id}>
                         <TableCell className="font-medium">{u.name || '-'}</TableCell>
                         <TableCell className="text-muted-foreground text-xs">{u.email || '-'}</TableCell>
@@ -509,11 +611,53 @@ const Admin = () => {
                     {filteredUsers.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
+                <Pagination currentPage={pageUsers} totalPages={totalPagesUsers} onPageChange={setPageUsers} />
               </div>
             </TabsContent>
 
             {/* Transactions Tab */}
             <TabsContent value="transactions" className="space-y-3">
+              {/* Revenue summary cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="glass rounded-xl p-4 border-gold-subtle">
+                  <p className="text-xs text-muted-foreground">Total Transaksi Sukses</p>
+                  <p className="text-xl font-bold text-foreground">{paidPayments.length}</p>
+                </div>
+                <div className="glass rounded-xl p-4 border-gold-subtle">
+                  <p className="text-xs text-muted-foreground">🇮🇩 Pendapatan IDR (Midtrans)</p>
+                  <p className="text-xl font-bold text-foreground">Rp {revenueIDR.toLocaleString('id-ID')}</p>
+                </div>
+                <div className="glass rounded-xl p-4 border-gold-subtle">
+                  <p className="text-xs text-muted-foreground">🌍 Pendapatan USD (PayPal)</p>
+                  <p className="text-xl font-bold text-foreground">${(revenueUSD / 100).toFixed(2)}</p>
+                </div>
+              </div>
+
+              {/* Search and filters */}
+              <div className="flex flex-wrap gap-2">
+                <div className="relative flex-1 min-w-[200px] max-w-sm">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={searchTransaction} onChange={e => setSearchTransaction(e.target.value)} placeholder="Cari order ID, user, campaign..." className="pl-9 bg-secondary/50 border-border" />
+                </div>
+                <Select value={filterTxStatus} onValueChange={setFilterTxStatus}>
+                  <SelectTrigger className="w-[140px] bg-secondary/50 border-border"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="failed">Failed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterTxMethod} onValueChange={setFilterTxMethod}>
+                  <SelectTrigger className="w-[160px] bg-secondary/50 border-border"><SelectValue placeholder="Payment Method" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Metode</SelectItem>
+                    <SelectItem value="midtrans">Midtrans (IDR)</SelectItem>
+                    <SelectItem value="paypal">PayPal (USD)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -528,30 +672,39 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {payments.map((tx: any) => {
+                    {paginatedTransactions.map((tx: any) => {
                       const txUser = users.find((u: any) => u.id === tx.user_id);
                       const txCampaign = campaigns.find((c: any) => c.id === tx.campaign_id);
+                      const isPaypal = tx.payment_method === 'paypal';
                       return (
                         <TableRow key={tx.id}>
                           <TableCell className="text-xs font-mono text-muted-foreground">{tx.midtrans_order_id || '-'}</TableCell>
                           <TableCell className="text-xs">{txUser?.name || txUser?.email || '-'}</TableCell>
                           <TableCell className="text-xs">{txCampaign?.name || '-'}</TableCell>
-                          <TableCell className="text-xs font-semibold">Rp {(tx.amount || 0).toLocaleString('id-ID')}</TableCell>
-                          <TableCell><span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>{tx.status}</span></TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{tx.payment_method || '-'}</TableCell>
+                          <TableCell className="text-xs font-semibold">
+                            {isPaypal ? `$${(tx.amount / 100).toFixed(2)} USD` : `Rp ${(tx.amount || 0).toLocaleString('id-ID')}`}
+                          </TableCell>
+                          <TableCell><span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'paid' ? 'bg-green-500/20 text-green-400' : tx.status === 'failed' ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'}`}>{tx.status}</span></TableCell>
+                          <TableCell>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${isPaypal ? 'bg-blue-500/20 text-blue-400' : 'bg-muted text-muted-foreground'}`}>
+                              {isPaypal ? '🌍 PayPal' : `🇮🇩 ${tx.payment_method || 'Midtrans'}`}
+                            </span>
+                          </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{tx.paid_at ? new Date(tx.paid_at).toLocaleString('id-ID') : '-'}</TableCell>
                         </TableRow>
                       );
                     })}
-                    {payments.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
+                    {filteredTransactions.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
+                <Pagination currentPage={pageTransactions} totalPages={totalPagesTransactions} onPageChange={setPageTransactions} />
               </div>
             </TabsContent>
 
             {/* Vouchers Tab */}
             <TabsContent value="vouchers" className="space-y-3">
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <Input value={searchVoucher} onChange={e => setSearchVoucher(e.target.value)} placeholder="Cari kode voucher..." className="max-w-sm bg-secondary/50 border-border" />
                 <Dialog open={voucherDialogOpen} onOpenChange={(open) => { setVoucherDialogOpen(open); if (!open) resetVoucherForm(); }}>
                   <DialogTrigger asChild>
                     <Button className="gold-glow gap-2 text-sm" onClick={() => { resetVoucherForm(); setVoucherDialogOpen(true); }}><Plus className="w-4 h-4" />Tambah Voucher</Button>
@@ -603,7 +756,7 @@ const Admin = () => {
                 <Table>
                   <TableHeader><TableRow><TableHead>Kode</TableHead><TableHead>Diskon</TableHead><TableHead>Penggunaan</TableHead><TableHead>Per User</TableHead><TableHead>Berlaku</TableHead><TableHead>Status</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {vouchers.map((v: any) => (
+                    {paginatedVouchers.map((v: any) => (
                       <TableRow key={v.id}>
                         <TableCell className="font-mono font-semibold text-foreground">{v.code}</TableCell>
                         <TableCell className="text-sm">{v.discount_type === 'percentage' ? `${v.discount_value}%` : `Rp ${v.discount_value.toLocaleString('id-ID')}`}</TableCell>
@@ -619,15 +772,17 @@ const Admin = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {vouchers.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">Belum ada voucher</TableCell></TableRow>}
+                    {filteredVouchers.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">Belum ada voucher</TableCell></TableRow>}
                   </TableBody>
                 </Table>
+                <Pagination currentPage={pageVouchers} totalPages={totalPagesVouchers} onPageChange={setPageVouchers} />
               </div>
             </TabsContent>
 
             {/* Blog Tab */}
             <TabsContent value="blog" className="space-y-3">
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <Input value={searchBlog} onChange={e => setSearchBlog(e.target.value)} placeholder="Cari judul, slug, atau tag..." className="max-w-sm bg-secondary/50 border-border" />
                 <Dialog open={blogDialogOpen} onOpenChange={(open) => { setBlogDialogOpen(open); if (!open) resetBlogForm(); }}>
                   <DialogTrigger asChild>
                     <Button className="gold-glow gap-2 text-sm" onClick={() => { resetBlogForm(); setBlogDialogOpen(true); }}><Plus className="w-4 h-4" /> Artikel Baru</Button>
@@ -677,9 +832,7 @@ const Admin = () => {
                           ref={contentEditableRef}
                           contentEditable
                           className="rich-text-editor mt-1 bg-secondary/50 border border-border rounded-md p-3 text-sm text-foreground overflow-y-auto max-h-[400px]"
-                          onInput={() => {
-                            // Content is read on save from innerHTML
-                          }}
+                          onInput={() => {}}
                           dangerouslySetInnerHTML={!editingBlogId ? { __html: blogForm.content } : undefined}
                         />
                       </div>
@@ -747,7 +900,7 @@ const Admin = () => {
                 <Table>
                   <TableHeader><TableRow><TableHead>Judul</TableHead><TableHead>Slug</TableHead><TableHead>Status</TableHead><TableHead>Published</TableHead><TableHead>Tanggal</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                   <TableBody>
-                    {blogPosts.map((p: any) => (
+                    {paginatedBlog.map((p: any) => (
                       <TableRow key={p.id}>
                         <TableCell className="font-medium">{p.title}</TableCell>
                         <TableCell className="text-muted-foreground text-xs">{p.slug}</TableCell>
@@ -779,9 +932,10 @@ const Admin = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {blogPosts.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">Belum ada artikel</TableCell></TableRow>}
+                    {filteredBlogPosts.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">Belum ada artikel</TableCell></TableRow>}
                   </TableBody>
                 </Table>
+                <Pagination currentPage={pageBlog} totalPages={totalPagesBlog} onPageChange={setPageBlog} />
               </div>
             </TabsContent>
 
@@ -789,7 +943,7 @@ const Admin = () => {
             <TabsContent value="payment" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
-                  <h3 className="font-display font-semibold text-foreground">💰 Pengaturan Harga</h3>
+                  <h3 className="font-display font-semibold text-foreground">💰 Pengaturan Harga (IDR)</h3>
                   {['premium_price', 'premium_original_price'].map(key => (
                     <div key={key}>
                       <Label className="text-sm text-muted-foreground capitalize">{key === 'premium_price' ? 'Harga Promo (Rp)' : 'Harga Coret / Original (Rp)'}</Label>
@@ -815,13 +969,17 @@ const Admin = () => {
                     />
                     <Label className="text-sm text-foreground">{t.admin?.paypalEnable ?? 'Enable PayPal'}</Label>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
                       <Label className="text-sm text-muted-foreground">PayPal Client ID</Label>
                       <Input value={settings['paypal_client_id'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, paypal_client_id: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="Enter PayPal Client ID" />
                     </div>
                     <div>
-                      <Label className="text-sm text-muted-foreground">Harga (USD)</Label>
+                      <Label className="text-sm text-muted-foreground">Harga Coret (USD)</Label>
+                      <Input value={settings['paypal_original_price_usd'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, paypal_original_price_usd: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="9.99" />
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Harga Promo (USD)</Label>
                       <Input value={settings['paypal_price_usd'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, paypal_price_usd: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="3.99" />
                     </div>
                     <div>
