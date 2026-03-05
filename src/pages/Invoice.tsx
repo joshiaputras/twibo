@@ -58,6 +58,7 @@ const Invoice = () => {
 
   const tx = data as any;
   const isPaid = tx.status === 'paid';
+  const isPaypal = tx.payment_method === 'paypal';
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 print:p-0 print:bg-white">
@@ -139,15 +140,32 @@ const Invoice = () => {
                     <p className="text-gray-500 text-xs">Campaign: {campaign?.name || '-'}</p>
                   </td>
                   <td className="py-3 text-right text-gray-900 font-semibold">
-                    Rp {(tx.amount || 0).toLocaleString('id-ID')}
+                    {isPaypal
+                      ? `$${((tx.amount + (tx.discount_amount || 0)) / 100).toFixed(2)} USD`
+                      : `Rp ${((tx.amount || 0) + (tx.discount_amount || 0)).toLocaleString('id-ID')}`}
                   </td>
                 </tr>
+                {tx.discount_amount > 0 && (
+                  <tr className="border-t border-gray-50">
+                    <td className="py-2">
+                      <p className="text-green-600 font-medium">Voucher Discount</p>
+                      {tx.voucher_code && <p className="text-gray-500 text-xs">Code: {tx.voucher_code}</p>}
+                    </td>
+                    <td className="py-2 text-right text-green-600 font-semibold">
+                      {isPaypal
+                        ? `-$${(tx.discount_amount / 100).toFixed(2)} USD`
+                        : `-Rp ${(tx.discount_amount || 0).toLocaleString('id-ID')}`}
+                    </td>
+                  </tr>
+                )}
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-gray-200">
                   <td className="py-3 font-bold text-gray-900">Total</td>
                   <td className="py-3 text-right font-bold text-gray-900 text-lg">
-                    Rp {(tx.amount || 0).toLocaleString('id-ID')}
+                    {isPaypal
+                      ? `$${(tx.amount / 100).toFixed(2)} USD`
+                      : `Rp ${(tx.amount || 0).toLocaleString('id-ID')}`}
                   </td>
                 </tr>
               </tfoot>

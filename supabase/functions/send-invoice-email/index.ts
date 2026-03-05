@@ -54,12 +54,18 @@ function buildLogoBlock(logoUrl: string) {
 
 function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string, logoUrl: string) {
   const isPaypal = payment.payment_method === 'paypal';
-  const amount = isPaypal
-    ? `$${(payment.amount / 100).toFixed(2)} USD`
-    : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
+  const discountAmount = payment.discount_amount || 0;
+  const subtotal = (payment.amount || 0) + discountAmount;
+  const subtotalStr = isPaypal ? `$${(subtotal / 100).toFixed(2)} USD` : `Rp ${subtotal.toLocaleString("id-ID")}`;
+  const discountStr = isPaypal ? `-$${(discountAmount / 100).toFixed(2)} USD` : `-Rp ${discountAmount.toLocaleString("id-ID")}`;
+  const totalStr = isPaypal ? `$${(payment.amount / 100).toFixed(2)} USD` : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
   const paidAt = payment.paid_at ? toWIB(payment.paid_at) : "-";
 
   const logoBlock = buildLogoBlock(logoUrl);
+
+  const discountRow = discountAmount > 0
+    ? `<tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#22863a;">Voucher Discount${payment.voucher_code ? ` (${payment.voucher_code})` : ''}</td><td style="padding:10px 0;text-align:right;color:#22863a;font-weight:600;">${discountStr}</td></tr>`
+    : '';
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
@@ -80,7 +86,9 @@ function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl:
         <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Order ID</td><td style="padding:10px 0;text-align:right;font-family:monospace;font-size:12px;color:#333;">${payment.midtrans_order_id}</td></tr>
         <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Method</td><td style="padding:10px 0;text-align:right;text-transform:capitalize;color:#333;">${payment.payment_method || "-"}</td></tr>
         <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Payment Date</td><td style="padding:10px 0;text-align:right;color:#333;">${paidAt}</td></tr>
-        <tr><td style="padding:14px 0;color:#b8860b;font-weight:bold;font-size:16px;">Total</td><td style="padding:14px 0;text-align:right;color:#b8860b;font-weight:bold;font-size:16px;">${amount}</td></tr>
+        <tr style="border-bottom:1px solid #eee;"><td style="padding:10px 0;color:#888;">Subtotal</td><td style="padding:10px 0;text-align:right;color:#333;">${subtotalStr}</td></tr>
+        ${discountRow}
+        <tr><td style="padding:14px 0;color:#b8860b;font-weight:bold;font-size:16px;">Total</td><td style="padding:14px 0;text-align:right;color:#b8860b;font-weight:bold;font-size:16px;">${totalStr}</td></tr>
       </table>
       <p style="margin:20px 0 0;color:#888;font-size:12px;">A PDF invoice is also attached to this email.</p>
       <div style="margin-top:24px;text-align:center;">
@@ -219,12 +227,21 @@ async function generateInvoicePdf(payment: any, campaign: any, profile: any, log
 
   page.drawText("Premium Upgrade", { x: 50, y, size: 12, font, color: black });
   const isPaypal = payment.payment_method === "paypal";
-  const amountStr = isPaypal
-    ? `$${(payment.amount / 100).toFixed(2)} USD`
-    : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
-  page.drawText(amountStr, { x: 430, y, size: 12, font, color: black });
+  const discountAmt = payment.discount_amount || 0;
+  const subtotal = (payment.amount || 0) + discountAmt;
+  const subtotalStr = isPaypal ? `$${(subtotal / 100).toFixed(2)} USD` : `Rp ${subtotal.toLocaleString("id-ID")}`;
+  const amountStr = isPaypal ? `$${(payment.amount / 100).toFixed(2)} USD` : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
+  page.drawText(subtotalStr, { x: 430, y, size: 12, font, color: black });
   y -= 16;
   page.drawText(`Campaign: ${campaign?.name || "-"}`, { x: 50, y, size: 9, font, color: gray });
+
+  if (discountAmt > 0) {
+    y -= 22;
+    const discountStr = isPaypal ? `-$${(discountAmt / 100).toFixed(2)} USD` : `-Rp ${discountAmt.toLocaleString("id-ID")}`;
+    const green = rgb(0.13, 0.53, 0.13);
+    page.drawText(`Voucher Discount${payment.voucher_code ? ` (${payment.voucher_code})` : ''}`, { x: 50, y, size: 11, font, color: green });
+    page.drawText(discountStr, { x: 430, y, size: 11, font, color: green });
+  }
 
   y -= 25;
   page.drawLine({ start: { x: 50, y }, end: { x: 545, y }, thickness: 2, color: rgb(0.85, 0.85, 0.85) });
