@@ -69,6 +69,7 @@ const Pricing = () => {
     { feature: t.pricing.ads, free: false, premium: true },
     { feature: t.pricing.stats, free: false, premium: true },
     { feature: t.pricing.customBanner ?? 'Upload Custom Banner', free: false, premium: true },
+    { feature: t.pricing?.hideFromSearch ?? 'Hide from Search Engines', free: false, premium: true },
   ];
 
   return (

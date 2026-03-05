@@ -78,7 +78,8 @@
       "f3": "Tanpa iklan",
       "f4": "Statistik lengkap",
       "f5": "Prioritas support",
-      "f6": "Upload banner kustom"
+      "f6": "Upload banner kustom",
+      "f7": "Sembunyikan dari Mesin Pencari"
     },
     "comparisonTitle": "Perbandingan Fitur",
     "feature": "Fitur",
@@ -90,6 +91,7 @@
     "share": "Share Buttons",
     "privateLink": "Link Campaign Privat",
     "customBanner": "Upload Custom Banner",
+    "hideFromSearch": "Sembunyikan dari Mesin Pencari",
     "basic": "Dasar",
     "full": "Penuh"
   },
@@ -220,6 +222,11 @@
     "bgRemoveFailed": "Gagal hapus background, menggunakan foto asli.",
     "dragToMove": "Drag untuk geser",
     "scrollToZoom": "Scroll / pinch untuk zoom",
+    "descMinLength": "Deskripsi minimal 150 karakter untuk SEO yang optimal.",
+    "descCharHint": "karakter minimum untuk SEO",
+    "privateCampaign": "Campaign Privat",
+    "privateCampaignDesc": "Sembunyikan halaman ini dari Google & Mesin Pencari",
+    "privateUpgradeHint": "Upgrade ke Premium untuk menyembunyikan campaign dari mesin pencari",
     "editor": {
       "loading": "Loading...",
       "select": "Pilih",

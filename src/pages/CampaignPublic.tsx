@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, SlidersHorizontal, Users, Link2, Calendar, Share2 } from 'lucide-react';
@@ -619,8 +620,23 @@ const CampaignPublic = () => {
     );
   }
 
+  // Determine robots meta
+  const getRobotsMeta = () => {
+    if (!campaign) return 'noindex, nofollow';
+    if (campaign.is_private) return 'noindex, nofollow';
+    const desc = (campaign.description || '').trim();
+    if (!desc || desc.length < 150) return 'noindex, nofollow';
+    return 'index, follow';
+  };
+
   return (
     <Layout>
+      <SEOHead
+        title={`${campaign.name} — Twibbon TWIBO.id`}
+        description={campaign.description || campaign.name}
+        canonical={`https://twibo.id/c/${slug}`}
+        robots={getRobotsMeta()}
+      />
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-6xl">
           {isFree && (

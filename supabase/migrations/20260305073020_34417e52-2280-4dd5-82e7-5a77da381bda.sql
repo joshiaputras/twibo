@@ -1,0 +1,1 @@
+ALTER TABLE public.campaigns ADD COLUMN is_private boolean NOT NULL DEFAULT false;

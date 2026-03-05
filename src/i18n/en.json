@@ -78,7 +78,8 @@
       "f3": "No ads",
       "f4": "Full statistics",
       "f5": "Priority support",
-      "f6": "Upload custom banner image"
+      "f6": "Upload custom banner image",
+      "f7": "Hide from Search Engines"
     },
     "comparisonTitle": "Feature Comparison",
     "feature": "Feature",
@@ -90,6 +91,7 @@
     "share": "Share Buttons",
     "privateLink": "Private Campaign Link",
     "customBanner": "Upload Custom Banner",
+    "hideFromSearch": "Hide from Search Engines",
     "basic": "Basic",
     "full": "Full"
   },
@@ -220,6 +222,11 @@
     "bgRemoveFailed": "Failed to remove background, using original photo.",
     "dragToMove": "Drag to move",
     "scrollToZoom": "Scroll / pinch to zoom",
+    "descMinLength": "Description must be at least 150 characters for optimal SEO.",
+    "descCharHint": "minimum characters for SEO",
+    "privateCampaign": "Private Campaign",
+    "privateCampaignDesc": "Hide this page from Google & Search Engines",
+    "privateUpgradeHint": "Upgrade to Premium to hide your campaign from search engines",
     "editor": {
       "loading": "Loading editor...",
       "select": "Select",

@@ -128,6 +128,7 @@ export type Database = {
           design_json: Json
           id: string
           is_featured: boolean
+          is_private: boolean
           name: string
           size: string
           slug: string
@@ -145,6 +146,7 @@ export type Database = {
           design_json?: Json
           id?: string
           is_featured?: boolean
+          is_private?: boolean
           name?: string
           size?: string
           slug: string
@@ -162,6 +164,7 @@ export type Database = {
           design_json?: Json
           id?: string
           is_featured?: boolean
+          is_private?: boolean
           name?: string
           size?: string
           slug?: string
