@@ -166,6 +166,8 @@
     "avatar": "Avatar",
     "uploadAvatar": "Upload",
     "avatarUpdated": "Avatar updated!",
+    "avatarReset": "Avatar reset!",
+    "cropAvatar": "Crop Avatar",
     "enterCurrentPassword": "Enter current password",
     "newPasswordMinLength": "New password must be at least 6 characters",
     "wrongCurrentPassword": "Current password is incorrect"
@@ -276,7 +278,9 @@
     "tolerance": "Tolerance",
     "feather": "Feather",
     "bgSettings": "Background Settings",
-    "processingPhoto": "Processing photo..."
+    "processingPhoto": "Processing photo...",
+    "aboutCampaign": "About This Campaign",
+    "supporters": "supporters"
   },
   "admin": {
     "title": "Admin Dashboard",

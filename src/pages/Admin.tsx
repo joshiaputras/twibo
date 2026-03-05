@@ -14,6 +14,7 @@ import {
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { compressImageToWebP, IMAGE_PRESETS } from '@/utils/imageCompress';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
@@ -255,9 +256,10 @@ const Admin = () => {
     if (!file) return;
     setUploadingCover(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const fileName = `blog-cover-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from('banner-images').upload(fileName, file, { upsert: true });
+      const preset = IMAGE_PRESETS.blogCover;
+      const compressed = await compressImageToWebP(file, preset.maxWidth, preset.maxHeight, preset.quality);
+      const fileName = `blog-cover-${Date.now()}.webp`;
+      const { error: uploadError } = await supabase.storage.from('banner-images').upload(fileName, compressed, { upsert: true, contentType: 'image/webp' });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(fileName);
       setBlogForm(prev => ({ ...prev, cover_image_url: urlData.publicUrl }));
@@ -837,13 +839,18 @@ const Admin = () => {
                     <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      const ext = file.name.split('.').pop() || 'png';
-                      const name = `favicon-${Date.now()}.${ext}`;
-                      const { error } = await supabase.storage.from('banner-images').upload(name, file, { upsert: true });
-                      if (error) { toast.error(error.message); return; }
-                      const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
-                      setSettings(prev => ({ ...prev, favicon_url: urlData.publicUrl }));
-                      toast.success('Favicon berhasil diupload');
+                      try {
+                        const preset = IMAGE_PRESETS.favicon;
+                        const compressed = await compressImageToWebP(file, preset.maxWidth, preset.maxHeight, preset.quality);
+                        const name = `favicon-${Date.now()}.webp`;
+                        const { error } = await supabase.storage.from('banner-images').upload(name, compressed, { upsert: true, contentType: 'image/webp' });
+                        if (error) throw error;
+                        const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
+                        setSettings(prev => ({ ...prev, favicon_url: urlData.publicUrl }));
+                        toast.success('Favicon berhasil diupload');
+                      } catch (err: any) {
+                        toast.error(err.message || 'Upload failed');
+                      }
                     }} />
                   </label>
                 </div>
@@ -863,13 +870,18 @@ const Admin = () => {
                     <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
-                      const ext = file.name.split('.').pop() || 'png';
-                      const name = `logo-${Date.now()}.${ext}`;
-                      const { error } = await supabase.storage.from('banner-images').upload(name, file, { upsert: true });
-                      if (error) { toast.error(error.message); return; }
-                      const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
-                      setSettings(prev => ({ ...prev, logo_url: urlData.publicUrl }));
-                      toast.success('Logo berhasil diupload');
+                      try {
+                        const preset = IMAGE_PRESETS.logo;
+                        const compressed = await compressImageToWebP(file, preset.maxWidth, preset.maxHeight, preset.quality);
+                        const name = `logo-${Date.now()}.webp`;
+                        const { error } = await supabase.storage.from('banner-images').upload(name, compressed, { upsert: true, contentType: 'image/webp' });
+                        if (error) throw error;
+                        const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
+                        setSettings(prev => ({ ...prev, logo_url: urlData.publicUrl }));
+                        toast.success('Logo berhasil diupload');
+                      } catch (err: any) {
+                        toast.error(err.message || 'Upload failed');
+                      }
                     }} />
                   </label>
                 </div>

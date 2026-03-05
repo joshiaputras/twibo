@@ -116,10 +116,10 @@ const AvatarCropDialog = ({ file, open, onClose, onCropped, uploading }: AvatarC
 
     ctx.drawImage(img, dx, dy, drawW * ratio, drawH * ratio);
 
-    // Compress to JPEG at 0.8 quality
+    // Compress to WebP
     canvas.toBlob(
       blob => { if (blob) onCropped(blob); },
-      'image/jpeg',
+      'image/webp',
       0.8
     );
   };

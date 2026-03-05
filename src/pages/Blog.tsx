@@ -62,9 +62,9 @@ const Blog = () => {
               {t.blog?.noPosts ?? 'Belum ada artikel.'}
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 gap-6">
               {posts.map((post: any) => (
-                <Link key={post.id} to={`/blog/${post.slug}`}>
+                <Link key={post.id} to={`/blog/${post.slug}`} className="block">
                   <article className="glass rounded-2xl border-gold-subtle p-6 hover:gold-glow transition-shadow group">
                     {post.cover_image_url && (
                       <img
