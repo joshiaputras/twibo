@@ -3,7 +3,7 @@ import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2, FileText, TrendingUp, Users, Download, Lock } from 'lucide-react';
+import { Plus, Search, Copy, Pencil, Trash2, BarChart3, Grid3X3, List, Crown, Eye, Loader2, FileText, TrendingUp, Users, Download, Lock, Globe, FileX } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
@@ -143,6 +143,17 @@ const Dashboard = () => {
     toast.success(t.dashboard?.campaignDeleted ?? 'Campaign deleted');
   };
 
+  const handleToggleStatus = async (c: CampaignItem) => {
+    const newStatus = c.status === 'published' ? 'draft' : 'published';
+    const { error } = await supabase.from('campaigns' as any).update({ status: newStatus }).eq('id', c.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setCampaigns(prev => prev.map(item => item.id === c.id ? { ...item, status: newStatus as any } : item));
+    toast.success(newStatus === 'published' ? (t.dashboard?.campaignPublished ?? 'Campaign dipublish!') : (t.dashboard?.campaignDrafted ?? 'Campaign dijadikan draft'));
+  };
+
   const handleRemoveWatermark = async (id: string, voucherCode?: string) => {
     const result = await pay(id, voucherCode);
     if (result.success) {
@@ -257,6 +268,16 @@ const Dashboard = () => {
                         {t.dashboard.viewPublic ?? 'View'}
                       </Button>
                     </a>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={`gap-1 text-xs ${c.status === 'published' ? 'border-muted-foreground/30 text-muted-foreground' : 'border-green-500/30 text-green-500'}`}
+                      onClick={() => handleToggleStatus(c)}
+                    >
+                      {c.status === 'published' ? <FileX className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
+                      {c.status === 'published' ? (t.dashboard?.makeDraft ?? 'Jadikan Draft') : (t.dashboard?.makePublish ?? 'Publish')}
+                    </Button>
 
                     <Button
                       variant="outline"
