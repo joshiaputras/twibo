@@ -39,7 +39,7 @@ type CampaignItem = {
 const Dashboard = () => {
   const { t } = useLanguage();
   const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
-  const { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd } = usePricing();
+  const { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd, paypalOriginalPriceUsd } = usePricing();
   const { user } = useAuth();
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
@@ -344,6 +344,7 @@ const Dashboard = () => {
         paypalClientId={paypalClientId}
         paypalMode={paypalMode}
         paypalPriceUsd={paypalPriceUsd}
+        paypalOriginalPriceUsd={paypalOriginalPriceUsd}
       />
 
       {/* Full-screen loading overlay while Midtrans initialises */}

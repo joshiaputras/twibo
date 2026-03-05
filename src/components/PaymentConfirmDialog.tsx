@@ -23,6 +23,7 @@ interface PaymentConfirmDialogProps {
   paypalClientId?: string;
   paypalMode?: string;
   paypalPriceUsd?: number;
+  paypalOriginalPriceUsd?: number;
 }
 
 const PaymentConfirmDialog = ({
@@ -39,6 +40,7 @@ const PaymentConfirmDialog = ({
   paypalClientId = '',
   paypalMode = 'sandbox',
   paypalPriceUsd = 3,
+  paypalOriginalPriceUsd,
 }: PaymentConfirmDialogProps) => {
   const { t } = useLanguage();
   const [voucherCode, setVoucherCode] = useState('');
@@ -202,7 +204,7 @@ const PaymentConfirmDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="glass-strong border-gold-subtle max-w-md">
+      <DialogContent className="glass-strong border-gold-subtle max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-gold-gradient flex items-center gap-2">
             <Crown className="w-5 h-5 text-primary" />
@@ -339,6 +341,12 @@ const PaymentConfirmDialog = ({
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs text-muted-foreground">💳 PayPal / Credit Card</span>
                 </div>
+                {paypalOriginalPriceUsd && paypalOriginalPriceUsd > paypalPriceUsd && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{t.payment?.premiumPrice ?? 'Harga Premium'}</span>
+                    <span className="text-muted-foreground line-through">${paypalOriginalPriceUsd.toFixed(2)} USD</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-foreground font-semibold">{t.payment?.totalPay ?? 'Total Bayar'}</span>
                   <span className="text-gold-gradient font-display font-bold text-xl">${paypalPriceUsd.toFixed(2)} USD</span>

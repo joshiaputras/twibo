@@ -53,7 +53,7 @@ const CampaignPublic = () => {
   const [applyingThreshold, setApplyingThreshold] = useState(false);
 
   const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
-  const { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd } = usePricing();
+  const { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd, paypalOriginalPriceUsd } = usePricing();
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const isFree = campaign?.tier !== 'premium';
   const [showInterstitialAd, setShowInterstitialAd] = useState(false);
@@ -918,6 +918,7 @@ const CampaignPublic = () => {
         paypalClientId={paypalClientId}
         paypalMode={paypalMode}
         paypalPriceUsd={paypalPriceUsd}
+        paypalOriginalPriceUsd={paypalOriginalPriceUsd}
       />
 
       {paymentInitializing && (
