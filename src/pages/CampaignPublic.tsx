@@ -652,7 +652,7 @@ const CampaignPublic = () => {
         canonical={`https://twibo.id/c/${slug}`}
         robots={getRobotsMeta()}
       />
-      <section className="py-6 md:py-24">
+      <section className="py-10 md:py-24">
         <div className="container mx-auto px-4 max-w-6xl">
           {/* Top AdSense - desktop only */}
           {!isMobile && isFree && adsenseEnabled && (

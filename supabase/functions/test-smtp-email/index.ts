@@ -7,6 +7,14 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function toWIB(date: Date): string {
+  return date.toLocaleString("en-US", {
+    timeZone: "Asia/Jakarta",
+    dateStyle: "full",
+    timeStyle: "medium",
+  }) + " WIB";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -32,21 +40,20 @@ Deno.serve(async (req) => {
     const cleanHost = settings.smtp_host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
     const port = parseInt(settings.smtp_port || "465");
     const to = settings.admin_notification_email || "twibo.id@gmail.com";
-    const now = new Date().toLocaleString("en-US", { dateStyle: "full", timeStyle: "medium" });
+    const now = toWIB(new Date());
     const logoUrl = settings.logo_url || '';
 
     const logoBlock = logoUrl
-      ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;margin-bottom:8px;" />`
-      : `<span style="font-size:22px;font-weight:800;color:#b8860b;">TWIBO.id</span>`;
+      ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;margin-bottom:8px;background:transparent;" />`
+      : `<span style="font-size:22px;font-weight:800;color:#FFD700;">TWIBO.id</span>`;
+
+    const headerStyle = `background:#1a1a2e;background-image:linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);background-size:24px 24px;color:#fff;padding:24px;text-align:center;`;
 
     const transporter = nodemailer.createTransport({
       host: cleanHost,
       port,
       secure: port === 465,
-      auth: {
-        user: settings.smtp_username,
-        pass: settings.smtp_password,
-      },
+      auth: { user: settings.smtp_username, pass: settings.smtp_password },
       tls: { rejectUnauthorized: false },
     });
 
@@ -54,18 +61,15 @@ Deno.serve(async (req) => {
       from: `"${settings.smtp_from_name || 'TWIBO.id'}" <${settings.smtp_username}>`,
       to,
       subject: "[TWIBO] Test Email - SMTP Successful ✅",
-      envelope: {
-        from: settings.smtp_username,
-        to,
-      },
+      envelope: { from: settings.smtp_username, to },
       html: `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
-<body style="font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;padding:24px;margin:0;">
+<body style="font-family:'Segoe UI',Arial,sans-serif;background:#ffffff;padding:24px;margin:0;">
   <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;border:1px solid #e5e5e5;overflow:hidden;">
-    <div style="background:linear-gradient(135deg,#b8860b,#FFD700);color:#fff;padding:24px;text-align:center;">
+    <div style="${headerStyle}">
       ${logoBlock}
-      <h1 style="margin:8px 0 0;font-size:18px;color:#ffffff;">✅ Test Email Successful</h1>
-      <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.85);">TWIBO.id SMTP Test</p>
+      <h1 style="margin:8px 0 0;font-size:18px;color:#FFD700;">✅ Test Email Successful</h1>
+      <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,0.7);">TWIBO.id SMTP Test</p>
     </div>
     <div style="padding:24px;">
       <p style="color:#333;margin:0 0 12px;">Your SMTP configuration is working correctly!</p>
