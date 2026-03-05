@@ -216,7 +216,7 @@ const PaymentConfirmDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <DialogContent className="glass-strong border-gold-subtle max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-background border-gold-subtle max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-gold-gradient flex items-center gap-2">
             <Crown className="w-5 h-5 text-primary" />

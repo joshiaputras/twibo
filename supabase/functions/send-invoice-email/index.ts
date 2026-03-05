@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
     }
 
     const attachments = pdfBytes
-      ? [{ filename: `invoice-${order_id}.pdf`, content: Buffer.from(pdfBytes), contentType: "application/pdf" }]
+      ? [{ filename: `invoice-${order_id}.pdf`, content: pdfBytes, contentType: "application/pdf" }]
       : undefined;
 
     if ((profile as any)?.email) {

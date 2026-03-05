@@ -7,17 +7,19 @@ const Invoice = () => {
   const [data, setData] = useState<any>(null);
   const [campaign, setCampaign] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [logoUrl, setLogoUrl] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       if (!orderId) return;
 
-      const { data: payment } = await supabase
-        .from('payments' as any)
-        .select('*')
-        .eq('midtrans_order_id', orderId)
-        .single();
+      const [{ data: payment }, { data: logoSetting }] = await Promise.all([
+        supabase.from('payments' as any).select('*').eq('midtrans_order_id', orderId).single(),
+        supabase.from('site_settings').select('value').eq('key', 'logo_url').maybeSingle(),
+      ]);
+
+      if (logoSetting) setLogoUrl((logoSetting as any).value || '');
 
       if (!payment) {
         setLoading(false);
@@ -64,7 +66,12 @@ const Invoice = () => {
         <div className="p-8 border-b border-gray-200">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 tracking-tight">TWIBO.id</h1>
+              <div className="flex items-center gap-3 mb-1">
+                {logoUrl && (
+                  <img src={logoUrl} alt="TWIBO.id" className="h-9 w-9 rounded-lg object-cover" />
+                )}
+                <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: '#fcb503', fontFamily: "'Space Grotesk', 'Segoe UI', sans-serif" }}>TWIBO.id</h1>
+              </div>
               <p className="text-sm text-gray-500 mt-1">www.twibo.id</p>
               <p className="text-xs text-gray-400 mt-0.5">cs@twibo.id</p>
             </div>

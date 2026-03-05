@@ -52,7 +52,7 @@ const Navbar = () => {
       ) : (
         <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xs font-bold">T</div>
       )}
-      <span className="text-primary font-extrabold tracking-tight">TWIBO.id</span>
+      <span className="font-extrabold tracking-tight" style={{ color: '#fcb503' }}>TWIBO.id</span>
     </Link>
   );
 
