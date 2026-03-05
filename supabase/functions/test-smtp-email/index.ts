@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import nodemailer from "npm:nodemailer@6.9.12";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,23 +35,23 @@ Deno.serve(async (req) => {
     const from = smtp.smtp_from_email || smtp.smtp_username;
     const now = new Date().toLocaleString("id-ID", { dateStyle: "full", timeStyle: "medium" });
 
-    const client = new SMTPClient({
-      connection: {
-        hostname: cleanHost,
-        port,
-        tls: port === 465,
-        auth: {
-          username: smtp.smtp_username,
-          password: smtp.smtp_password,
-        },
+    const transporter = nodemailer.createTransport({
+      host: cleanHost,
+      port,
+      secure: port === 465,
+      auth: {
+        user: smtp.smtp_username,
+        pass: smtp.smtp_password,
+      },
+      tls: {
+        rejectUnauthorized: false,
       },
     });
 
-    await client.send({
+    await transporter.sendMail({
       from,
       to,
       subject: "[TWIBO] Test Email - SMTP Berhasil ✅",
-      content: "Test email berhasil",
       html: `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="font-family:Arial,sans-serif;background:#f9f9f9;padding:24px;">
@@ -74,8 +74,6 @@ Deno.serve(async (req) => {
   </div>
 </body></html>`,
     });
-
-    await client.close();
 
     return new Response(JSON.stringify({ status: "sent", to }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
