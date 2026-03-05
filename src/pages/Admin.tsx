@@ -43,7 +43,7 @@ const Admin = () => {
   // Voucher form
   const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
   const [voucherForm, setVoucherForm] = useState({
-    code: '', discount_type: 'percentage', discount_value: 0, max_uses: '',
+    code: '', discount_type: 'percentage', discount_value: 0, max_uses: '', max_uses_per_user: '',
     valid_from: '', valid_until: '', is_active: true,
   });
   const [savingVoucher, setSavingVoucher] = useState(false);
@@ -162,7 +162,7 @@ const Admin = () => {
 
   // Voucher CRUD
   const resetVoucherForm = () => {
-    setVoucherForm({ code: '', discount_type: 'percentage', discount_value: 0, max_uses: '', valid_from: '', valid_until: '', is_active: true });
+    setVoucherForm({ code: '', discount_type: 'percentage', discount_value: 0, max_uses: '', max_uses_per_user: '', valid_from: '', valid_until: '', is_active: true });
     setEditingVoucherId(null);
   };
 
@@ -174,6 +174,7 @@ const Admin = () => {
       discount_type: voucherForm.discount_type,
       discount_value: Number(voucherForm.discount_value) || 0,
       max_uses: voucherForm.max_uses ? Number(voucherForm.max_uses) : null,
+      max_uses_per_user: voucherForm.max_uses_per_user ? Number(voucherForm.max_uses_per_user) : null,
       valid_from: voucherForm.valid_from || null,
       valid_until: voucherForm.valid_until || null,
       is_active: voucherForm.is_active,
@@ -198,6 +199,7 @@ const Admin = () => {
     setVoucherForm({
       code: v.code, discount_type: v.discount_type, discount_value: v.discount_value,
       max_uses: v.max_uses?.toString() || '',
+      max_uses_per_user: v.max_uses_per_user?.toString() || '',
       valid_from: v.valid_from ? new Date(v.valid_from).toISOString().slice(0, 16) : '',
       valid_until: v.valid_until ? new Date(v.valid_until).toISOString().slice(0, 16) : '',
       is_active: v.is_active,
@@ -575,8 +577,12 @@ const Admin = () => {
                         </div>
                       </div>
                       <div>
-                        <Label className="text-xs text-muted-foreground">Max Penggunaan (kosongkan = unlimited)</Label>
+                        <Label className="text-xs text-muted-foreground">Max Penggunaan Total (kosongkan = unlimited)</Label>
                         <Input type="number" value={voucherForm.max_uses} onChange={e => setVoucherForm(prev => ({ ...prev, max_uses: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="Unlimited" />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Max Penggunaan Per User (kosongkan = unlimited)</Label>
+                        <Input type="number" value={voucherForm.max_uses_per_user} onChange={e => setVoucherForm(prev => ({ ...prev, max_uses_per_user: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="Unlimited" />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div><Label className="text-xs text-muted-foreground">Valid Dari</Label><Input type="datetime-local" value={voucherForm.valid_from} onChange={e => setVoucherForm(prev => ({ ...prev, valid_from: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-xs" /></div>
@@ -592,13 +598,14 @@ const Admin = () => {
               </div>
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Kode</TableHead><TableHead>Diskon</TableHead><TableHead>Penggunaan</TableHead><TableHead>Berlaku</TableHead><TableHead>Status</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Kode</TableHead><TableHead>Diskon</TableHead><TableHead>Penggunaan</TableHead><TableHead>Per User</TableHead><TableHead>Berlaku</TableHead><TableHead>Status</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {vouchers.map((v: any) => (
                       <TableRow key={v.id}>
                         <TableCell className="font-mono font-semibold text-foreground">{v.code}</TableCell>
                         <TableCell className="text-sm">{v.discount_type === 'percentage' ? `${v.discount_value}%` : `Rp ${v.discount_value.toLocaleString('id-ID')}`}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{v.used_count}{v.max_uses ? ` / ${v.max_uses}` : ' / ∞'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{v.max_uses_per_user ? `max ${v.max_uses_per_user}` : '∞'}</TableCell>
                         <TableCell className="text-xs text-muted-foreground">{v.valid_from ? new Date(v.valid_from).toLocaleDateString('id-ID') : '—'}{' – '}{v.valid_until ? new Date(v.valid_until).toLocaleDateString('id-ID') : '—'}</TableCell>
                         <TableCell><Switch checked={v.is_active} onCheckedChange={(checked) => handleToggleVoucherActive(v.id, checked)} /></TableCell>
                         <TableCell>
@@ -609,7 +616,7 @@ const Admin = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {vouchers.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">Belum ada voucher</TableCell></TableRow>}
+                    {vouchers.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">Belum ada voucher</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
@@ -735,7 +742,7 @@ const Admin = () => {
               </div>
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
-                  <TableHeader><TableRow><TableHead>Judul</TableHead><TableHead>Slug</TableHead><TableHead>Status</TableHead><TableHead>Tanggal</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead>Judul</TableHead><TableHead>Slug</TableHead><TableHead>Status</TableHead><TableHead>Published</TableHead><TableHead>Tanggal</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {blogPosts.map((p: any) => (
                       <TableRow key={p.id}>
@@ -743,6 +750,21 @@ const Admin = () => {
                         <TableCell className="text-muted-foreground text-xs">{p.slug}</TableCell>
                         <TableCell>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'published' ? 'bg-green-500/20 text-green-400' : p.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400' : 'bg-muted text-muted-foreground'}`}>{p.status}</span>
+                        </TableCell>
+                        <TableCell>
+                          {p.status !== 'scheduled' && (
+                            <Switch
+                              checked={p.status === 'published'}
+                              onCheckedChange={async (checked) => {
+                                const newStatus = checked ? 'published' : 'draft';
+                                const publishedAt = checked ? new Date().toISOString() : null;
+                                const { error } = await supabase.from('blog_posts' as any).update({ status: newStatus, published_at: publishedAt }).eq('id', p.id);
+                                if (error) { toast.error(error.message); return; }
+                                setBlogPosts(prev => prev.map(bp => bp.id === p.id ? { ...bp, status: newStatus, published_at: publishedAt } : bp));
+                                toast.success(checked ? 'Artikel dipublish' : 'Artikel diubah ke draft');
+                              }}
+                            />
+                          )}
                         </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString('id-ID')}</TableCell>
                         <TableCell>
@@ -754,7 +776,7 @@ const Admin = () => {
                         </TableCell>
                       </TableRow>
                     ))}
-                    {blogPosts.length === 0 && <TableRow><TableCell colSpan={5} className="p-8 text-center text-muted-foreground">Belum ada artikel</TableCell></TableRow>}
+                    {blogPosts.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">Belum ada artikel</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>

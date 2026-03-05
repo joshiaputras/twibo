@@ -310,6 +310,7 @@ export type Database = {
           id: string
           is_active: boolean
           max_uses: number | null
+          max_uses_per_user: number | null
           updated_at: string
           used_count: number
           valid_from: string | null
@@ -323,6 +324,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_uses?: number | null
+          max_uses_per_user?: number | null
           updated_at?: string
           used_count?: number
           valid_from?: string | null
@@ -336,6 +338,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           max_uses?: number | null
+          max_uses_per_user?: number | null
           updated_at?: string
           used_count?: number
           valid_from?: string | null
