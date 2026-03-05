@@ -692,7 +692,7 @@ const CampaignEditor = () => {
                   <Textarea value={form.description} onChange={e => update('description', e.target.value)} className="mt-1 bg-secondary/50 border-border" rows={4} required />
                   <p className="text-xs mt-1 text-muted-foreground">
                     {form.description.length} {t.campaign?.descCharLabel ?? 'characters'}
-                    {form.description.length >= 150 ? <span className="text-primary"> ✓ SEO optimal</span> : <span> — disarankan 150+ karakter untuk SEO optimal</span>}
+                    {form.description.length >= 150 ? <span className="text-primary"> ✓</span> : <span> — disarankan 150+ karakter</span>}
                   </p>
                 </div>
                 <div>
