@@ -22,7 +22,7 @@
     --secondary-foreground: 210 40% 98%;
 
     --muted: 222 30% 14%;
-    --muted-foreground: 215 20% 55%;
+    --muted-foreground: 215 20% 65%;
 
     --accent: 45 100% 50%;
     --accent-foreground: 222 47% 6%;
@@ -53,48 +53,48 @@
   }
 
   .light {
-    --background: 0 0% 98%;
+    --background: 40 20% 97%;
     --foreground: 222 47% 11%;
 
-    --card: 0 0% 100%;
+    --card: 40 15% 99%;
     --card-foreground: 222 47% 11%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 45 100% 42%;
+    --primary: 38 92% 38%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 92%;
+    --secondary: 40 12% 90%;
     --secondary-foreground: 222 47% 11%;
 
-    --muted: 220 14% 92%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 40 10% 90%;
+    --muted-foreground: 220 12% 40%;
 
-    --accent: 45 100% 42%;
+    --accent: 38 92% 38%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 84% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 87%;
-    --input: 220 13% 87%;
-    --ring: 45 100% 42%;
+    --border: 40 10% 82%;
+    --input: 40 10% 82%;
+    --ring: 38 92% 38%;
 
-    --gold: 45 100% 42%;
+    --gold: 38 92% 38%;
     --gold-foreground: 0 0% 100%;
-    --gold-glow: 45 100% 42%;
-    --navy: 0 0% 98%;
-    --navy-light: 220 14% 92%;
+    --gold-glow: 38 92% 38%;
+    --navy: 40 20% 97%;
+    --navy-light: 40 12% 90%;
 
-    --sidebar-background: 0 0% 96%;
+    --sidebar-background: 40 15% 95%;
     --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 45 100% 42%;
+    --sidebar-primary: 38 92% 38%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 92%;
+    --sidebar-accent: 40 12% 90%;
     --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 220 13% 87%;
-    --sidebar-ring: 45 100% 42%;
+    --sidebar-border: 40 10% 82%;
+    --sidebar-ring: 38 92% 38%;
   }
 }
 
@@ -147,11 +147,57 @@
   }
 }
 
-@keyframes carousel-scroll {
+/* Carousel: scroll exactly 1/3 of the track (one full set), then loop seamlessly */
+.carousel-track {
+  animation: carousel-scroll-third linear infinite;
+}
+
+@keyframes carousel-scroll-third {
   0% {
     transform: translateX(0);
   }
   100% {
-    transform: translateX(-50%);
+    transform: translateX(calc(-100% / 3));
   }
+}
+
+/* Rich text editor styles */
+.rich-text-editor {
+  min-height: 300px;
+}
+.rich-text-editor:focus {
+  outline: none;
+}
+.rich-text-editor h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+}
+.rich-text-editor h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.375rem;
+}
+.rich-text-editor p {
+  margin-bottom: 0.5rem;
+}
+.rich-text-editor ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.rich-text-editor ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.rich-text-editor blockquote {
+  border-left: 3px solid hsl(var(--primary) / 0.3);
+  padding-left: 1rem;
+  font-style: italic;
+  color: hsl(var(--muted-foreground));
+}
+.rich-text-editor a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
 }

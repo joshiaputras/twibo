@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart, Image, ChevronRight } from 'lucide-react';
 import { usePricing } from '@/hooks/usePricing';
 import { useFeaturedCampaigns } from '@/hooks/useFeaturedCampaigns';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { extractPreviewMeta } from '@/utils/campaignDesign';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -19,12 +19,11 @@ const Index = () => {
   const { t } = useLanguage();
   const { premiumPrice, originalPrice } = usePricing();
   const { campaigns: featuredCampaigns, loading: featuredLoading } = useFeaturedCampaigns();
-  const trackRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
 
-  // CSS animation-based infinite carousel
-  const duplicatedCampaigns = featuredCampaigns.length > 0
-    ? [...featuredCampaigns, ...featuredCampaigns]
+  // Triple the campaigns to ensure seamless loop - translateX(-33.333%) = exactly 1 set
+  const triplicatedCampaigns = featuredCampaigns.length > 0
+    ? [...featuredCampaigns, ...featuredCampaigns, ...featuredCampaigns]
     : [];
 
   const steps = [
@@ -55,11 +54,11 @@ const Index = () => {
 
   const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
 
-  // Calculate animation duration based on number of items
+  // Animation: scroll exactly 1/3 of the track (one full set of campaigns)
   const itemWidth = 256; // w-[240px] + gap
-  const totalWidth = featuredCampaigns.length * itemWidth;
+  const oneSetWidth = featuredCampaigns.length * itemWidth;
   const speed = 40; // pixels per second
-  const duration = totalWidth / speed;
+  const duration = oneSetWidth / speed;
 
   return (
     <Layout>
@@ -184,14 +183,13 @@ const Index = () => {
               onMouseLeave={() => setIsPaused(false)}
             >
               <div
-                ref={trackRef}
-                className="flex gap-4 w-max"
+                className="flex gap-4 w-max carousel-track"
                 style={{
-                  animation: `carousel-scroll ${duration}s linear infinite`,
+                  animationDuration: `${duration}s`,
                   animationPlayState: isPaused ? 'paused' : 'running',
                 }}
               >
-                {duplicatedCampaigns.map((fc, i) => {
+                {triplicatedCampaigns.map((fc, i) => {
                   const previewMeta = extractPreviewMeta(fc.design_json);
                   const previewUrl = previewMeta.previewImageDataUrl;
 

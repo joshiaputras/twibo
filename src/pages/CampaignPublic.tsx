@@ -164,7 +164,6 @@ const CampaignPublic = () => {
     setIsOwner(!!user?.id && !!campaign?.user_id && campaign.user_id === user.id);
   }, [user?.id, campaign?.user_id]);
 
-  // Bake watermark into the example preview image
   useEffect(() => {
     if (!previewImage) { setBakedPreviewImage(''); return; }
     if (!isFree) { setBakedPreviewImage(previewImage); return; }
@@ -181,7 +180,6 @@ const CampaignPublic = () => {
 
         ctx.drawImage(img, 0, 0);
 
-        // Draw "PREVIEW" text
         const pvFontSize = Math.max(28, Math.round(img.width * 0.13));
         ctx.save();
         ctx.translate(img.width / 2, img.height / 2);
@@ -196,7 +194,6 @@ const CampaignPublic = () => {
         ctx.fillText('PREVIEW', 0, 0);
         ctx.restore();
 
-        // Draw watermark badge
         const label = 'Made with TWIBO.id';
         const fontSize = Math.max(10, Math.round(img.width * 0.034));
         const padX = Math.max(10, Math.round(fontSize * 0.9));
@@ -289,11 +286,7 @@ const CampaignPublic = () => {
 
   useEffect(() => {
     if (isInteractingPreview) return;
-
-    const timer = window.setTimeout(() => {
-      updateResult();
-    }, 40);
-
+    const timer = window.setTimeout(() => { updateResult(); }, 40);
     return () => window.clearTimeout(timer);
   }, [updateResult, isInteractingPreview]);
 
@@ -305,23 +298,18 @@ const CampaignPublic = () => {
 
   const getInitialPhotoTransform = useCallback(
     async (photoDataUrl: string) => {
-      if (!photoDataUrl) {
-        return { scale: 100, offsetX: 0, offsetY: 0 };
-      }
-
+      if (!photoDataUrl) return { scale: 100, offsetX: 0, offsetY: 0 };
       if (campaign?.type === 'frame' && placeholderMeta) {
         const photo = await loadImage(photoDataUrl);
         const targetW = Math.max(1, placeholderMeta.width * placeholderMeta.scaleX);
         const targetH = Math.max(1, placeholderMeta.height * placeholderMeta.scaleY);
         const coverScale = Math.max(targetW / Math.max(1, photo.width), targetH / Math.max(1, photo.height)) * 1.2;
-
         return {
           scale: clamp(coverScale * 100, 20, 400),
           offsetX: placeholderMeta.left + targetW / 2 - fw / 2,
           offsetY: placeholderMeta.top + targetH / 2 - fh / 2,
         };
       }
-
       return {
         scale: clamp(previewMeta.photoScale ?? 100, 20, 400),
         offsetX: previewMeta.photoOffsetX ?? 0,
@@ -334,12 +322,10 @@ const CampaignPublic = () => {
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = async ev => {
       const rawDataUrl = (ev.target?.result as string) ?? '';
       if (!rawDataUrl) return;
-
       try {
         setProcessingPhoto(true);
         if (campaign?.type === 'background') {
@@ -371,42 +357,32 @@ const CampaignPublic = () => {
       } finally {
         setProcessingPhoto(false);
       }
-
       await trackSupporter();
     };
-
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
   const handleDownload = async () => {
     if (!campaign || !templateImage) return;
-
     const downloadableImage = await composeResult({
       templateDataUrl: templateImage,
       userPhotoDataUrl: userPhoto || undefined,
-      fullWidth: fw,
-      fullHeight: fh,
-      photoScale,
-      photoOffsetX,
-      photoOffsetY,
+      fullWidth: fw, fullHeight: fh,
+      photoScale, photoOffsetX, photoOffsetY,
       addWatermark: isFree,
       campaignType: campaign.type ?? 'frame',
       placeholderMeta,
-      previewMaxW: fw,
-      previewMaxH: fh,
+      previewMaxW: fw, previewMaxH: fh,
       bgOverlayDataUrl: bgOverlayImage || undefined,
       bgUnderDataUrl: bgUnderImage || undefined,
     }).catch(() => resultImage);
-
     if (!downloadableImage) return;
-
     const a = document.createElement('a');
     a.href = downloadableImage;
     const safeName = (campaign.name || slug || 'twibbon').replace(/[^a-zA-Z0-9_-]/g, '_');
     a.download = `${safeName}-twibo.id.png`;
     a.click();
-
     if (slug) {
       await supabase.rpc('increment_campaign_stats' as any, { _slug: slug, _event: 'download' });
     }
@@ -444,7 +420,6 @@ const CampaignPublic = () => {
       text: campaign?.caption ?? '',
       url,
     };
-
     if (resultImage && navigator.canShare) {
       try {
         const res = await fetch(resultImage);
@@ -455,13 +430,10 @@ const CampaignPublic = () => {
           await navigator.share(fileShareData);
           return;
         }
-      } catch { /* fallback to text share */ }
+      } catch {}
     }
-
     if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch { /* user cancelled */ }
+      try { await navigator.share(shareData); } catch {}
     } else {
       await navigator.clipboard.writeText(url);
       toast.success(t.public?.linkCopied ?? 'Link disalin!');
@@ -479,11 +451,7 @@ const CampaignPublic = () => {
     try {
       const processed = await applyAlphaThreshold(rawRemovedBg, threshold);
       setUserPhoto(processed);
-    } catch {
-      // keep current
-    } finally {
-      setApplyingThreshold(false);
-    }
+    } catch {} finally { setApplyingThreshold(false); }
   }, [rawRemovedBg]);
 
   const handleThresholdChange = useCallback(async (values: number[]) => {
@@ -491,7 +459,6 @@ const CampaignPublic = () => {
     setBgThreshold(newThreshold);
     await applyBgProcessing(newThreshold);
   }, [applyBgProcessing]);
-
 
   const handleRemoveWatermark = async (voucherCode?: string) => {
     if (!campaign) return;
@@ -507,19 +474,12 @@ const CampaignPublic = () => {
   useEffect(() => {
     const el = previewInteractionRef.current;
     if (!el) return;
-
     const preventNativeScroll = (event: Event) => {
-      if (event.cancelable) {
-        event.preventDefault();
-      }
+      if (event.cancelable) event.preventDefault();
       event.stopPropagation();
     };
-
     el.addEventListener('touchmove', preventNativeScroll, { passive: false });
-
-    return () => {
-      el.removeEventListener('touchmove', preventNativeScroll);
-    };
+    return () => { el.removeEventListener('touchmove', preventNativeScroll); };
   }, [resultImage, templateImage]);
 
   useEffect(() => {
@@ -536,7 +496,6 @@ const CampaignPublic = () => {
       const pending = transformPendingRef.current;
       transformPendingRef.current = {};
       transformRafRef.current = null;
-
       if (typeof pending.scale === 'number') setPhotoScale(clamp(pending.scale, 20, 400));
       if (typeof pending.offsetX === 'number') setPhotoOffsetX(pending.offsetX);
       if (typeof pending.offsetY === 'number') setPhotoOffsetY(pending.offsetY);
@@ -552,13 +511,10 @@ const CampaignPublic = () => {
     if (!el) return;
     el.setPointerCapture(event.pointerId);
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-
     const points = [...pointersRef.current.values()];
     if (points.length === 2) {
       const [a, b] = points;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      gestureRef.current.startDistance = Math.hypot(dx, dy);
+      gestureRef.current.startDistance = Math.hypot(b.x - a.x, b.y - a.y);
       gestureRef.current.startScale = photoScale;
       gestureRef.current.startOffsetX = photoOffsetX;
       gestureRef.current.startOffsetY = photoOffsetY;
@@ -571,21 +527,15 @@ const CampaignPublic = () => {
     if (isPreviewBusy || !userPhoto || !pointersRef.current.has(event.pointerId)) return;
     if (event.cancelable) event.preventDefault();
     event.stopPropagation();
-
     const prev = pointersRef.current.get(event.pointerId)!;
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     const points = [...pointersRef.current.values()];
-
     if (points.length === 2) {
       const [a, b] = points;
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const distance = Math.hypot(dx, dy);
+      const distance = Math.hypot(b.x - a.x, b.y - a.y);
       if (gestureRef.current.startDistance > 0) {
-        const ratio = distance / gestureRef.current.startDistance;
-        transformPendingRef.current.scale = gestureRef.current.startScale * ratio;
+        transformPendingRef.current.scale = gestureRef.current.startScale * (distance / gestureRef.current.startDistance);
       }
-
       const centerX = (a.x + b.x) / 2;
       const centerY = (a.y + b.y) / 2;
       transformPendingRef.current.offsetX = gestureRef.current.startOffsetX + (centerX - gestureRef.current.startCenterX) / previewScale;
@@ -593,21 +543,16 @@ const CampaignPublic = () => {
       scheduleTransformFlush();
       return;
     }
-
     if (points.length === 1) {
       const dx = (event.clientX - prev.x) / previewScale;
       const dy = (event.clientY - prev.y) / previewScale;
-
       dragPendingRef.current.dx += dx;
       dragPendingRef.current.dy += dy;
-
       if (dragRafRef.current) return;
-
       dragRafRef.current = window.requestAnimationFrame(() => {
         const { dx: pendingDx, dy: pendingDy } = dragPendingRef.current;
         dragPendingRef.current = { dx: 0, dy: 0 };
         dragRafRef.current = null;
-
         if (pendingDx !== 0) setPhotoOffsetX(v => v + pendingDx);
         if (pendingDy !== 0) setPhotoOffsetY(v => v + pendingDy);
       });
@@ -621,11 +566,7 @@ const CampaignPublic = () => {
     if (previewInteractionRef.current?.hasPointerCapture(event.pointerId)) {
       previewInteractionRef.current.releasePointerCapture(event.pointerId);
     }
-
-    if (pointersRef.current.size < 2) {
-      gestureRef.current.startDistance = 0;
-    }
-
+    if (pointersRef.current.size < 2) gestureRef.current.startDistance = 0;
     if (pointersRef.current.size === 0) {
       setIsInteractingPreview(false);
       updateResult();
@@ -638,13 +579,11 @@ const CampaignPublic = () => {
     if (event.cancelable) event.preventDefault();
     event.stopPropagation();
     wheelPendingRef.current += -event.deltaY * 0.04;
-
     if (wheelIdleTimerRef.current) window.clearTimeout(wheelIdleTimerRef.current);
     wheelIdleTimerRef.current = window.setTimeout(() => {
       setIsInteractingPreview(false);
       updateResult();
     }, 140);
-
     if (transformRafRef.current) return;
     transformRafRef.current = window.requestAnimationFrame(() => {
       const delta = wheelPendingRef.current;
@@ -653,7 +592,6 @@ const CampaignPublic = () => {
       if (delta !== 0) setPhotoScale(v => clamp(v + delta, 20, 400));
     });
   };
-
 
   if (loading) {
     return (
@@ -688,89 +626,93 @@ const CampaignPublic = () => {
             </div>
           )}
 
-          {/* Banner Image */}
-          {campaign.banner_url && (
-            <div className="mb-6 rounded-2xl overflow-hidden border border-border">
-              <img
-                src={campaign.banner_url}
-                alt={`${campaign.name} banner`}
-                className="w-full h-auto object-cover"
-                style={{ maxHeight: '300px' }}
-                loading="lazy"
-              />
-            </div>
-          )}
-
-          {/* Campaign Header */}
-          <div className="glass-strong rounded-2xl p-6 md:p-8 border-gold-subtle mb-6 space-y-4">
-            <h1 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient">{campaign.name}</h1>
-
-            {/* Creator avatar + name */}
-            <div className="flex items-center gap-2">
-              <Avatar className="w-7 h-7">
-                {creatorAvatarUrl && (
-                  <AvatarImage src={creatorAvatarUrl} alt={creatorName} />
-                )}
-                <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                  {(creatorName || 'U').charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-foreground font-medium">{creatorName || 'User'}</span>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Users className="w-3 h-3" /> {supportersCount} supporters
-              </span>
-              <span className="text-xs text-muted-foreground">•</span>
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                {new Date(campaign.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-              {campaign.tier === 'premium' && (
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
-                  <Crown className="w-3 h-3" />
-                  Premium
-                </span>
-              )}
-            </div>
-
-            {/* About This Campaign */}
-            {campaign.description && (
-              <div>
-                <hr className="border-border/40 my-2" />
-                <h3 className="text-lg font-display font-semibold text-foreground mb-2">Tentang Campaign Ini</h3>
-                <p className="text-foreground/80 text-sm">{campaign.description}</p>
+          {/* Campaign Header - banner INSIDE this container */}
+          <div className="glass-strong rounded-2xl border-gold-subtle mb-6 overflow-hidden">
+            {/* Banner Image inside container */}
+            {campaign.banner_url && (
+              <div className="w-full">
+                <img
+                  src={campaign.banner_url}
+                  alt={`${campaign.name} banner`}
+                  className="w-full h-auto object-cover"
+                  style={{ maxHeight: '280px' }}
+                  loading="lazy"
+                />
               </div>
             )}
 
-            {/* Share bar */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex-1 min-w-0 flex items-center gap-2 glass rounded-lg px-3 py-2 text-xs text-foreground/70">
-                <Link2 className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{window.location.origin}/c/{slug}</span>
+            <div className="p-6 md:p-8 space-y-4">
+              <h1 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient">{campaign.name}</h1>
+
+              {/* Line 1: Avatar, name, premium badge */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Avatar className="w-7 h-7">
+                  {creatorAvatarUrl && (
+                    <AvatarImage src={creatorAvatarUrl} alt={creatorName} />
+                  )}
+                  <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                    {(creatorName || 'U').charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm text-foreground font-medium">{creatorName || 'User'}</span>
+                {campaign.tier === 'premium' && (
+                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
+                    <Crown className="w-3 h-3" />
+                    Premium
+                  </span>
+                )}
               </div>
-              <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={handleShareUniversal}>
-                <Share2 className="w-3.5 h-3.5" />
-              </Button>
-              <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={handleCopyLink}>
-                <Copy className="w-3.5 h-3.5" />
-              </Button>
+
+              {/* Line 2: Date and supporters */}
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  {new Date(campaign.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Users className="w-3 h-3" /> {supportersCount} supporters
+                </span>
+              </div>
+
+              {/* About This Campaign */}
+              {campaign.description && (
+                <div>
+                  <hr className="border-border/40 my-2" />
+                  <h3 className="text-lg font-display font-semibold text-foreground mb-2">Tentang Campaign Ini</h3>
+                  <p className="text-foreground/80 text-sm">{campaign.description}</p>
+                </div>
+              )}
+
+              {/* Share bar */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex-1 min-w-0 flex items-center gap-2 glass rounded-lg px-3 py-2 text-xs text-foreground/70">
+                  <Link2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{window.location.origin}/c/{slug}</span>
+                </div>
+                <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={handleShareUniversal}>
+                  <Share2 className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={handleCopyLink}>
+                  <Copy className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            {/* Left column: preview image + caption below it */}
-            <div className="space-y-4">
+            {/* Left column: preview image + caption directly below */}
+            <div className="space-y-0">
               {bakedPreviewImage && (
-                <div className="glass-strong rounded-2xl p-4 border-gold-subtle">
+                <div className="glass-strong rounded-t-2xl p-4 border-gold-subtle border-b-0">
                   <div className="relative mx-auto max-w-[400px] rounded-xl border border-border bg-secondary/20 p-2">
                     <img src={bakedPreviewImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
                   </div>
                 </div>
               )}
 
-              {/* Caption below preview image */}
+              {/* Caption directly under preview image - no separate container */}
               {campaign.caption && !userPhoto && (
-                <div className="rounded-xl border border-border bg-secondary/20 p-4">
+                <div className={`${bakedPreviewImage ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'} border border-border bg-secondary/20 p-4`}>
                   <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
                 </div>
               )}
@@ -881,14 +823,7 @@ const CampaignPublic = () => {
                           <span>{t.public?.tolerance ?? 'Tolerance'}</span>
                           <span>{bgThreshold}%</span>
                         </div>
-                        <Slider
-                          value={[bgThreshold]}
-                          onValueChange={handleThresholdChange}
-                          min={0}
-                          max={100}
-                          step={5}
-                          className="w-full"
-                        />
+                        <Slider value={[bgThreshold]} onValueChange={handleThresholdChange} min={0} max={100} step={5} className="w-full" />
                       </div>
                     </div>
                   )}
@@ -932,7 +867,6 @@ const CampaignPublic = () => {
         </div>
       </section>
 
-      {/* Payment Confirmation Dialog */}
       <PaymentConfirmDialog
         open={showPaymentConfirm}
         onClose={() => setShowPaymentConfirm(false)}

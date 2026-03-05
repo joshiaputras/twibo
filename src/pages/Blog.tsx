@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Calendar, User, Tag } from 'lucide-react';
+import { Calendar, Tag } from 'lucide-react';
 
 const Blog = () => {
   const { t } = useLanguage();
@@ -13,10 +13,12 @@ const Blog = () => {
 
   useEffect(() => {
     const load = async () => {
+      // Fetch published posts AND scheduled posts whose published_at <= now
+      const now = new Date().toISOString();
       const { data } = await supabase
         .from('blog_posts' as any)
         .select('*')
-        .eq('status', 'published')
+        .or(`status.eq.published,and(status.eq.scheduled,published_at.lte.${now})`)
         .order('published_at', { ascending: false });
       setPosts((data as any[]) ?? []);
       setLoading(false);
