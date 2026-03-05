@@ -26,36 +26,46 @@ const Index = () => {
     const el = carouselRef.current;
     if (!el || featuredCampaigns.length === 0) return;
 
-    let animId: number;
-    let lastTime = 0;
-    const speed = 0.5; // pixels per frame at 60fps
+    // Wait for layout to render
+    const initTimer = setTimeout(() => {
+      if (!el.scrollWidth || el.scrollWidth <= el.clientWidth) return;
 
-    const animate = (time: number) => {
-      if (lastTime) {
-        const delta = time - lastTime;
-        const move = speed * (delta / 16.67); // normalize to 60fps
-        el.scrollLeft += move;
-        // Reset seamlessly when past midpoint
-        if (el.scrollLeft >= el.scrollWidth / 2) {
-          el.scrollLeft -= el.scrollWidth / 2;
+      let animId: number;
+      let lastTime = 0;
+      let paused = false;
+      const speed = 0.4;
+
+      const animate = (time: number) => {
+        if (!paused && lastTime) {
+          const delta = time - lastTime;
+          const move = speed * (delta / 16.67);
+          el.scrollLeft += move;
+          const third = el.scrollWidth / 3;
+          if (el.scrollLeft >= third * 2) {
+            el.scrollLeft -= third;
+          }
         }
-      }
-      lastTime = time;
+        lastTime = time;
+        animId = requestAnimationFrame(animate);
+      };
+
+      const pause = () => { paused = true; };
+      const resume = () => { paused = false; lastTime = 0; };
+
       animId = requestAnimationFrame(animate);
-    };
+      el.addEventListener('mouseenter', pause);
+      el.addEventListener('mouseleave', resume);
 
-    // Pause on hover
-    const pause = () => cancelAnimationFrame(animId);
-    const resume = () => { lastTime = 0; animId = requestAnimationFrame(animate); };
-
-    animId = requestAnimationFrame(animate);
-    el.addEventListener('mouseenter', pause);
-    el.addEventListener('mouseleave', resume);
+      (el as any).__carouselCleanup = () => {
+        cancelAnimationFrame(animId);
+        el.removeEventListener('mouseenter', pause);
+        el.removeEventListener('mouseleave', resume);
+      };
+    }, 100);
 
     return () => {
-      cancelAnimationFrame(animId);
-      el.removeEventListener('mouseenter', pause);
-      el.removeEventListener('mouseleave', resume);
+      clearTimeout(initTimer);
+      if ((el as any).__carouselCleanup) (el as any).__carouselCleanup();
     };
   }, [featuredCampaigns.length]);
 
@@ -203,7 +213,11 @@ const Index = () => {
             <div
               ref={carouselRef}
               className="flex gap-4 overflow-x-hidden pb-4"
-              style={{ scrollBehavior: 'auto' }}
+              style={{
+                scrollBehavior: 'auto',
+                maskImage: 'linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)',
+                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 5%, black 95%, transparent 100%)',
+              }}
             >
               {/* Duplicate list 3x for seamless infinite loop */}
               {[...featuredCampaigns, ...featuredCampaigns, ...featuredCampaigns].map((fc, i) => {

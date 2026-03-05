@@ -67,13 +67,13 @@
     "premiumCta": "Upgrade Premium",
     "features": "Fitur",
     "freeFeatures": {
-      "f1": "Editor dasar",
+      "f1": "TWIBO Frame Editor",
       "f2": "Watermark pada hasil",
       "f3": "Iklan pada halaman campaign",
       "f4": "Tanpa statistik"
     },
     "premiumFeatures": {
-      "f1": "Editor penuh & semua fitur",
+      "f1": "TWIBO Frame Editor",
       "f2": "Tanpa watermark",
       "f3": "Tanpa iklan",
       "f4": "Statistik lengkap",
