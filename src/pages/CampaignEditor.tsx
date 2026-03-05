@@ -1059,7 +1059,7 @@ const CampaignEditor = () => {
                     {t.campaign.prev}
                   </Button>
                 )}
-                {step < steps.length - 1 && (
+                {step < steps.length - 1 && step !== 4 && (
                   <Button onClick={handleNext} className="gold-glow gap-1">
                     {t.campaign.next}
                     <ChevronRight className="w-4 h-4" />

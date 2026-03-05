@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
+import nodemailer from "npm:nodemailer@6.9.12";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,20 +12,20 @@ async function sendEmail(smtp: Record<string, string>, to: string, subject: stri
   const port = parseInt(smtp.smtp_port || "465");
   const from = smtp.smtp_from_email || smtp.smtp_username;
 
-  const client = new SMTPClient({
-    connection: {
-      hostname: cleanHost,
-      port,
-      tls: port === 465,
-      auth: {
-        username: smtp.smtp_username,
-        password: smtp.smtp_password,
-      },
+  const transporter = nodemailer.createTransport({
+    host: cleanHost,
+    port,
+    secure: port === 465,
+    auth: {
+      user: smtp.smtp_username,
+      pass: smtp.smtp_password,
+    },
+    tls: {
+      rejectUnauthorized: false,
     },
   });
 
-  await client.send({ from, to, subject, content: "Email from TWIBO", html });
-  await client.close();
+  await transporter.sendMail({ from, to, subject, html });
 }
 
 function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string) {
@@ -180,14 +180,12 @@ Deno.serve(async (req) => {
 
     const invoiceUrl = `${app_url || "https://twibbo-creator-hub.lovable.app"}/invoice/${order_id}`;
 
-    // Send invoice email to customer
     if ((profile as any)?.email) {
       const html = buildInvoiceHtml(payment, campaign, profile, invoiceUrl);
       await sendEmail(smtp, (profile as any).email, `Invoice Pembayaran - ${(payment as any).midtrans_order_id}`, html);
       console.log("Invoice email sent to customer:", (profile as any).email);
     }
 
-    // Send admin notification email
     const adminEmail = smtp.admin_notification_email || "twibo.id@gmail.com";
     try {
       const adminHtml = buildAdminNotificationHtml(payment, campaign, profile);
