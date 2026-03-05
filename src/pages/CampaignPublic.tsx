@@ -16,6 +16,8 @@ import { extractPlaceholderMeta, extractPreviewMeta } from '@/utils/campaignDesi
 import { useIsMobile } from '@/hooks/use-mobile';
 import PhotoComposerPreview from '@/components/PhotoComposerPreview';
 import AdSenseBanner from '@/components/AdSenseBanner';
+import AnchorAd from '@/components/AnchorAd';
+import InterstitialAdDialog from '@/components/InterstitialAdDialog';
 import { useMidtransPayment } from '@/hooks/useMidtransPayment';
 import { usePricing } from '@/hooks/usePricing';
 import PaymentConfirmDialog from '@/components/PaymentConfirmDialog';
@@ -53,6 +55,7 @@ const CampaignPublic = () => {
   const { premiumPrice, originalPrice } = usePricing();
   const [showPaymentConfirm, setShowPaymentConfirm] = useState(false);
   const isFree = campaign?.tier !== 'premium';
+  const [showInterstitialAd, setShowInterstitialAd] = useState(false);
   const composeVersionRef = useRef(0);
   const supporterTrackedRef = useRef(false);
   const previewInteractionRef = useRef<HTMLDivElement | null>(null);
@@ -835,7 +838,13 @@ const CampaignPublic = () => {
                     </div>
                   )}
 
-                  <Button className="gold-glow font-semibold gap-2 w-full" onClick={handleDownload}>
+                  <Button className="gold-glow font-semibold gap-2 w-full" onClick={() => {
+                    if (isFree) {
+                      setShowInterstitialAd(true);
+                    } else {
+                      handleDownload();
+                    }
+                  }}>
                     <Download className="w-4 h-4" />
                     {t.public?.downloadResult ?? 'Download Hasil'}
                   </Button>
@@ -865,8 +874,14 @@ const CampaignPublic = () => {
             </div>
           )}
         </div>
+        {isFree && <AnchorAd />}
       </section>
 
+      <InterstitialAdDialog
+        open={showInterstitialAd}
+        onClose={() => setShowInterstitialAd(false)}
+        onDownload={handleDownload}
+      />
       <PaymentConfirmDialog
         open={showPaymentConfirm}
         onClose={() => setShowPaymentConfirm(false)}

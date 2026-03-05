@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Check, X, Crown, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePricing } from '@/hooks/usePricing';
+import AnchorAd from '@/components/AnchorAd';
 
 const Pricing = () => {
   const { t } = useLanguage();
@@ -122,6 +123,7 @@ const Pricing = () => {
           </div>
         </div>
       </section>
+      <AnchorAd />
     </Layout>
   );
 };

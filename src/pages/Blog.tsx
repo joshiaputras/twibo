@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar, Tag } from 'lucide-react';
+import AnchorAd from '@/components/AnchorAd';
 
 const Blog = () => {
   const { t } = useLanguage();
@@ -91,6 +92,7 @@ const Blog = () => {
           )}
         </div>
       </section>
+      <AnchorAd />
     </Layout>
   );
 };

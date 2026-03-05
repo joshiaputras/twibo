@@ -1,0 +1,1 @@
+ALTER TABLE public.vouchers ADD COLUMN IF NOT EXISTS max_uses_per_user integer DEFAULT NULL;

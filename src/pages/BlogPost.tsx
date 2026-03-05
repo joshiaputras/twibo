@@ -6,6 +6,7 @@ import { Calendar, Tag, ArrowLeft, BookOpen } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import AdSenseBanner from '@/components/AdSenseBanner';
+import AnchorAd from '@/components/AnchorAd';
 
 const BlogPost = () => {
   const { slug } = useParams();
@@ -188,6 +189,7 @@ const BlogPost = () => {
           )}
         </div>
       </article>
+      <AnchorAd />
     </Layout>
   );
 };
