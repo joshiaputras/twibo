@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Link, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
@@ -15,6 +16,7 @@ const NotFound = () => {
 
   return (
     <Layout>
+      <SEOHead title="404 — Halaman Tidak Ditemukan | TWIBO.id" description="Halaman yang kamu cari tidak ada atau sudah dipindahkan." robots="noindex, nofollow" />
       <section className="py-24 md:py-32 flex items-center justify-center min-h-[80vh]">
         <div className="text-center px-4">
           <div className="font-display text-8xl md:text-9xl font-bold text-gold-gradient mb-4">404</div>

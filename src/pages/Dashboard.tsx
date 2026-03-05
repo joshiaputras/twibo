@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -164,6 +165,7 @@ const Dashboard = () => {
 
   return (
     <Layout>
+      <SEOHead title="Dashboard — TWIBO.id" description="Kelola campaign twibbon kamu di dashboard TWIBO.id." robots="noindex, nofollow" />
       <section className="py-24 md:py-32">
         <div className="container mx-auto px-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">

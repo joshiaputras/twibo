@@ -14,7 +14,7 @@ function toWIB(dateStr: string): string {
     timeZone: "Asia/Jakarta",
     day: "2-digit", month: "long", year: "numeric",
     hour: "2-digit", minute: "2-digit", hour12: false,
-  }) + " WIB";
+  });
 }
 
 async function sendEmail(smtp: Record<string, string>, to: string, subject: string, html: string, attachments?: any[]) {
@@ -41,6 +41,13 @@ async function sendEmail(smtp: Record<string, string>, to: string, subject: stri
 
 const headerStyle = `background:#1a1a2e;background-image:linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);background-size:24px 24px;color:#fff;padding:28px 32px;text-align:center;`;
 
+function buildLogoBlock(logoUrl: string) {
+  const logoImg = logoUrl
+    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;background:transparent;vertical-align:middle;" />`
+    : '';
+  return `<div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;">${logoImg}<span style="font-size:22px;font-weight:800;color:#FFD700;font-family:'Space Grotesk','Segoe UI',sans-serif;vertical-align:middle;">TWIBO.id</span></div>`;
+}
+
 function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string, logoUrl: string) {
   const isPaypal = payment.payment_method === 'paypal';
   const amount = isPaypal
@@ -48,9 +55,7 @@ function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl:
     : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
   const paidAt = payment.paid_at ? toWIB(payment.paid_at) : "-";
 
-  const logoBlock = logoUrl
-    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;margin-bottom:8px;background:transparent;" />`
-    : `<span style="font-size:22px;font-weight:800;color:#FFD700;">TWIBO.id</span>`;
+  const logoBlock = buildLogoBlock(logoUrl);
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
@@ -90,9 +95,7 @@ function buildAdminNotificationHtml(payment: any, campaign: any, profile: any, l
     : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
   const paidAt = payment.paid_at ? toWIB(payment.paid_at) : "-";
 
-  const logoBlock = logoUrl
-    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;margin-bottom:8px;background:transparent;" />`
-    : `<span style="font-size:22px;font-weight:800;color:#FFD700;">TWIBO.id</span>`;
+  const logoBlock = buildLogoBlock(logoUrl);
 
   return `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
