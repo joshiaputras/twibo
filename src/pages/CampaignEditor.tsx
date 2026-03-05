@@ -289,11 +289,6 @@ const CampaignEditor = () => {
       return false;
     }
 
-    if (form.description.trim().length < 150) {
-      toast.error(t.campaign?.descMinLength ?? 'Deskripsi minimal 150 karakter untuk SEO yang optimal.');
-      return false;
-    }
-
     return await checkSlugAvailability(normalized);
   };
 
@@ -694,11 +689,11 @@ const CampaignEditor = () => {
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">{t.campaign.descLabel} <span className="text-destructive">*</span></Label>
-                  <Textarea value={form.description} onChange={e => update('description', e.target.value)} className="mt-1 bg-secondary/50 border-border" rows={4} required minLength={150} />
-                  <p className={`text-xs mt-1 ${form.description.length >= 150 ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {form.description.length} {t.campaign?.descCharLabel ?? 'characters'}{form.description.length >= 150 && ' ✓'}
+                  <Textarea value={form.description} onChange={e => update('description', e.target.value)} className="mt-1 bg-secondary/50 border-border" rows={4} required />
+                  <p className="text-xs mt-1 text-muted-foreground">
+                    {form.description.length} {t.campaign?.descCharLabel ?? 'characters'}
+                    {form.description.length >= 150 ? <span className="text-primary"> ✓ SEO optimal</span> : <span> — disarankan 150+ karakter untuk SEO optimal</span>}
                   </p>
-                  <p className="text-xs text-muted-foreground">{t.campaign?.descMinHint ?? 'Minimum 150 characters'}</p>
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">{t.campaign.captionLabel}</Label>
@@ -1009,25 +1004,30 @@ const CampaignEditor = () => {
             )}
 
             {step === 4 && showPayment && campaignTier === 'premium' && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md">
-                <div className="max-w-lg w-full mx-4 text-center space-y-6">
-                  <div className="relative">
-                    <div className="absolute inset-0 rounded-full bg-green-500/20 blur-3xl w-32 h-32 mx-auto" />
-                    <div className="relative w-20 h-20 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
-                      <Check className="w-10 h-10 text-green-500" />
-                    </div>
+              <div className="space-y-6 text-center py-8">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-green-500/20 blur-3xl w-32 h-32 mx-auto" />
+                  <div className="relative w-20 h-20 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                    <Check className="w-10 h-10 text-green-500" />
                   </div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">🎉 Campaign Berhasil Dipublish!</h2>
-                  <p className="text-muted-foreground text-sm">Campaign <strong>{form.name}</strong> sudah berstatus <span className="text-primary font-semibold">Premium</span> dan siap digunakan.</p>
-                  <p className="text-xs text-muted-foreground">twibo.id/c/{form.slug}</p>
-                  <div className="flex gap-3 justify-center flex-wrap pt-2">
-                    <Button variant="outline" className="border-border gap-2" onClick={() => navigate(`/c/${form.slug}`)}>
-                      <Eye className="w-4 h-4" /> Lihat Campaign
-                    </Button>
-                    <Button className="gold-glow font-semibold gap-2" onClick={() => navigate('/dashboard')}>
-                      <ChevronLeft className="w-4 h-4" /> Kembali ke Dashboard
-                    </Button>
+                </div>
+                <h2 className="font-display text-2xl font-bold text-foreground">🎉 Campaign Berhasil Dipublish!</h2>
+                <p className="text-muted-foreground text-sm">Campaign <strong>{form.name}</strong> sudah berstatus <span className="text-primary font-semibold">Premium</span> dan siap digunakan.</p>
+
+                {previewResult && (
+                  <div className="mx-auto max-w-[280px] rounded-xl border border-border overflow-hidden shadow-lg">
+                    <img src={previewResult} alt="Campaign preview" className="w-full h-auto" />
                   </div>
+                )}
+
+                <p className="text-xs text-muted-foreground">twibo.id/c/{form.slug}</p>
+                <div className="flex gap-3 justify-center flex-wrap pt-2">
+                  <Button variant="outline" className="border-border gap-2" onClick={() => navigate(`/c/${form.slug}`)}>
+                    <Eye className="w-4 h-4" /> Lihat Campaign
+                  </Button>
+                  <Button className="gold-glow font-semibold gap-2" onClick={() => navigate('/dashboard')}>
+                    <ChevronLeft className="w-4 h-4" /> Kembali ke Dashboard
+                  </Button>
                 </div>
               </div>
             )}

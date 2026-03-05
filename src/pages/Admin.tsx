@@ -1039,6 +1039,13 @@ const Admin = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
                   <h3 className="font-display font-semibold text-foreground">Google AdSense</h3>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={settings['adsense_enabled'] !== 'false'}
+                      onCheckedChange={(checked) => setSettings(prev => ({ ...prev, adsense_enabled: checked ? 'true' : 'false' }))}
+                    />
+                    <Label className="text-sm text-foreground">Aktifkan AdSense</Label>
+                  </div>
                   {['adsense_client_id', 'adsense_slot_id'].map(key => (
                     <div key={key}>
                       <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
