@@ -441,7 +441,7 @@ const CampaignEditor = () => {
         setSimScale(initialTransform.scale);
         setSimOffsetX(initialTransform.offsetX);
         setSimOffsetY(initialTransform.offsetY);
-        toast.error('Gagal remove background, memakai foto original.');
+        toast.error(t.campaign?.bgRemoveFailed ?? 'Failed to remove background, using original photo.');
       } finally {
         setProcessingPhoto(false);
       }
@@ -665,7 +665,7 @@ const CampaignEditor = () => {
               <div className="space-y-5">
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.step1}</h2>
                 <div>
-                  <Label className="text-sm text-muted-foreground">{t.campaign.nameLabel}</Label>
+                  <Label className="text-sm text-muted-foreground">{t.campaign.nameLabel} <span className="text-destructive">*</span></Label>
                   <Input
                     value={form.name}
                     onChange={e => update('name', e.target.value)}
@@ -677,16 +677,16 @@ const CampaignEditor = () => {
                   <Label className="text-sm text-muted-foreground">{t.campaign.descLabel} <span className="text-destructive">*</span></Label>
                   <Textarea value={form.description} onChange={e => update('description', e.target.value)} className="mt-1 bg-secondary/50 border-border" rows={4} required minLength={150} />
                   <p className={`text-xs mt-1 ${form.description.length >= 150 ? 'text-primary' : 'text-muted-foreground'}`}>
-                    {form.description.length}/150 {t.campaign?.descCharHint ?? 'karakter minimum untuk SEO'}
-                    {form.description.length >= 150 && ' ✓'}
+                    {form.description.length} {t.campaign?.descCharLabel ?? 'characters'}{form.description.length >= 150 && ' ✓'}
                   </p>
+                  <p className="text-xs text-muted-foreground">{t.campaign?.descMinHint ?? 'Minimum 150 characters'}</p>
                 </div>
                 <div>
                   <Label className="text-sm text-muted-foreground">{t.campaign.captionLabel}</Label>
                   <Textarea value={form.caption} onChange={e => update('caption', e.target.value)} className="mt-1 bg-secondary/50 border-border" rows={2} />
                 </div>
                 <div>
-                  <Label className="text-sm text-muted-foreground">{t.campaign.slugLabel}</Label>
+                  <Label className="text-sm text-muted-foreground">{t.campaign.slugLabel} <span className="text-destructive">*</span></Label>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm text-muted-foreground">twibo.id/c/</span>
                     <Input
@@ -701,8 +701,8 @@ const CampaignEditor = () => {
                       required
                     />
                   </div>
-                  {!isEdit && slugStatus === 'checking' && <p className="text-xs text-muted-foreground mt-1">Checking slug...</p>}
-                  {!isEdit && slugStatus === 'available' && <p className="text-xs text-primary mt-1">Slug tersedia</p>}
+                  {!isEdit && slugStatus === 'checking' && <p className="text-xs text-muted-foreground mt-1">{t.campaign?.slugChecking ?? 'Checking slug...'}</p>}
+                  {!isEdit && slugStatus === 'available' && <p className="text-xs text-primary mt-1">{t.campaign?.slugAvailable ?? 'Slug available'}</p>}
                   {!isEdit && slugStatus === 'taken' && <p className="text-xs text-destructive mt-1">{t.campaign.slugTaken}</p>}
                   <p className="text-xs text-amber-400 mt-1 flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3" />
@@ -712,8 +712,8 @@ const CampaignEditor = () => {
 
                 {/* Banner Image Upload - Premium Only */}
                 <div>
-                  <Label className="text-sm text-muted-foreground">Banner Image (opsional)</Label>
-                  <p className="text-xs text-muted-foreground mb-2">Ditampilkan di atas judul campaign pada halaman publik. Rasio 3:1 (1200×400px).</p>
+                  <Label className="text-sm text-muted-foreground">{t.campaign?.bannerLabel ?? 'Banner Image'} ({t.campaign?.optionalLabel ?? 'optional'})</Label>
+                  <p className="text-xs text-muted-foreground mb-2">{t.campaign?.bannerDesc ?? 'Displayed above the campaign title on the public page. Ratio 3:1 (1200×400px).'}</p>
                   {campaignTier === 'premium' ? (
                     <div className="space-y-2">
                       {bannerUrl && (
@@ -724,8 +724,8 @@ const CampaignEditor = () => {
                             size="sm"
                             className="absolute top-2 right-2 border-border bg-background/80 text-xs"
                             onClick={() => { setBannerUrl(''); }}
-                          >
-                            Hapus
+                           >
+                             {t.campaign?.bannerRemove ?? 'Remove'}
                           </Button>
                         </div>
                       )}
@@ -743,7 +743,7 @@ const CampaignEditor = () => {
                         />
                         <label htmlFor="banner-upload">
                           <Button variant="outline" size="sm" className="border-border gap-1 cursor-pointer" asChild>
-                            <span><Upload className="w-3.5 h-3.5" /> {bannerUrl ? 'Ganti Banner' : 'Upload Banner'}</span>
+                            <span><Upload className="w-3.5 h-3.5" /> {bannerUrl ? (t.campaign?.bannerReplace ?? 'Replace Banner') : (t.campaign?.bannerUpload ?? 'Upload Banner')}</span>
                           </Button>
                         </label>
                       </div>
@@ -752,8 +752,8 @@ const CampaignEditor = () => {
                     <div className="relative rounded-xl overflow-hidden border border-border p-6 text-center">
                       <div className="absolute inset-0 bg-secondary/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2">
                         <Crown className="w-6 h-6 text-primary" />
-                        <p className="text-sm font-semibold text-foreground">Premium Feature</p>
-                        <p className="text-xs text-muted-foreground">Upgrade ke Premium untuk upload banner kustom</p>
+                         <p className="text-sm font-semibold text-foreground">{t.campaign?.premiumFeatureLabel ?? 'Premium Feature'}</p>
+                         <p className="text-xs text-muted-foreground">{t.campaign?.bannerUpgradeHint ?? 'Upgrade to Premium to upload custom banner'}</p>
                       </div>
                       <div className="h-16 bg-secondary/30 rounded-lg" />
                     </div>
@@ -766,7 +766,7 @@ const CampaignEditor = () => {
                     {campaignTier !== 'premium' && (
                       <div className="absolute inset-0 bg-secondary/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2 rounded-xl">
                         <Crown className="w-6 h-6 text-primary" />
-                        <p className="text-sm font-semibold text-foreground">Premium Feature</p>
+                        <p className="text-sm font-semibold text-foreground">{t.campaign?.premiumFeatureLabel ?? 'Premium Feature'}</p>
                         <p className="text-xs text-muted-foreground text-center px-4">{t.campaign?.privateUpgradeHint ?? 'Upgrade ke Premium untuk menyembunyikan campaign dari mesin pencari'}</p>
                       </div>
                     )}
@@ -802,9 +802,9 @@ const CampaignEditor = () => {
                   setBannerUrl(urlData.publicUrl);
                   setShowBannerCrop(false);
                   setBannerFile(null);
-                  toast.success('Banner berhasil diupload!');
+                  toast.success(t.campaign?.bannerSuccess ?? 'Banner uploaded successfully!');
                 } catch (err: any) {
-                  toast.error(err.message || 'Gagal upload banner');
+                  toast.error(err.message || (t.campaign?.bannerFailed ?? 'Failed to upload banner'));
                 } finally {
                   setUploadingBanner(false);
                 }

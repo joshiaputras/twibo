@@ -168,7 +168,7 @@ const Admin = () => {
   };
 
   const handleSaveVoucher = async () => {
-    if (!voucherForm.code.trim()) { toast.error('Kode voucher wajib diisi'); return; }
+    if (!voucherForm.code.trim()) { toast.error(t.admin?.voucherCodeRequired ?? 'Voucher code is required'); return; }
     setSavingVoucher(true);
     const payload = {
       code: voucherForm.code.toUpperCase().trim(),
@@ -184,12 +184,12 @@ const Admin = () => {
       const { error } = await supabase.from('vouchers' as any).update(payload).eq('id', editingVoucherId);
       if (error) { toast.error(error.message); setSavingVoucher(false); return; }
       setVouchers(prev => prev.map(v => v.id === editingVoucherId ? { ...v, ...payload } : v));
-      toast.success('Voucher berhasil diperbarui');
+      toast.success(t.admin?.voucherUpdated ?? 'Voucher updated');
     } else {
       const { data, error } = await supabase.from('vouchers' as any).insert(payload).select().single();
       if (error) { toast.error(error.message); setSavingVoucher(false); return; }
       setVouchers(prev => [data, ...prev]);
-      toast.success('Voucher berhasil dibuat');
+      toast.success(t.admin?.voucherCreated ?? 'Voucher created');
     }
     setSavingVoucher(false);
     setVoucherDialogOpen(false);
@@ -213,7 +213,7 @@ const Admin = () => {
     const { error } = await supabase.from('vouchers' as any).delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
     setVouchers(prev => prev.filter(v => v.id !== id));
-    toast.success('Voucher berhasil dihapus');
+    toast.success(t.admin?.voucherDeleted ?? 'Voucher deleted');
   };
 
   const handleToggleVoucherActive = async (id: string, isActive: boolean) => {
@@ -263,9 +263,9 @@ const Admin = () => {
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(fileName);
       setBlogForm(prev => ({ ...prev, cover_image_url: urlData.publicUrl }));
-      toast.success('Cover image berhasil diupload');
+      toast.success(t.admin?.coverUploaded ?? 'Cover image uploaded');
     } catch (err: any) {
-      toast.error(err.message || 'Gagal upload cover image');
+      toast.error(err.message || (t.admin?.coverFailed ?? 'Failed to upload cover image'));
     } finally {
       setUploadingCover(false);
     }
@@ -278,7 +278,7 @@ const Admin = () => {
 
   const handleSaveBlog = async () => {
     if (!blogForm.title.trim() || !blogForm.slug.trim()) {
-      toast.error('Title dan slug wajib diisi');
+      toast.error(t.admin?.titleSlugRequired ?? 'Title and slug are required');
       return;
     }
 
@@ -298,7 +298,7 @@ const Admin = () => {
       .maybeSingle();
 
     if (existingSlug) {
-      toast.error('Slug sudah digunakan oleh artikel lain. Silakan ganti.');
+      toast.error(t.admin?.slugDuplicate ?? 'Slug is already used by another article. Please change it.');
       setSavingBlog(false);
       return;
     }
@@ -329,12 +329,12 @@ const Admin = () => {
       const { error } = await supabase.from('blog_posts' as any).update(payload).eq('id', editingBlogId);
       if (error) { toast.error(error.message); setSavingBlog(false); return; }
       setBlogPosts(prev => prev.map(p => p.id === editingBlogId ? { ...p, ...payload } : p));
-      toast.success('Artikel diperbarui');
+      toast.success(t.admin?.articleUpdated ?? 'Article updated');
     } else {
       const { data, error } = await supabase.from('blog_posts' as any).insert(payload).select().single();
       if (error) { toast.error(error.message); setSavingBlog(false); return; }
       setBlogPosts(prev => [data, ...prev]);
-      toast.success('Artikel dibuat');
+      toast.success(t.admin?.articleCreated ?? 'Article created');
     }
     setSavingBlog(false);
     setBlogDialogOpen(false);
@@ -363,7 +363,7 @@ const Admin = () => {
     const { error } = await supabase.from('blog_posts' as any).delete().eq('id', id);
     if (error) { toast.error(error.message); return; }
     setBlogPosts(prev => prev.filter(p => p.id !== id));
-    toast.success('Artikel dihapus');
+    toast.success(t.admin?.articleDeleted ?? 'Article deleted');
   };
 
   const SortHeader = ({ label, sortKeyName }: { label: string; sortKeyName: SortKey }) => (
@@ -455,8 +455,8 @@ const Admin = () => {
                               {c.tier === 'premium' ? (t.admin.setFree ?? 'Set Free') : (t.admin.setPremium ?? 'Set Premium')}
                             </Button>
                             {users.find((u: any) => u.id === c.user_id)?.is_admin && (
-                              <Button size="sm" variant="outline" className={`text-xs gap-1 ${c.is_featured ? 'border-primary/50 text-primary' : ''}`} onClick={() => updateCampaign(c.id, { is_featured: !c.is_featured }, c.is_featured ? 'Dihapus dari featured' : 'Ditampilkan di homepage')}>
-                                <Star className={`w-3 h-3 ${c.is_featured ? 'fill-primary' : ''}`} />{c.is_featured ? 'Featured ✓' : 'Set Featured'}
+                              <Button size="sm" variant="outline" className={`text-xs gap-1 ${c.is_featured ? 'border-primary/50 text-primary' : ''}`} onClick={() => updateCampaign(c.id, { is_featured: !c.is_featured }, c.is_featured ? (t.admin?.removedFeatured ?? 'Removed from featured') : (t.admin?.addedFeatured ?? 'Added to homepage'))}>
+                                <Star className={`w-3 h-3 ${c.is_featured ? 'fill-primary' : ''}`} />{c.is_featured ? 'Featured ✓' : (t.admin?.setFeatured ?? 'Set Featured')}
                               </Button>
                             )}
                             <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteCampaign(c.id)}><Trash2 className="w-3 h-3" /> {t.admin.delete ?? 'Delete'}</Button>
@@ -696,14 +696,14 @@ const Admin = () => {
                             <input type="file" accept="image/*" className="hidden" onChange={handleCoverImageUpload} disabled={uploadingCover} />
                           </label>
                           {blogForm.cover_image_url && (
-                            <Button type="button" size="sm" variant="ghost" className="text-xs text-destructive" onClick={() => setBlogForm(prev => ({ ...prev, cover_image_url: '' }))}>Hapus</Button>
+                            <Button type="button" size="sm" variant="ghost" className="text-xs text-destructive" onClick={() => setBlogForm(prev => ({ ...prev, cover_image_url: '' }))}>{t.admin?.removeCover ?? 'Remove'}</Button>
                           )}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div><Label className="text-xs text-muted-foreground">Meta Title (SEO)</Label><Input value={blogForm.meta_title} onChange={e => setBlogForm(prev => ({ ...prev, meta_title: e.target.value }))} className="mt-1 bg-secondary/50 border-border" /></div>
-                        <div><Label className="text-xs text-muted-foreground">Tags (pisah koma)</Label><Input value={blogForm.tags} onChange={e => setBlogForm(prev => ({ ...prev, tags: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="tips, tutorial" /></div>
+                        <div><Label className="text-xs text-muted-foreground">Tags ({t.admin?.commaSeparated ?? 'comma separated'})</Label><Input value={blogForm.tags} onChange={e => setBlogForm(prev => ({ ...prev, tags: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="tips, tutorial" /></div>
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Meta Description (SEO)</Label>
@@ -847,7 +847,7 @@ const Admin = () => {
                         if (error) throw error;
                         const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
                         setSettings(prev => ({ ...prev, favicon_url: urlData.publicUrl }));
-                        toast.success('Favicon berhasil diupload');
+                        toast.success(t.admin?.faviconUploaded ?? 'Favicon uploaded');
                       } catch (err: any) {
                         toast.error(err.message || 'Upload failed');
                       }
@@ -878,7 +878,7 @@ const Admin = () => {
                         if (error) throw error;
                         const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
                         setSettings(prev => ({ ...prev, logo_url: urlData.publicUrl }));
-                        toast.success('Logo berhasil diupload');
+                        toast.success(t.admin?.logoUploaded ?? 'Logo uploaded');
                       } catch (err: any) {
                         toast.error(err.message || 'Upload failed');
                       }

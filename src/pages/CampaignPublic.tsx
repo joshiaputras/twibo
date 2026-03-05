@@ -357,7 +357,7 @@ const CampaignPublic = () => {
         setPhotoScale(initialTransform.scale);
         setPhotoOffsetX(initialTransform.offsetX);
         setPhotoOffsetY(initialTransform.offsetY);
-        toast.error('Gagal remove background, memakai foto original.');
+        toast.error(t.campaign?.bgRemoveFailed ?? 'Failed to remove background, using original photo.');
       } finally {
         setProcessingPhoto(false);
       }
@@ -918,7 +918,7 @@ const CampaignPublic = () => {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/70 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-foreground font-semibold">Memproses pembayaran...</p>
+            <p className="text-foreground font-semibold">{t.campaign?.paymentPending ?? 'Processing payment...'}</p>
           </div>
         </div>
       )}
