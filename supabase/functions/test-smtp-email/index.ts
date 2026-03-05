@@ -82,12 +82,14 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Strip protocol prefixes from hostname (users may enter http:// or https://)
+    const cleanHost = smtp.smtp_host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
     const to = smtp.admin_notification_email || "twibo.id@gmail.com";
     const from = smtp.smtp_from_email || smtp.smtp_username;
     const now = new Date().toLocaleString("id-ID", { dateStyle: "full", timeStyle: "medium" });
 
     await sendSmtpEmail({
-      host: smtp.smtp_host,
+      host: cleanHost,
       port: parseInt(smtp.smtp_port || "587"),
       username: smtp.smtp_username,
       password: smtp.smtp_password,
