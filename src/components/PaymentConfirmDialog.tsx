@@ -124,6 +124,13 @@ const PaymentConfirmDialog = ({
 
             await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaignId);
 
+            // Cleanup other pending/failed payments for this campaign
+            await supabase.from('payments' as any)
+              .delete()
+              .eq('campaign_id', campaignId)
+              .neq('midtrans_order_id', orderId)
+              .in('status', ['pending', 'failed']);
+
             // Trigger invoice email (fire-and-forget)
             supabase.functions.invoke('send-invoice-email', {
               body: { order_id: orderId, app_url: window.location.origin },

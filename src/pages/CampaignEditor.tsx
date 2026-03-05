@@ -28,6 +28,7 @@ import {
   ZoomIn,
   Loader2,
   SlidersHorizontal,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -993,31 +994,48 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {step === 4 && showPayment && campaignTier !== 'premium' && (
-              <div className="space-y-6 max-w-lg mx-auto text-center">
-                <Crown className="w-12 h-12 text-primary mx-auto" />
-                <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.upgradeToPremium ?? 'Upgrade ke Premium'}</h2>
-                <p className="text-muted-foreground text-sm">{t.campaign.upgradeDesc ?? 'Hapus watermark dan iklan dari campaign kamu dengan upgrade ke Premium.'}</p>
-
-                <div className="flex gap-3 justify-center flex-wrap">
-                  <Button variant="outline" className="border-border" onClick={handleSkipPayment}>
-                    {t.campaign.skipForNow ?? 'Lewati, Coba Gratis'}
-                  </Button>
-                  <Button className="gold-glow font-semibold gap-2" onClick={() => { setShowPayment(false); setShowPaymentDialog(true); }}>
-                    <CreditCard className="w-4 h-4" /> {t.campaign.payNow ?? 'Bayar Sekarang'}
-                  </Button>
+            {step === 4 && showPayment && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md">
+                <div className="max-w-lg w-full mx-4 text-center space-y-6">
+                  {campaignTier !== 'premium' ? (
+                    <>
+                      <div className="relative">
+                        <div className="absolute inset-0 rounded-full bg-primary/20 blur-3xl w-32 h-32 mx-auto" />
+                        <Crown className="w-16 h-16 text-primary mx-auto relative" />
+                      </div>
+                      <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.upgradeToPremium ?? 'Upgrade ke Premium'}</h2>
+                      <p className="text-muted-foreground text-sm">{t.campaign.upgradeDesc ?? 'Hapus watermark dan iklan dari campaign kamu dengan upgrade ke Premium.'}</p>
+                      <div className="flex gap-3 justify-center flex-wrap">
+                        <Button variant="outline" className="border-border" onClick={handleSkipPayment}>
+                          {t.campaign.skipForNow ?? 'Lewati, Coba Gratis'}
+                        </Button>
+                        <Button className="gold-glow font-semibold gap-2" onClick={() => { setShowPayment(false); setShowPaymentDialog(true); }}>
+                          <CreditCard className="w-4 h-4" /> {t.campaign.payNow ?? 'Bayar Sekarang'}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <div className="absolute inset-0 rounded-full bg-green-500/20 blur-3xl w-32 h-32 mx-auto" />
+                        <div className="relative w-20 h-20 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                          <Check className="w-10 h-10 text-green-500" />
+                        </div>
+                      </div>
+                      <h2 className="font-display text-2xl font-bold text-foreground">🎉 Campaign Berhasil Dipublish!</h2>
+                      <p className="text-muted-foreground text-sm">Campaign <strong>{form.name}</strong> sudah berstatus <span className="text-primary font-semibold">Premium</span> dan siap digunakan.</p>
+                      <p className="text-xs text-muted-foreground">twibo.id/c/{form.slug}</p>
+                      <div className="flex gap-3 justify-center flex-wrap pt-2">
+                        <Button variant="outline" className="border-border gap-2" onClick={() => navigate(`/c/${form.slug}`)}>
+                          <Eye className="w-4 h-4" /> Lihat Campaign
+                        </Button>
+                        <Button className="gold-glow font-semibold gap-2" onClick={() => navigate('/dashboard')}>
+                          <ChevronLeft className="w-4 h-4" /> Kembali ke Dashboard
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            )}
-
-            {step === 4 && showPayment && campaignTier === 'premium' && (
-              <div className="space-y-6 max-w-lg mx-auto text-center">
-                <Crown className="w-12 h-12 text-primary mx-auto" />
-                <h2 className="font-display text-2xl font-bold text-foreground">🎉 Campaign Berhasil Dipublish!</h2>
-                <p className="text-muted-foreground text-sm">Campaign kamu sudah berstatus Premium.</p>
-                <Button className="gold-glow font-semibold" onClick={() => navigate('/dashboard')}>
-                  Kembali ke Dashboard
-                </Button>
               </div>
             )}
 
