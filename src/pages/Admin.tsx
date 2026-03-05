@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/table';
 import {
   Users, Megaphone, CreditCard, Settings, Crown, Ban, Shield, Trash2, Unlock, Ticket,
-  Plus, Loader2, Star, ArrowUpDown, BookOpen, Pencil, Upload, Clock,
+  Plus, Loader2, Star, ArrowUpDown, BookOpen, Pencil, Upload, Clock, Eye,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -314,7 +314,7 @@ const Admin = () => {
       excerpt: blogForm.excerpt,
       cover_image_url: blogForm.cover_image_url || null,
       meta_title: blogForm.meta_title || blogForm.title,
-      meta_description: blogForm.meta_description || blogForm.excerpt,
+      meta_description: blogForm.meta_description || blogForm.excerpt || htmlContent.replace(/<[^>]*>/g, '').slice(0, 155).trim(),
       tags: blogForm.tags ? blogForm.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       status: blogForm.status === 'scheduled' ? 'scheduled' : blogForm.status,
       published_at: publishedAt,
@@ -748,6 +748,7 @@ const Admin = () => {
                         <TableCell>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => handleEditBlog(p)}><Pencil className="w-3 h-3" /> Edit</Button>
+                            <Button size="sm" variant="outline" className="text-xs gap-1" asChild><a href={`/blog/${p.slug}`} target="_blank" rel="noopener noreferrer"><Eye className="w-3 h-3" /> View</a></Button>
                             <Button size="sm" variant="outline" className="text-xs border-destructive/30 text-destructive" onClick={() => handleDeleteBlog(p.id)}><Trash2 className="w-3 h-3" /></Button>
                           </div>
                         </TableCell>

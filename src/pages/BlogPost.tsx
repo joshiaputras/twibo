@@ -2,20 +2,21 @@ import Layout from '@/components/Layout';
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, Tag, ArrowLeft } from 'lucide-react';
+import { Calendar, Tag, ArrowLeft, BookOpen } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import AdSenseBanner from '@/components/AdSenseBanner';
 
 const BlogPost = () => {
   const { slug } = useParams();
   const [post, setPost] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [relatedPosts, setRelatedPosts] = useState<any[]>([]);
 
   useEffect(() => {
     if (!slug) return;
     const load = async () => {
       const now = new Date().toISOString();
-      // Published posts or scheduled posts whose time has come
       const { data } = await supabase
         .from('blog_posts' as any)
         .select('*')
@@ -24,6 +25,32 @@ const BlogPost = () => {
         .maybeSingle();
       setPost(data);
       setLoading(false);
+
+      // Fetch related posts (same tags, exclude current)
+      if (data) {
+        const { data: allPosts } = await supabase
+          .from('blog_posts' as any)
+          .select('id, title, slug, excerpt, cover_image_url, published_at, created_at, tags')
+          .or(`status.eq.published,and(status.eq.scheduled,published_at.lte.${now})`)
+          .neq('id', (data as any).id)
+          .order('published_at', { ascending: false })
+          .limit(20);
+
+        const currentTags = new Set(((data as any).tags || []).map((t: string) => t.toLowerCase()));
+        let related = ((allPosts as any[]) ?? []);
+
+        if (currentTags.size > 0) {
+          // Sort by tag overlap
+          related = related
+            .map(p => ({
+              ...p,
+              overlap: (p.tags || []).filter((t: string) => currentTags.has(t.toLowerCase())).length,
+            }))
+            .sort((a, b) => b.overlap - a.overlap);
+        }
+
+        setRelatedPosts(related.slice(0, 3));
+      }
     };
     load();
   }, [slug]);
@@ -104,6 +131,11 @@ const BlogPost = () => {
             )}
           </div>
 
+          {/* AdSense - Top of article */}
+          <div className="mb-8">
+            <AdSenseBanner />
+          </div>
+
           <div
             className="prose max-w-none text-foreground/90 
               [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:text-foreground
@@ -119,6 +151,41 @@ const BlogPost = () => {
               [&_code]:text-primary [&_code]:text-sm"
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
+
+          {/* AdSense - Bottom of article */}
+          <div className="mt-8">
+            <AdSenseBanner />
+          </div>
+
+          {/* Related Articles */}
+          {relatedPosts.length > 0 && (
+            <div className="mt-16 pt-8 border-t border-border">
+              <h2 className="font-display text-xl font-bold text-foreground mb-6">Artikel Terkait</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {relatedPosts.map((rp: any) => (
+                  <Link key={rp.id} to={`/blog/${rp.slug}`} className="group">
+                    <article className="glass rounded-xl border-gold-subtle overflow-hidden hover:gold-glow transition-shadow h-full flex flex-col">
+                      {rp.cover_image_url ? (
+                        <img src={rp.cover_image_url} alt={rp.title} className="w-full h-32 object-cover group-hover:scale-105 transition-transform" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-32 bg-secondary/30 flex items-center justify-center">
+                          <BookOpen className="w-8 h-8 text-muted-foreground/30" />
+                        </div>
+                      )}
+                      <div className="p-3 flex-1 flex flex-col">
+                        <h3 className="font-display font-semibold text-sm text-foreground group-hover:text-primary transition-colors mb-1 line-clamp-2">{rp.title}</h3>
+                        <p className="text-xs text-muted-foreground line-clamp-2 flex-1">{rp.excerpt}</p>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(rp.published_at || rp.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                        </div>
+                      </div>
+                    </article>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </article>
     </Layout>

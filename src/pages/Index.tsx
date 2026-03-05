@@ -2,12 +2,90 @@ import Layout from '@/components/Layout';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart, Image, ChevronRight } from 'lucide-react';
+import { Shield, Link2, Paintbrush, Upload, Lock, Eye, UserX, Settings, ArrowRight, Check, Crown, Zap, Star, Sparkles, Heart, Image, ChevronRight, BookOpen, Calendar } from 'lucide-react';
 import { usePricing } from '@/hooks/usePricing';
 import { useFeaturedCampaigns } from '@/hooks/useFeaturedCampaigns';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { extractPreviewMeta } from '@/utils/campaignDesign';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/integrations/supabase/client';
+
+const LatestBlogPosts = () => {
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const now = new Date().toISOString();
+      const { data } = await supabase
+        .from('blog_posts' as any)
+        .select('id, title, slug, excerpt, cover_image_url, published_at, created_at, tags')
+        .or(`status.eq.published,and(status.eq.scheduled,published_at.lte.${now})`)
+        .order('published_at', { ascending: false })
+        .limit(3);
+      setPosts((data as any[]) ?? []);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  if (!loading && posts.length === 0) return null;
+
+  return (
+    <section className="py-20">
+      <div className="container mx-auto px-4">
+        <div className="text-center mb-10">
+          <h2 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-3">Blog Terbaru</h2>
+          <p className="text-muted-foreground">Tips, tutorial, dan update terbaru</p>
+        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="glass rounded-2xl border-gold-subtle overflow-hidden">
+                <Skeleton className="h-40 w-full" />
+                <div className="p-4 space-y-2">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {posts.map((post: any) => (
+              <Link key={post.id} to={`/blog/${post.slug}`} className="group">
+                <article className="glass rounded-2xl border-gold-subtle overflow-hidden hover:gold-glow transition-shadow h-full flex flex-col">
+                  {post.cover_image_url ? (
+                    <img src={post.cover_image_url} alt={post.title} className="w-full h-40 object-cover group-hover:scale-105 transition-transform" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-40 bg-secondary/30 flex items-center justify-center">
+                      <BookOpen className="w-10 h-10 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  <div className="p-4 flex-1 flex flex-col">
+                    <h3 className="font-display font-semibold text-foreground group-hover:text-primary transition-colors mb-2 line-clamp-2">{post.title}</h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1">{post.excerpt}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(post.published_at || post.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                </article>
+              </Link>
+            ))}
+          </div>
+        )}
+        <div className="text-center mt-8">
+          <Link to="/blog">
+            <Button variant="outline" className="border-border hover:border-primary/50 gap-2">
+              Lihat Semua Artikel <ArrowRight className="w-4 h-4" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+};
 
 const FloatingCard = ({ className, children }: { className?: string; children: React.ReactNode }) => (
   <div className={`absolute glass rounded-xl p-3 gold-glow opacity-70 ${className}`}>
@@ -370,6 +448,9 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Latest Blog Posts */}
+      <LatestBlogPosts />
     </Layout>
   );
 };
