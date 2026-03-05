@@ -1,8 +1,27 @@
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/i18n/LanguageContext';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
+let cachedFooterLogo: string | null = null;
 
 const Footer = () => {
   const { t } = useLanguage();
+  const [logoUrl, setLogoUrl] = useState<string>(cachedFooterLogo || '');
+
+  useEffect(() => {
+    if (cachedFooterLogo !== null) return;
+    supabase
+      .from('site_settings' as any)
+      .select('value')
+      .eq('key', 'logo_url')
+      .maybeSingle()
+      .then(({ data }: any) => {
+        const url = data?.value || '';
+        cachedFooterLogo = url;
+        setLogoUrl(url);
+      });
+  }, []);
 
   return (
     <footer className="border-t border-border/50 mt-20 backdrop-blur-xl bg-background/60">
@@ -10,9 +29,13 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
             <div className="w-12 h-12 rounded-full bg-muted border border-border flex items-center justify-center mb-3 overflow-hidden">
-              <img src="/placeholder.svg" alt="TWIBO.id logo" className="w-full h-full object-cover" />
+              {logoUrl ? (
+                <img src={logoUrl} alt="TWIBO.id logo" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-primary font-bold text-lg">T</span>
+              )}
             </div>
-            <h3 className="font-display text-xl font-bold text-gold-gradient mb-3">TWIBO.id</h3>
+            <h3 className="font-display text-xl font-bold text-primary mb-3">TWIBO.id</h3>
             <p className="text-sm text-muted-foreground max-w-xs">{t.footer.tagline}</p>
           </div>
           <div>

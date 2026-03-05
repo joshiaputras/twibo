@@ -1,11 +1,12 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Globe, Menu, X, User, LogOut, LayoutDashboard, Shield, BookOpen } from 'lucide-react';
+import { Globe, Menu, X, User, LogOut, LayoutDashboard, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ThemeToggle from '@/components/ThemeToggle';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,11 +14,28 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+let cachedLogoUrl: string | null = null;
+
 const Navbar = () => {
   const { t, lang, toggleLang } = useLanguage();
   const { user, profileName, avatarUrl, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState<string>(cachedLogoUrl || '');
+
+  useEffect(() => {
+    if (cachedLogoUrl !== null) return;
+    supabase
+      .from('site_settings' as any)
+      .select('value')
+      .eq('key', 'logo_url')
+      .maybeSingle()
+      .then(({ data }: any) => {
+        const url = data?.value || '';
+        cachedLogoUrl = url;
+        setLogoUrl(url);
+      });
+  }, []);
 
   const displayName = profileName || user?.user_metadata?.name || user?.email?.split('@')[0] || '';
   const initials = displayName ? displayName.slice(0, 2).toUpperCase() : 'U';
@@ -27,13 +45,21 @@ const Navbar = () => {
     navigate('/');
   };
 
+  const LogoBrand = () => (
+    <Link to="/" className="font-display text-2xl font-bold flex items-center gap-2">
+      {logoUrl ? (
+        <img src={logoUrl} alt="TWIBO.id" className="h-8 w-8 rounded-lg object-cover" />
+      ) : (
+        <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xs font-bold">T</div>
+      )}
+      <span className="text-primary font-extrabold tracking-tight">TWIBO.id</span>
+    </Link>
+  );
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass border-b border-gold-subtle">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="font-display text-2xl font-bold text-gold-gradient flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center text-primary text-xs font-bold">T</div>
-          TWIBO.id
-        </Link>
+        <LogoBrand />
 
         {/* Desktop */}
         <div className="hidden md:flex items-center gap-6">
