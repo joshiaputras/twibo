@@ -1,5 +1,6 @@
 import Layout from '@/components/Layout';
 import PhotoComposerPreview from '@/components/PhotoComposerPreview';
+import BannerCropDialog from '@/components/BannerCropDialog';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,6 +67,11 @@ const CampaignEditor = () => {
   const [campaignId, setCampaignId] = useState<string | null>(id ?? null);
   const [saving, setSaving] = useState(false);
   const [canvasState, setCanvasState] = useState<string>('');
+  const [campaignTier, setCampaignTier] = useState<string>('free');
+  const [bannerUrl, setBannerUrl] = useState<string>('');
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [showBannerCrop, setShowBannerCrop] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
   const [form, setForm] = useState<FormState>({
     name: '',
     description: '',
@@ -132,6 +138,8 @@ const CampaignEditor = () => {
         return;
       }
       setCampaignId(data.id);
+      setCampaignTier(data.tier ?? 'free');
+      setBannerUrl(data.banner_url ?? '');
       setForm({
         name: data.name ?? '',
         description: data.description ?? '',
@@ -310,7 +318,7 @@ const CampaignEditor = () => {
       previewImageDataUrl: finalPreviewImageDataUrl,
     });
 
-    const payload = {
+    const payload: any = {
       user_id: user.id,
       name: form.name.trim(),
       description: form.description.trim(),
@@ -320,6 +328,7 @@ const CampaignEditor = () => {
       type: form.type,
       status,
       design_json: designWithPreview,
+      banner_url: bannerUrl || null,
     };
 
     if (campaignId) {
@@ -686,8 +695,83 @@ const CampaignEditor = () => {
                     {t.campaign.slugWarning}
                   </p>
                 </div>
+
+                {/* Banner Image Upload - Premium Only */}
+                <div>
+                  <Label className="text-sm text-muted-foreground">Banner Image (opsional)</Label>
+                  <p className="text-xs text-muted-foreground mb-2">Ditampilkan di atas judul campaign pada halaman publik. Rasio 3:1 (1200×400px).</p>
+                  {campaignTier === 'premium' ? (
+                    <div className="space-y-2">
+                      {bannerUrl && (
+                        <div className="relative rounded-xl overflow-hidden border border-border">
+                          <img src={bannerUrl} alt="Banner" className="w-full h-auto object-cover" style={{ maxHeight: '150px' }} />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="absolute top-2 right-2 border-border bg-background/80 text-xs"
+                            onClick={() => { setBannerUrl(''); }}
+                          >
+                            Hapus
+                          </Button>
+                        </div>
+                      )}
+                      <div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          id="banner-upload"
+                          className="hidden"
+                          onChange={e => {
+                            const f = e.target.files?.[0];
+                            if (f) { setBannerFile(f); setShowBannerCrop(true); }
+                            e.target.value = '';
+                          }}
+                        />
+                        <label htmlFor="banner-upload">
+                          <Button variant="outline" size="sm" className="border-border gap-1 cursor-pointer" asChild>
+                            <span><Upload className="w-3.5 h-3.5" /> {bannerUrl ? 'Ganti Banner' : 'Upload Banner'}</span>
+                          </Button>
+                        </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative rounded-xl overflow-hidden border border-border p-6 text-center">
+                      <div className="absolute inset-0 bg-secondary/60 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-2">
+                        <Crown className="w-6 h-6 text-primary" />
+                        <p className="text-sm font-semibold text-foreground">Premium Feature</p>
+                        <p className="text-xs text-muted-foreground">Upgrade ke Premium untuk upload banner kustom</p>
+                      </div>
+                      <div className="h-16 bg-secondary/30 rounded-lg" />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
+
+            <BannerCropDialog
+              file={bannerFile}
+              open={showBannerCrop}
+              onClose={() => setShowBannerCrop(false)}
+              uploading={uploadingBanner}
+              onCropped={async (blob) => {
+                if (!user) return;
+                setUploadingBanner(true);
+                try {
+                  const fileName = `${user.id}/${Date.now()}-banner.jpg`;
+                  const { error: uploadError } = await supabase.storage.from('banner-images').upload(fileName, blob, { contentType: 'image/jpeg', upsert: true });
+                  if (uploadError) throw uploadError;
+                  const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(fileName);
+                  setBannerUrl(urlData.publicUrl);
+                  setShowBannerCrop(false);
+                  setBannerFile(null);
+                  toast.success('Banner berhasil diupload!');
+                } catch (err: any) {
+                  toast.error(err.message || 'Gagal upload banner');
+                } finally {
+                  setUploadingBanner(false);
+                }
+              }}
+            />
 
             {step === 1 && (
               <div className="space-y-5">
