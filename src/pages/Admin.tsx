@@ -408,6 +408,7 @@ const Admin = () => {
               <TabsTrigger value="transactions" className="gap-1"><CreditCard className="w-3 h-3" />{t.admin.transactions}</TabsTrigger>
               <TabsTrigger value="vouchers" className="gap-1"><Ticket className="w-3 h-3" />Voucher</TabsTrigger>
               <TabsTrigger value="blog" className="gap-1"><BookOpen className="w-3 h-3" />Blog</TabsTrigger>
+              <TabsTrigger value="payment" className="gap-1"><CreditCard className="w-3 h-3" />Payment Gateway</TabsTrigger>
               <TabsTrigger value="settings" className="gap-1"><Settings className="w-3 h-3" />{t.admin.settings}</TabsTrigger>
             </TabsList>
 
@@ -784,20 +785,20 @@ const Admin = () => {
               </div>
             </TabsContent>
 
-            {/* Settings Tab */}
-            <TabsContent value="settings" className="space-y-4">
+            {/* Payment Gateway Tab */}
+            <TabsContent value="payment" className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
-                  <h3 className="font-display font-semibold text-foreground">Pengaturan Harga</h3>
-                  {['premium_price', 'original_price'].map(key => (
+                  <h3 className="font-display font-semibold text-foreground">💰 Pengaturan Harga</h3>
+                  {['premium_price', 'premium_original_price'].map(key => (
                     <div key={key}>
-                      <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
-                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder={t.admin.settingPlaceholder ?? 'Enter value'} />
+                      <Label className="text-sm text-muted-foreground capitalize">{key === 'premium_price' ? 'Harga Promo (Rp)' : 'Harga Coret / Original (Rp)'}</Label>
+                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder={key === 'premium_price' ? '50000' : '149000'} />
                     </div>
                   ))}
                 </div>
                 <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
-                  <h3 className="font-display font-semibold text-foreground">Midtrans</h3>
+                  <h3 className="font-display font-semibold text-foreground">🏦 Midtrans</h3>
                   {['midtrans_client_key', 'midtrans_server_key', 'midtrans_is_production'].map(key => (
                     <div key={key}>
                       <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
@@ -805,8 +806,8 @@ const Admin = () => {
                     </div>
                   ))}
                 </div>
-                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
-                  <h3 className="font-display font-semibold text-foreground">PayPal</h3>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4 md:col-span-2">
+                  <h3 className="font-display font-semibold text-foreground">💳 PayPal (International)</h3>
                   <div className="flex items-center gap-3">
                     <Switch
                       checked={settings['paypal_enabled'] === 'true'}
@@ -814,25 +815,36 @@ const Admin = () => {
                     />
                     <Label className="text-sm text-foreground">{t.admin?.paypalEnable ?? 'Enable PayPal'}</Label>
                   </div>
-                  {['paypal_client_id', 'paypal_price_usd'].map(key => (
-                    <div key={key}>
-                      <Label className="text-sm text-muted-foreground capitalize">{key === 'paypal_price_usd' ? 'Price (USD)' : key.replace(/_/g, ' ')}</Label>
-                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder={key === 'paypal_price_usd' ? '3' : 'Enter PayPal Client ID'} />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <Label className="text-sm text-muted-foreground">PayPal Client ID</Label>
+                      <Input value={settings['paypal_client_id'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, paypal_client_id: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="Enter PayPal Client ID" />
                     </div>
-                  ))}
-                  <div>
-                    <Label className="text-sm text-muted-foreground">Mode</Label>
-                    <Select value={settings['paypal_mode'] || 'sandbox'} onValueChange={v => setSettings(prev => ({ ...prev, paypal_mode: v }))}>
-                      <SelectTrigger className="mt-1 bg-secondary/50 border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="sandbox">Sandbox</SelectItem>
-                        <SelectItem value="production">Production</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Harga (USD)</Label>
+                      <Input value={settings['paypal_price_usd'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, paypal_price_usd: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="3.99" />
+                    </div>
+                    <div>
+                      <Label className="text-sm text-muted-foreground">Mode</Label>
+                      <Select value={settings['paypal_mode'] || 'sandbox'} onValueChange={v => setSettings(prev => ({ ...prev, paypal_mode: v }))}>
+                        <SelectTrigger className="mt-1 bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sandbox">Sandbox</SelectItem>
+                          <SelectItem value="production">Production</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
+              </div>
+              <Button className="gold-glow" onClick={handleSaveSettings}>
+                {t.admin.saveSettings ?? 'Save Settings'}
+              </Button>
+            </TabsContent>
+
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
                   <h3 className="font-display font-semibold text-foreground">Google AdSense</h3>
                   {['adsense_client_id', 'adsense_slot_id'].map(key => (
