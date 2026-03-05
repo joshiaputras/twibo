@@ -1125,6 +1125,40 @@ const Admin = () => {
                   </label>
                 </div>
                 <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">📄 Invoice Logo (PNG)</h3>
+                  <p className="text-xs text-muted-foreground">Logo khusus untuk PDF invoice. Harus format PNG agar transparan. Tidak dikonversi ke WebP.</p>
+                  {settings['invoice_logo_url'] && (
+                    <div className="flex items-center gap-3">
+                      <img src={settings['invoice_logo_url']} alt="Invoice logo" className="h-10 rounded object-contain border border-border" />
+                      <span className="text-xs text-muted-foreground truncate flex-1">{settings['invoice_logo_url']}</span>
+                    </div>
+                  )}
+                  <label className="cursor-pointer">
+                    <div className="border border-dashed border-border rounded-lg p-3 text-center hover:border-primary/50 transition-colors">
+                      <Upload className="w-5 h-5 text-primary/50 mx-auto mb-1" />
+                      <span className="text-xs text-muted-foreground">Upload Invoice Logo (PNG)</span>
+                    </div>
+                    <input type="file" accept="image/png" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (!file.type.includes('png')) {
+                        toast.error('Hanya file PNG yang diperbolehkan untuk invoice logo');
+                        return;
+                      }
+                      try {
+                        const name = `invoice-logo-${Date.now()}.png`;
+                        const { error } = await supabase.storage.from('banner-images').upload(name, file, { upsert: true, contentType: 'image/png' });
+                        if (error) throw error;
+                        const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
+                        setSettings(prev => ({ ...prev, invoice_logo_url: urlData.publicUrl }));
+                        toast.success('Invoice logo uploaded (PNG)');
+                      } catch (err: any) {
+                        toast.error(err.message || 'Upload failed');
+                      }
+                    }} />
+                  </label>
+                </div>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
                   <h3 className="font-display font-semibold text-foreground">🖼️ Meta Thumbnail (OG Image)</h3>
                   <p className="text-xs text-muted-foreground">Gambar default yang tampil saat link di-share di sosial media. Rekomendasi: 1200×630px.</p>
                   {settings['og_image_url'] && (
