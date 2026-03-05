@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Mail, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,7 +10,12 @@ const Contact = () => {
 
   return (
     <Layout>
-      <section className="py-20 md:py-28">
+      <SEOHead
+        title={isId ? 'Hubungi Kami — TWIBO.id Customer Support' : 'Contact Us — TWIBO.id Customer Support'}
+        description={isId ? 'Punya pertanyaan atau butuh bantuan? Hubungi tim support TWIBO.id melalui email cs@twibo.id. Kami siap membantu kamu.' : 'Have questions or need help? Contact TWIBO.id support team at cs@twibo.id. We are ready to assist you.'}
+        canonical="https://twibo.id/contact"
+      />
+      <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-3xl space-y-10">
           <div className="text-center space-y-4">
             <h1 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient">

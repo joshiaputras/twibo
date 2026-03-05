@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +9,8 @@ import { Calendar, Tag } from 'lucide-react';
 import AnchorAd from '@/components/AnchorAd';
 
 const Blog = () => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
+  const isId = lang === 'id';
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,7 +31,12 @@ const Blog = () => {
 
   return (
     <Layout>
-      <section className="py-24 md:py-32">
+      <SEOHead
+        title={isId ? 'Blog TWIBO.id — Tips, Tutorial & Update Twibbon Maker' : 'TWIBO.id Blog — Tips, Tutorials & Twibbon Maker Updates'}
+        description={isId ? 'Baca tips, tutorial, dan update terbaru dari TWIBO.id. Pelajari cara membuat twibbon terbaik untuk campaign komunitas dan event kamu.' : 'Read the latest tips, tutorials, and updates from TWIBO.id. Learn how to create the best twibbons for your community campaigns and events.'}
+        canonical="https://twibo.id/blog"
+      />
+      <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="text-center mb-12">
             <h1 className="font-display text-3xl md:text-5xl font-bold text-gold-gradient mb-3">

@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -94,7 +95,7 @@ const FloatingCard = ({ className, children }: { className?: string; children: R
 );
 
 const Index = () => {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { premiumPrice, originalPrice } = usePricing();
   const { campaigns: featuredCampaigns, loading: featuredLoading } = useFeaturedCampaigns();
   const [isPaused, setIsPaused] = useState(false);
@@ -138,8 +139,16 @@ const Index = () => {
   const speed = 40; // pixels per second
   const duration = oneSetWidth / speed;
 
+  const isId = lang === 'id';
+
   return (
     <Layout>
+      <SEOHead
+        title={isId ? 'TWIBO.id — Buat Twibbon Online Gratis & Privat | Twibbon Maker Terbaik' : 'TWIBO.id — Create Twibbons Online Free & Private | Best Twibbon Maker'}
+        description={isId ? 'Buat twibbon campaign online gratis di TWIBO.id. Platform twibbon maker privat untuk komunitas, organisasi, dan event. Desain frame, bagikan link, supporter langsung download — tanpa akun!' : 'Create free online twibbon campaigns at TWIBO.id. Private twibbon maker platform for communities, organizations, and events. Design frames, share links, supporters download instantly — no account needed!'}
+        canonical="https://twibo.id/"
+        ogImage="https://twibo.id/og-image.png"
+      />
       {/* Hero */}
       <section className="relative overflow-hidden py-24 md:py-36">
         <FloatingCard className="top-20 left-[8%] animate-float hidden lg:block">
@@ -451,6 +460,34 @@ const Index = () => {
 
       {/* Latest Blog Posts */}
       <LatestBlogPosts />
+
+      {/* CTA Section */}
+      <section className="py-16 md:py-20">
+        <div className="container mx-auto px-4">
+          <div className="glass-strong rounded-3xl p-8 md:p-12 border-gold-subtle gold-glow-strong max-w-3xl mx-auto text-center">
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient mb-3">
+              {isId ? 'Siap Membuat Twibbon Pertamamu?' : 'Ready to Create Your First Twibbon?'}
+            </h2>
+            <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
+              {isId
+                ? 'Mulai buat campaign twibbon gratis sekarang. Tanpa biaya, tanpa ribet, langsung jadi!'
+                : 'Start creating your free twibbon campaign now. No cost, no hassle, instant results!'}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link to="/signup">
+                <Button size="lg" className="gold-glow-strong font-display font-semibold px-8">
+                  {t.hero.cta}
+                </Button>
+              </Link>
+              <Link to="/pricing">
+                <Button size="lg" variant="outline" className="border-border hover:border-primary/50">
+                  {isId ? 'Lihat Harga' : 'View Pricing'}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
     </Layout>
   );
 };

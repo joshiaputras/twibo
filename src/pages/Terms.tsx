@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const Terms = () => {
@@ -7,7 +8,12 @@ const Terms = () => {
 
   return (
     <Layout>
-      <section className="py-20 md:py-28">
+      <SEOHead
+        title={isId ? 'Syarat & Ketentuan — TWIBO.id' : 'Terms of Service — TWIBO.id'}
+        description={isId ? 'Baca syarat dan ketentuan penggunaan layanan TWIBO.id. Ketahui hak dan kewajiban Anda sebagai pengguna platform twibbon maker kami.' : 'Read the terms and conditions for using TWIBO.id services. Know your rights and obligations as a user of our twibbon maker platform.'}
+        canonical="https://twibo.id/terms"
+      />
+      <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-3xl">
           <h1 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-8 text-center">
             {isId ? 'Syarat & Ketentuan' : 'Terms of Service'}

@@ -334,6 +334,29 @@
   "blog": {
     "title": "Blog",
     "subtitle": "Tips, tutorial, dan update terbaru dari TWIBO.id",
-    "noPosts": "Belum ada artikel."
+    "noPosts": "Belum ada artikel.",
+    "backToBlog": "Kembali ke Blog",
+    "relatedArticles": "Artikel Terkait",
+    "notFound": "Artikel tidak ditemukan"
+  },
+  "interstitial": {
+    "title": "Unduhan akan dimulai...",
+    "msg1": "Menyiapkan twibbon kamu...",
+    "msg2": "Memproses gambar...",
+    "msg3": "Menerapkan efek visual...",
+    "msg4": "Hampir selesai...",
+    "downloadNow": "Unduh Sekarang",
+    "upgradeHint": "Upgrade ke Premium untuk unduh tanpa iklan"
+  },
+  "saleCountdown": {
+    "label": "🔥 Promo Spesial Berakhir Hari Ini!",
+    "hours": "Jam",
+    "minutes": "Menit",
+    "seconds": "Detik"
+  },
+  "cta": {
+    "readyTitle": "Siap Membuat Twibbon Pertamamu?",
+    "readyDesc": "Mulai buat campaign twibbon gratis sekarang. Tanpa biaya, tanpa ribet, langsung jadi!",
+    "viewPricing": "Lihat Harga"
   }
 }

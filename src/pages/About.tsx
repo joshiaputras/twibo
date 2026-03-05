@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { Users, Target, Heart, Zap } from 'lucide-react';
 
@@ -8,7 +9,12 @@ const About = () => {
 
   return (
     <Layout>
-      <section className="py-20 md:py-28">
+      <SEOHead
+        title={isId ? 'Tentang TWIBO.id — Platform Twibbon Maker Online Gratis' : 'About TWIBO.id — Free Online Twibbon Maker Platform'}
+        description={isId ? 'Kenali TWIBO.id, platform twibbon maker yang memudahkan siapa saja untuk membuat campaign frame dan background secara online, gratis, dan tanpa ribet.' : 'Learn about TWIBO.id, a twibbon maker platform that makes it easy for anyone to create campaign frames and backgrounds online, free, and hassle-free.'}
+        canonical="https://twibo.id/about"
+      />
+      <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-4xl space-y-12">
           <div className="text-center space-y-4">
             <h1 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient">
@@ -21,7 +27,6 @@ const About = () => {
             </p>
           </div>
 
-          {/* Hero image placeholder */}
           <div className="rounded-2xl overflow-hidden border border-border bg-secondary/30 h-48 md:h-64 flex items-center justify-center">
             <span className="text-muted-foreground/40 text-sm">TWIBO.id Team</span>
           </div>

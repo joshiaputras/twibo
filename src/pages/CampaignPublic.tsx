@@ -1,7 +1,7 @@
 import Layout from '@/components/Layout';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, SlidersHorizontal, Users, Link2, Calendar } from 'lucide-react';
+import { Upload, Download, Copy, Move, ZoomIn, Crown, Loader2, SlidersHorizontal, Users, Link2, Calendar, Share2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Slider } from '@/components/ui/slider';
 import { useEffect, useState, useCallback, useRef } from 'react';
@@ -699,6 +699,21 @@ const CampaignPublic = () => {
                   toast.success(t.public?.linkCopied ?? 'Link disalin!');
                 }}>
                   <Copy className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={() => {
+                  const url = `${window.location.origin}/c/${slug}`;
+                  const shareData: ShareData = {
+                    title: campaign?.name ?? 'Twibbon',
+                    url,
+                  };
+                  if (navigator.share) {
+                    navigator.share(shareData).catch(() => {});
+                  } else {
+                    navigator.clipboard.writeText(`${campaign.name}\n${url}`);
+                    toast.success(t.public?.linkCopied ?? 'Link disalin!');
+                  }
+                }}>
+                  <Share2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
             </div>

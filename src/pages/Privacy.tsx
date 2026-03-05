@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 
 const Privacy = () => {
@@ -7,7 +8,12 @@ const Privacy = () => {
 
   return (
     <Layout>
-      <section className="py-20 md:py-28">
+      <SEOHead
+        title={isId ? 'Kebijakan Privasi — TWIBO.id' : 'Privacy Policy — TWIBO.id'}
+        description={isId ? 'Pelajari bagaimana TWIBO.id melindungi data dan privasi Anda. Kebijakan privasi lengkap untuk pengguna platform twibbon maker kami.' : 'Learn how TWIBO.id protects your data and privacy. Complete privacy policy for users of our twibbon maker platform.'}
+        canonical="https://twibo.id/privacy"
+      />
+      <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 max-w-3xl">
           <h1 className="font-display text-3xl md:text-4xl font-bold text-gold-gradient mb-8 text-center">
             {isId ? 'Kebijakan Privasi' : 'Privacy Policy'}
