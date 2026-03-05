@@ -56,7 +56,7 @@ const AdSenseBanner = () => {
         style={{ display: 'block' }}
         data-ad-client={adId}
         data-ad-slot="auto"
-        data-ad-format="auto"
+        data-ad-format="square"
         data-full-width-responsive="true"
       />
     </div>
