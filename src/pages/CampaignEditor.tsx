@@ -378,6 +378,12 @@ const CampaignEditor = () => {
       }
     } else {
       toast.success(t.campaign.draftSaved);
+      // After saving draft, also advance to next step
+      if (campaignTier === 'premium') {
+        setShowPayment(true);
+      } else {
+        setStep(5);
+      }
     }
   };
 

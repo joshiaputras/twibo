@@ -645,30 +645,16 @@ const CampaignPublic = () => {
             </div>
           )}
 
-          {/* Campaign Header - banner INSIDE this container */}
-          <div className="glass-strong rounded-2xl border-gold-subtle mb-6 overflow-hidden">
-            {/* Banner Image inside container */}
-            {campaign.banner_url && (
-              <div className="w-full">
-                <img
-                  src={campaign.banner_url}
-                  alt={`${campaign.name} banner`}
-                  className="w-full h-auto object-cover"
-                  style={{ maxHeight: '280px' }}
-                  loading="lazy"
-                />
-              </div>
-            )}
+          {/* ─── MOBILE LAYOUT ─── */}
+          {isMobile ? (
+            <>
+              {/* Title centered */}
+              <h1 className="font-display text-2xl font-bold text-gold-gradient text-center mb-3">{campaign.name}</h1>
 
-            <div className="p-6 md:p-8 space-y-4">
-              <h1 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient">{campaign.name}</h1>
-
-              {/* Line 1: Avatar, name, premium badge */}
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Avatar + name centered */}
+              <div className="flex items-center justify-center gap-2 mb-2">
                 <Avatar className="w-7 h-7">
-                  {creatorAvatarUrl && (
-                    <AvatarImage src={creatorAvatarUrl} alt={creatorName} />
-                  )}
+                  {creatorAvatarUrl && <AvatarImage src={creatorAvatarUrl} alt={creatorName} />}
                   <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
                     {(creatorName || 'U').charAt(0).toUpperCase()}
                   </AvatarFallback>
@@ -676,34 +662,170 @@ const CampaignPublic = () => {
                 <span className="text-sm text-foreground font-medium">{creatorName || 'User'}</span>
                 {campaign.tier === 'premium' && (
                   <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
-                    <Crown className="w-3 h-3" />
-                    Premium
+                    <Crown className="w-3 h-3" /> Premium
                   </span>
                 )}
               </div>
 
-              {/* Line 2: Date and supporters */}
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3" />
-                  {new Date(campaign.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Users className="w-3 h-3" /> {supportersCount} {t.public?.supporters ?? 'supporters'}
-                </span>
+              {/* Supporters centered */}
+              <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground mb-4">
+                <Users className="w-3 h-3" /> {supportersCount} {t.public?.supporters ?? 'supporters'}
               </div>
 
-              {/* About This Campaign */}
+              {/* Preview image (no caption on mobile before upload) */}
+              {bakedPreviewImage && !userPhoto && (
+                <div className="mb-4">
+                  <div className="relative mx-auto max-w-[320px] rounded-xl border border-border bg-secondary/20 p-2">
+                    <img src={bakedPreviewImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
+                  </div>
+                </div>
+              )}
+
+              {/* Upload & compose area */}
+              {/* Upload & compose area */}
+              <div className="glass-strong rounded-2xl p-4 border-gold-subtle min-w-0 mb-6">
+                {isOwner && isFree && (
+                  <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <Crown className="w-5 h-5 text-primary shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>
+                        <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
+                      </div>
+                    </div>
+                    <Button size="sm" className="gold-glow text-xs gap-1 w-full" onClick={() => setShowPaymentConfirm(true)} disabled={paying}>
+                      {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
+                      {paying ? 'Processing...' : `Upgrade Premium — Rp ${premiumPrice.toLocaleString('id-ID')}`}
+                    </Button>
+                  </div>
+                )}
+
+                {!userPhoto ? (
+                  <div className="space-y-4">
+                    <label className={`block ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                      <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors text-center">
+                        <Upload className="w-10 h-10 text-primary/50 mx-auto mb-2" />
+                        <p className="text-foreground font-medium">{t.public?.uploadPhoto ?? 'Upload foto kamu'}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t.public?.clickOrDrag ?? 'Klik atau drag untuk upload'}</p>
+                        {processingPhoto && <p className="text-xs text-muted-foreground mt-2">Processing photo...</p>}
+                      </div>
+                      <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div
+                      ref={previewInteractionRef}
+                      onPointerDown={onPointerDown}
+                      onPointerMove={onPointerMove}
+                      onPointerUp={onPointerUp}
+                      onPointerCancel={onPointerUp}
+                      onWheelCapture={onWheel}
+                      className="relative rounded-xl overflow-hidden border border-border mb-2 mx-auto"
+                      onDragStart={event => event.preventDefault()}
+                      style={{
+                        touchAction: 'none',
+                        overscrollBehavior: 'contain',
+                        width: Math.max(1, Math.round(fw * previewScale)),
+                        height: Math.max(1, Math.round(fh * previewScale)),
+                      }}
+                    >
+                      {resultImage || templateImage ? (
+                        <PhotoComposerPreview
+                          templateImage={templateImage}
+                          userPhoto={userPhoto}
+                          campaignType={(campaign?.type ?? 'frame') as 'frame' | 'background'}
+                          width={fw}
+                          height={fh}
+                          previewScale={previewScale}
+                          photoScale={photoScale}
+                          photoOffsetX={photoOffsetX}
+                          photoOffsetY={photoOffsetY}
+                          placeholderMeta={placeholderMeta}
+                          bgOverlayImage={bgOverlayImage}
+                          bgUnderImage={bgUnderImage}
+                          showWatermark={isFree}
+                        />
+                      ) : (
+                        <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
+                      )}
+
+                      {processingPhoto && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                          <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            {t.public?.processingPhoto ?? 'Processing photo...'}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
+                      <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Move className="w-3 h-3" /> {t.campaign?.dragToMove ?? 'Drag to move'}
+                      </p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <ZoomIn className="w-3 h-3" /> {t.campaign?.scrollToZoom ?? 'Scroll / pinch to zoom'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
+                      <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                        <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
+                        <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>
+                      </label>
+                    </div>
+
+                    {rawRemovedBg && campaign?.type === 'background' && (
+                      <div className="glass rounded-xl p-4 border-gold-subtle space-y-3">
+                        <div className="flex items-center gap-2">
+                          <SlidersHorizontal className="w-4 h-4 text-primary" />
+                          <h3 className="text-sm font-semibold text-foreground">{t.public?.bgSettings ?? 'Background Settings'}</h3>
+                          {applyingThreshold && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>{t.public?.tolerance ?? 'Tolerance'}</span>
+                            <span>{bgThreshold}%</span>
+                          </div>
+                          <Slider value={[bgThreshold]} onValueChange={handleThresholdChange} min={0} max={100} step={5} className="w-full" />
+                        </div>
+                      </div>
+                    )}
+
+                    {campaign?.caption && (
+                      <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                        <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
+                        <Button variant="outline" size="sm" className="border-border gap-1 text-xs w-full" onClick={handleCopyCaption}>
+                          <Copy className="w-3 h-3" />
+                          {t.public?.copyCaption ?? 'Salin Caption'}
+                        </Button>
+                      </div>
+                    )}
+
+                    <Button className="gold-glow font-semibold gap-2 w-full" onClick={() => {
+                      if (isFree) {
+                        setShowInterstitialAd(true);
+                      } else {
+                        handleDownload();
+                      }
+                    }}>
+                      <Download className="w-4 h-4" />
+                      {t.public?.downloadResult ?? 'Download Hasil'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* About section below on mobile */}
               {campaign.description && (
-                <div>
-                  <hr className="border-border/40 my-2" />
+                <div className="glass-strong rounded-2xl p-4 border-gold-subtle mb-6">
                   <h3 className="text-lg font-display font-semibold text-foreground mb-2">{t.public?.aboutCampaign ?? 'Tentang Campaign Ini'}</h3>
                   <p className="text-foreground/80 text-sm">{campaign.description}</p>
                 </div>
               )}
 
-              {/* Share bar - share title + link only */}
-              <div className="flex items-center gap-2 flex-wrap">
+              {/* Share bar on mobile */}
+              <div className="flex items-center gap-2 flex-wrap mb-4">
                 <div className="flex-1 min-w-0 flex items-center gap-2 glass rounded-lg px-3 py-2 text-xs text-foreground/70">
                   <Link2 className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate">{window.location.origin}/c/{slug}</span>
@@ -718,10 +840,7 @@ const CampaignPublic = () => {
                 </Button>
                 <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={() => {
                   const url = `${window.location.origin}/c/${slug}`;
-                  const shareData: ShareData = {
-                    title: campaign?.name ?? 'Twibbon',
-                    url,
-                  };
+                  const shareData: ShareData = { title: campaign?.name ?? 'Twibbon', url };
                   if (navigator.share) {
                     navigator.share(shareData).catch(() => {});
                   } else {
@@ -732,163 +851,230 @@ const CampaignPublic = () => {
                   <Share2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
-            {/* Left column: preview image + caption directly below */}
-            <div className="space-y-0">
-              {bakedPreviewImage && (
-                <div className="glass-strong rounded-t-2xl p-4 border-gold-subtle border-b-0">
-                  <div className="relative mx-auto max-w-[400px] rounded-xl border border-border bg-secondary/20 p-2">
-                    <img src={bakedPreviewImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
+            </>
+          ) : (
+            /* ─── DESKTOP LAYOUT (unchanged) ─── */
+            <>
+              {/* Campaign Header */}
+              <div className="glass-strong rounded-2xl border-gold-subtle mb-6 overflow-hidden">
+                {campaign.banner_url && (
+                  <div className="w-full">
+                    <img src={campaign.banner_url} alt={`${campaign.name} banner`} className="w-full h-auto object-cover" style={{ maxHeight: '280px' }} loading="lazy" />
                   </div>
-                </div>
-              )}
-
-              {/* Caption directly under preview image - no separate container */}
-              {campaign.caption && !userPhoto && (
-                <div className={`${bakedPreviewImage ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'} border border-border bg-secondary/20 p-4`}>
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
-                </div>
-              )}
-            </div>
-
-            {/* Right column: upload & compose */}
-            <div className="glass-strong rounded-2xl p-4 sm:p-6 md:p-8 border-gold-subtle min-w-0">
-              {isOwner && isFree && (
-                <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <Crown className="w-5 h-5 text-primary shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>
-                      <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
-                    </div>
-                  </div>
-                  <Button size="sm" className="gold-glow text-xs gap-1 w-full" onClick={() => setShowPaymentConfirm(true)} disabled={paying}>
-                    {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
-                    {paying ? 'Processing...' : `Upgrade Premium — Rp ${premiumPrice.toLocaleString('id-ID')}`}
-                  </Button>
-                </div>
-              )}
-
-              {!userPhoto ? (
-                <div className="space-y-4">
-                  <label className={`block ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-                    <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors text-center">
-                      <Upload className="w-10 h-10 text-primary/50 mx-auto mb-2" />
-                      <p className="text-foreground font-medium">{t.public?.uploadPhoto ?? 'Upload foto kamu'}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{t.public?.clickOrDrag ?? 'Klik atau drag untuk upload'}</p>
-                      {processingPhoto && <p className="text-xs text-muted-foreground mt-2">Processing photo...</p>}
-                    </div>
-                    <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
-                  </label>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div
-                    ref={previewInteractionRef}
-                    onPointerDown={onPointerDown}
-                    onPointerMove={onPointerMove}
-                    onPointerUp={onPointerUp}
-                    onPointerCancel={onPointerUp}
-                    onWheelCapture={onWheel}
-                    className="relative rounded-xl overflow-hidden border border-border mb-2 mx-auto"
-                    onDragStart={event => event.preventDefault()}
-                    style={{
-                      touchAction: 'none',
-                      overscrollBehavior: 'contain',
-                      width: Math.max(1, Math.round(fw * previewScale)),
-                      height: Math.max(1, Math.round(fh * previewScale)),
-                    }}
-                  >
-                    {resultImage || templateImage ? (
-                      <PhotoComposerPreview
-                        templateImage={templateImage}
-                        userPhoto={userPhoto}
-                        campaignType={(campaign?.type ?? 'frame') as 'frame' | 'background'}
-                        width={fw}
-                        height={fh}
-                        previewScale={previewScale}
-                        photoScale={photoScale}
-                        photoOffsetX={photoOffsetX}
-                        photoOffsetY={photoOffsetY}
-                        placeholderMeta={placeholderMeta}
-                        bgOverlayImage={bgOverlayImage}
-                        bgUnderImage={bgUnderImage}
-                        showWatermark={isFree}
-                      />
-                    ) : (
-                      <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
-                    )}
-
-                    {processingPhoto && (
-                      <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
-                        <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          {t.public?.processingPhoto ?? 'Processing photo...'}
-                        </div>
-                      </div>
+                )}
+                <div className="p-6 md:p-8 space-y-4">
+                  <h1 className="font-display text-2xl md:text-3xl font-bold text-gold-gradient">{campaign.name}</h1>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Avatar className="w-7 h-7">
+                      {creatorAvatarUrl && <AvatarImage src={creatorAvatarUrl} alt={creatorName} />}
+                      <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                        {(creatorName || 'U').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm text-foreground font-medium">{creatorName || 'User'}</span>
+                    {campaign.tier === 'premium' && (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary font-semibold">
+                        <Crown className="w-3 h-3" /> Premium
+                      </span>
                     )}
                   </div>
-
-                  <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
-                    <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Move className="w-3 h-3" /> {t.campaign?.dragToMove ?? 'Drag to move'}
-                    </p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <ZoomIn className="w-3 h-3" /> {t.campaign?.scrollToZoom ?? 'Scroll / pinch to zoom'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
-                    <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-                      <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
-                      <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>
-                    </label>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(campaign.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="w-3 h-3" /> {supportersCount} {t.public?.supporters ?? 'supporters'}
+                    </span>
                   </div>
+                  {campaign.description && (
+                    <div>
+                      <hr className="border-border/40 my-2" />
+                      <h3 className="text-lg font-display font-semibold text-foreground mb-2">{t.public?.aboutCampaign ?? 'Tentang Campaign Ini'}</h3>
+                      <p className="text-foreground/80 text-sm">{campaign.description}</p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex-1 min-w-0 flex items-center gap-2 glass rounded-lg px-3 py-2 text-xs text-foreground/70">
+                      <Link2 className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{window.location.origin}/c/{slug}</span>
+                    </div>
+                    <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={() => {
+                      const url = `${window.location.origin}/c/${slug}`;
+                      const text = `${campaign.name}\n${url}`;
+                      navigator.clipboard.writeText(text);
+                      toast.success(t.public?.linkCopied ?? 'Link disalin!');
+                    }}>
+                      <Copy className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="outline" size="sm" className="border-border gap-1 text-xs text-foreground/80" onClick={() => {
+                      const url = `${window.location.origin}/c/${slug}`;
+                      const shareData: ShareData = { title: campaign?.name ?? 'Twibbon', url };
+                      if (navigator.share) {
+                        navigator.share(shareData).catch(() => {});
+                      } else {
+                        navigator.clipboard.writeText(`${campaign.name}\n${url}`);
+                        toast.success(t.public?.linkCopied ?? 'Link disalin!');
+                      }
+                    }}>
+                      <Share2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
 
-                  {rawRemovedBg && campaign?.type === 'background' && (
-                    <div className="glass rounded-xl p-4 border-gold-subtle space-y-3">
-                      <div className="flex items-center gap-2">
-                        <SlidersHorizontal className="w-4 h-4 text-primary" />
-                        <h3 className="text-sm font-semibold text-foreground">{t.public?.bgSettings ?? 'Background Settings'}</h3>
-                        {applyingThreshold && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>{t.public?.tolerance ?? 'Tolerance'}</span>
-                          <span>{bgThreshold}%</span>
-                        </div>
-                        <Slider value={[bgThreshold]} onValueChange={handleThresholdChange} min={0} max={100} step={5} className="w-full" />
+              <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
+                {/* Left column: preview + caption */}
+                <div className="space-y-0">
+                  {bakedPreviewImage && (
+                    <div className="glass-strong rounded-t-2xl p-4 border-gold-subtle border-b-0">
+                      <div className="relative mx-auto max-w-[400px] rounded-xl border border-border bg-secondary/20 p-2">
+                        <img src={bakedPreviewImage} alt="Preview hasil twibbon" className="w-full h-auto rounded-lg" loading="lazy" draggable={false} onContextMenu={e => e.preventDefault()} />
                       </div>
                     </div>
                   )}
-
-                  {/* Caption below interactive preview */}
-                  {campaign?.caption && (
-                    <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                  {campaign.caption && !userPhoto && (
+                    <div className={`${bakedPreviewImage ? 'rounded-b-2xl border-t-0' : 'rounded-2xl'} border border-border bg-secondary/20 p-4`}>
                       <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
-                      <Button variant="outline" size="sm" className="border-border gap-1 text-xs w-full" onClick={handleCopyCaption}>
-                        <Copy className="w-3 h-3" />
-                        {t.public?.copyCaption ?? 'Salin Caption'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right column: upload & compose */}
+                <div className="glass-strong rounded-2xl p-4 sm:p-6 md:p-8 border-gold-subtle min-w-0">
+                  {isOwner && isFree && (
+                    <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <Crown className="w-5 h-5 text-primary shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-sm text-foreground font-medium">{t.public?.ownerWatermarkNotice ?? 'Campaign ini masih menggunakan watermark'}</p>
+                          <p className="text-xs text-muted-foreground">{t.public?.ownerWatermarkDesc ?? 'Upgrade ke Premium untuk menghapus watermark dan iklan.'}</p>
+                        </div>
+                      </div>
+                      <Button size="sm" className="gold-glow text-xs gap-1 w-full" onClick={() => setShowPaymentConfirm(true)} disabled={paying}>
+                        {paying ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
+                        {paying ? 'Processing...' : `Upgrade Premium — Rp ${premiumPrice.toLocaleString('id-ID')}`}
                       </Button>
                     </div>
                   )}
 
-                  <Button className="gold-glow font-semibold gap-2 w-full" onClick={() => {
-                    if (isFree) {
-                      setShowInterstitialAd(true);
-                    } else {
-                      handleDownload();
-                    }
-                  }}>
-                    <Download className="w-4 h-4" />
-                    {t.public?.downloadResult ?? 'Download Hasil'}
-                  </Button>
+                  {!userPhoto ? (
+                    <div className="space-y-4">
+                      <label className={`block ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                        <div className="border-2 border-dashed border-border rounded-xl p-8 hover:border-primary/50 transition-colors text-center">
+                          <Upload className="w-10 h-10 text-primary/50 mx-auto mb-2" />
+                          <p className="text-foreground font-medium">{t.public?.uploadPhoto ?? 'Upload foto kamu'}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{t.public?.clickOrDrag ?? 'Klik atau drag untuk upload'}</p>
+                          {processingPhoto && <p className="text-xs text-muted-foreground mt-2">Processing photo...</p>}
+                        </div>
+                        <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div
+                        ref={previewInteractionRef}
+                        onPointerDown={onPointerDown}
+                        onPointerMove={onPointerMove}
+                        onPointerUp={onPointerUp}
+                        onPointerCancel={onPointerUp}
+                        onWheelCapture={onWheel}
+                        className="relative rounded-xl overflow-hidden border border-border mb-2 mx-auto"
+                        onDragStart={event => event.preventDefault()}
+                        style={{
+                          touchAction: 'none',
+                          overscrollBehavior: 'contain',
+                          width: Math.max(1, Math.round(fw * previewScale)),
+                          height: Math.max(1, Math.round(fh * previewScale)),
+                        }}
+                      >
+                        {resultImage || templateImage ? (
+                          <PhotoComposerPreview
+                            templateImage={templateImage}
+                            userPhoto={userPhoto}
+                            campaignType={(campaign?.type ?? 'frame') as 'frame' | 'background'}
+                            width={fw}
+                            height={fh}
+                            previewScale={previewScale}
+                            photoScale={photoScale}
+                            photoOffsetX={photoOffsetX}
+                            photoOffsetY={photoOffsetY}
+                            placeholderMeta={placeholderMeta}
+                            bgOverlayImage={bgOverlayImage}
+                            bgUnderImage={bgUnderImage}
+                            showWatermark={isFree}
+                          />
+                        ) : (
+                          <div className="py-12 text-muted-foreground text-sm">{t.campaign?.editor?.loading ?? 'Loading...'}</div>
+                        )}
+                        {processingPhoto && (
+                          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                            <div className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-xs text-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              {t.public?.processingPhoto ?? 'Processing photo...'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="glass rounded-xl p-4 border-gold-subtle space-y-1">
+                        <h3 className="text-sm font-semibold text-foreground">{t.public?.adjustPhoto ?? 'Atur Posisi Foto'}</h3>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Move className="w-3 h-3" /> {t.campaign?.dragToMove ?? 'Drag to move'}
+                        </p>
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <ZoomIn className="w-3 h-3" /> {t.campaign?.scrollToZoom ?? 'Scroll / pinch to zoom'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">Scale: {Math.round(photoScale)}% • X: {Math.round(photoOffsetX)} • Y: {Math.round(photoOffsetY)}</p>
+                        <label className={`inline-flex mt-1 ${processingPhoto ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                          <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={processingPhoto} />
+                          <span className="text-xs text-primary underline">{t.public?.changePhoto ?? 'Ganti Foto'}</span>
+                        </label>
+                      </div>
+
+                      {rawRemovedBg && campaign?.type === 'background' && (
+                        <div className="glass rounded-xl p-4 border-gold-subtle space-y-3">
+                          <div className="flex items-center gap-2">
+                            <SlidersHorizontal className="w-4 h-4 text-primary" />
+                            <h3 className="text-sm font-semibold text-foreground">{t.public?.bgSettings ?? 'Background Settings'}</h3>
+                            {applyingThreshold && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>{t.public?.tolerance ?? 'Tolerance'}</span>
+                              <span>{bgThreshold}%</span>
+                            </div>
+                            <Slider value={[bgThreshold]} onValueChange={handleThresholdChange} min={0} max={100} step={5} className="w-full" />
+                          </div>
+                        </div>
+                      )}
+
+                      {campaign?.caption && (
+                        <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                          <p className="text-sm text-foreground whitespace-pre-wrap">{campaign.caption}</p>
+                          <Button variant="outline" size="sm" className="border-border gap-1 text-xs w-full" onClick={handleCopyCaption}>
+                            <Copy className="w-3 h-3" />
+                            {t.public?.copyCaption ?? 'Salin Caption'}
+                          </Button>
+                        </div>
+                      )}
+
+                      <Button className="gold-glow font-semibold gap-2 w-full" onClick={() => {
+                        if (isFree) {
+                          setShowInterstitialAd(true);
+                        } else {
+                          handleDownload();
+                        }
+                      }}>
+                        <Download className="w-4 h-4" />
+                        {t.public?.downloadResult ?? 'Download Hasil'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
+            </>
+          )}
 
           {isFree && (
             <div className="mt-6">
