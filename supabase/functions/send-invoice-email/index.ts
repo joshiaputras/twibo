@@ -43,9 +43,9 @@ const headerStyle = `background:#1a1a2e;background-image:linear-gradient(rgba(25
 
 function buildLogoBlock(logoUrl: string) {
   const logoImg = logoUrl
-    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;background:transparent;vertical-align:middle;" />`
+    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;vertical-align:middle;background:none;mix-blend-mode:normal;" />`
     : '';
-  return `<div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;">${logoImg}<span style="font-size:22px;font-weight:800;color:#FFD700;font-family:'Space Grotesk','Segoe UI',sans-serif;vertical-align:middle;">TWIBO.id</span></div>`;
+  return `<div style="display:inline-flex;align-items:center;gap:14px;justify-content:center;">${logoImg}<span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;vertical-align:middle;">TWIBO.id</span></div>`;
 }
 
 function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string, logoUrl: string) {

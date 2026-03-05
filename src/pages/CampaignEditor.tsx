@@ -366,20 +366,14 @@ const CampaignEditor = () => {
 
     setSaving(false);
 
-    if (status === 'published') {
-      if (campaignTier === 'premium') {
-        setShowPayment(true); // show success overlay
-      } else {
-        setStep(5); // go to step 6 (upgrade prompt)
-      }
+    if (campaignTier === 'premium') {
+      toast.success(status === 'published' ? t.campaign.publishSuccess : t.campaign.draftSaved);
+      navigate('/dashboard');
+    } else if (status === 'published') {
+      setStep(5); // go to step 6 (upgrade prompt)
     } else {
       toast.success(t.campaign.draftSaved);
-      // After saving draft, also advance to next step
-      if (campaignTier === 'premium') {
-        setShowPayment(true);
-      } else {
-        setStep(5);
-      }
+      setStep(5);
     }
   };
 
