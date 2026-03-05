@@ -44,7 +44,9 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const CanvasEditor = lazy(() => import('@/components/CanvasEditor'));
 
-const steps = ['step1', 'step2', 'step3', 'step4', 'step5'] as const;
+const STEPS_FREE = ['step1', 'step2', 'step3', 'step4', 'step5', 'step6'] as const;
+const STEPS_PREMIUM = ['step1', 'step2', 'step3', 'step4', 'step5'] as const;
+type StepsArray = typeof STEPS_FREE | typeof STEPS_PREMIUM;
 
 type CampaignSize = 'square' | 'portrait' | 'story';
 type CampaignType = 'frame' | 'background';
@@ -133,6 +135,7 @@ const CampaignEditor = () => {
   ];
 
   const selectedSize = sizes.find(s => s.key === form.size)!;
+  const steps = campaignTier === 'premium' ? STEPS_PREMIUM : STEPS_FREE;
   const isMobile = useIsMobile();
   const previewScale = Math.min((isMobile ? 320 : 500) / selectedSize.w, (isMobile ? 420 : 600) / selectedSize.h, 1);
   const placeholderMeta = extractPlaceholderMeta(canvasState);
@@ -368,7 +371,11 @@ const CampaignEditor = () => {
     setSaving(false);
 
     if (status === 'published') {
-      setShowPayment(true);
+      if (campaignTier === 'premium') {
+        setShowPayment(true); // show success overlay
+      } else {
+        setStep(5); // go to step 6 (upgrade prompt)
+      }
     } else {
       toast.success(t.campaign.draftSaved);
     }
@@ -468,8 +475,9 @@ const CampaignEditor = () => {
     const result = await pay(campaignId, voucherCode);
     if (result.success) {
       setCampaignTier('premium');
+      setStep(4);
+      setShowPayment(true);
       toast.success(t.campaign.premiumSuccess ?? 'Campaign berhasil diupgrade ke Premium!');
-      navigate('/dashboard');
     }
   };
 
@@ -641,7 +649,7 @@ const CampaignEditor = () => {
             {steps.map((s, i) => (
               <div key={s} className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => i <= step && setStep(i)}
+                  onClick={() => i <= step && i < 5 && setStep(i)}
                   className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all ${
                     i < step
                       ? 'bg-primary text-primary-foreground'
@@ -650,7 +658,7 @@ const CampaignEditor = () => {
                         : 'bg-secondary text-muted-foreground'
                   }`}
                 >
-                  {i < step ? <Check className="w-4 h-4" /> : i + 1}
+                  {i < step ? <Check className="w-4 h-4" /> : i === 5 ? <Crown className="w-4 h-4" /> : i + 1}
                 </button>
                 {i < steps.length - 1 && <div className={`w-6 h-0.5 ${i < step ? 'bg-primary' : 'bg-border'}`} />}
               </div>
@@ -994,52 +1002,51 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {step === 4 && showPayment && (
+            {step === 4 && showPayment && campaignTier === 'premium' && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-md">
                 <div className="max-w-lg w-full mx-4 text-center space-y-6">
-                  {campaignTier !== 'premium' ? (
-                    <>
-                      <div className="relative">
-                        <div className="absolute inset-0 rounded-full bg-primary/20 blur-3xl w-32 h-32 mx-auto" />
-                        <Crown className="w-16 h-16 text-primary mx-auto relative" />
-                      </div>
-                      <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.upgradeToPremium ?? 'Upgrade ke Premium'}</h2>
-                      <p className="text-muted-foreground text-sm">{t.campaign.upgradeDesc ?? 'Hapus watermark dan iklan dari campaign kamu dengan upgrade ke Premium.'}</p>
-                      <div className="flex gap-3 justify-center flex-wrap">
-                        <Button variant="outline" className="border-border" onClick={handleSkipPayment}>
-                          {t.campaign.skipForNow ?? 'Lewati, Coba Gratis'}
-                        </Button>
-                        <Button className="gold-glow font-semibold gap-2" onClick={() => { setShowPayment(false); setShowPaymentDialog(true); }}>
-                          <CreditCard className="w-4 h-4" /> {t.campaign.payNow ?? 'Bayar Sekarang'}
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="relative">
-                        <div className="absolute inset-0 rounded-full bg-green-500/20 blur-3xl w-32 h-32 mx-auto" />
-                        <div className="relative w-20 h-20 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
-                          <Check className="w-10 h-10 text-green-500" />
-                        </div>
-                      </div>
-                      <h2 className="font-display text-2xl font-bold text-foreground">🎉 Campaign Berhasil Dipublish!</h2>
-                      <p className="text-muted-foreground text-sm">Campaign <strong>{form.name}</strong> sudah berstatus <span className="text-primary font-semibold">Premium</span> dan siap digunakan.</p>
-                      <p className="text-xs text-muted-foreground">twibo.id/c/{form.slug}</p>
-                      <div className="flex gap-3 justify-center flex-wrap pt-2">
-                        <Button variant="outline" className="border-border gap-2" onClick={() => navigate(`/c/${form.slug}`)}>
-                          <Eye className="w-4 h-4" /> Lihat Campaign
-                        </Button>
-                        <Button className="gold-glow font-semibold gap-2" onClick={() => navigate('/dashboard')}>
-                          <ChevronLeft className="w-4 h-4" /> Kembali ke Dashboard
-                        </Button>
-                      </div>
-                    </>
-                  )}
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-full bg-green-500/20 blur-3xl w-32 h-32 mx-auto" />
+                    <div className="relative w-20 h-20 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
+                      <Check className="w-10 h-10 text-green-500" />
+                    </div>
+                  </div>
+                  <h2 className="font-display text-2xl font-bold text-foreground">🎉 Campaign Berhasil Dipublish!</h2>
+                  <p className="text-muted-foreground text-sm">Campaign <strong>{form.name}</strong> sudah berstatus <span className="text-primary font-semibold">Premium</span> dan siap digunakan.</p>
+                  <p className="text-xs text-muted-foreground">twibo.id/c/{form.slug}</p>
+                  <div className="flex gap-3 justify-center flex-wrap pt-2">
+                    <Button variant="outline" className="border-border gap-2" onClick={() => navigate(`/c/${form.slug}`)}>
+                      <Eye className="w-4 h-4" /> Lihat Campaign
+                    </Button>
+                    <Button className="gold-glow font-semibold gap-2" onClick={() => navigate('/dashboard')}>
+                      <ChevronLeft className="w-4 h-4" /> Kembali ke Dashboard
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
 
-            {!showPayment && (
+            {/* Step 6: Upgrade to Premium (free tier only) */}
+            {step === 5 && (
+              <div className="space-y-6 text-center py-8">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-primary/20 blur-3xl w-32 h-32 mx-auto" />
+                  <Crown className="w-16 h-16 text-primary mx-auto relative" />
+                </div>
+                <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.upgradeToPremium ?? 'Upgrade ke Premium'}</h2>
+                <p className="text-muted-foreground text-sm max-w-md mx-auto">{t.campaign.upgradeDesc ?? 'Hapus watermark dan iklan dari campaign kamu dengan upgrade ke Premium.'}</p>
+                <div className="flex gap-3 justify-center flex-wrap">
+                  <Button variant="outline" className="border-border" onClick={handleSkipPayment}>
+                    {t.campaign.skipForNow ?? 'Lewati, Coba Gratis'}
+                  </Button>
+                  <Button className="gold-glow font-semibold gap-2" onClick={() => setShowPaymentDialog(true)}>
+                    <CreditCard className="w-4 h-4" /> {t.campaign.payNow ?? 'Bayar Sekarang'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {!showPayment && step !== 5 && (
               <div className="flex justify-between mt-8 pt-6 border-t border-border/30">
                 {step === 0 ? (
                   <Button variant="outline" onClick={() => navigate('/dashboard')} className="border-border gap-1">
@@ -1075,8 +1082,9 @@ const CampaignEditor = () => {
         onPayPalSuccess={() => {
           setCampaignTier('premium');
           setShowPaymentDialog(false);
+          setStep(4);
+          setShowPayment(true);
           toast.success(t.campaign.premiumSuccess ?? 'Campaign berhasil diupgrade ke Premium!');
-          navigate('/dashboard');
         }}
         basePrice={premiumPrice}
         originalPrice={originalPrice}

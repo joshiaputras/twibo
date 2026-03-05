@@ -132,6 +132,7 @@ const Admin = () => {
   });
   const [savingVoucher, setSavingVoucher] = useState(false);
   const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null);
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
 
   // Blog form
   const [blogDialogOpen, setBlogDialogOpen] = useState(false);
@@ -1028,38 +1029,6 @@ const Admin = () => {
                   </div>
                 </div>
               </div>
-              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4 md:col-span-2">
-                  <h3 className="font-display font-semibold text-foreground">📧 SMTP Email Notification</h3>
-                  <p className="text-xs text-muted-foreground">Konfigurasi SMTP untuk pengiriman email invoice & notifikasi transaksi.</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-sm text-muted-foreground">SMTP Host</Label>
-                      <Input value={settings['smtp_host'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_host: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="smtp.gmail.com" />
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">SMTP Port</Label>
-                      <Input value={settings['smtp_port'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_port: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="587" />
-                      <p className="text-xs text-muted-foreground mt-1">465 = SSL, 587 = STARTTLS</p>
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">SMTP Username</Label>
-                      <Input value={settings['smtp_username'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_username: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="you@gmail.com" />
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">SMTP Password</Label>
-                      <Input type="password" value={settings['smtp_password'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_password: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="App password" />
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">From Email</Label>
-                      <Input value={settings['smtp_from_email'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_from_email: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="noreply@twibo.id" />
-                    </div>
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Admin Notification Email</Label>
-                      <Input value={settings['admin_notification_email'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, admin_notification_email: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="twibo.id@gmail.com" />
-                      <p className="text-xs text-muted-foreground mt-1">Email tujuan notifikasi transaksi baru</p>
-                    </div>
-                  </div>
-                </div>
               <Button className="gold-glow" onClick={handleSaveSettings}>
                 {t.admin.saveSettings ?? 'Save Settings'}
               </Button>
@@ -1148,6 +1117,62 @@ const Admin = () => {
                     }} />
                   </label>
                 </div>
+              </div>
+              {/* SMTP Email Notification */}
+              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                <h3 className="font-display font-semibold text-foreground">📧 SMTP Email Notification</h3>
+                <p className="text-xs text-muted-foreground">Konfigurasi SMTP untuk pengiriman email invoice & notifikasi transaksi.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-sm text-muted-foreground">SMTP Host</Label>
+                    <Input value={settings['smtp_host'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_host: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="smtp.gmail.com" />
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">SMTP Port</Label>
+                    <Input value={settings['smtp_port'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_port: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="587" />
+                    <p className="text-xs text-muted-foreground mt-1">465 = SSL, 587 = STARTTLS</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">SMTP Username</Label>
+                    <Input value={settings['smtp_username'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_username: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="you@gmail.com" />
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">SMTP Password</Label>
+                    <Input type="password" value={settings['smtp_password'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_password: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="App password" />
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">From Email</Label>
+                    <Input value={settings['smtp_from_email'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, smtp_from_email: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="noreply@twibo.id" />
+                  </div>
+                  <div>
+                    <Label className="text-sm text-muted-foreground">Admin Notification Email</Label>
+                    <Input value={settings['admin_notification_email'] ?? ''} onChange={e => setSettings(prev => ({ ...prev, admin_notification_email: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="twibo.id@gmail.com" />
+                    <p className="text-xs text-muted-foreground mt-1">Email tujuan notifikasi transaksi baru & test email</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  className="border-border gap-2"
+                  disabled={sendingTestEmail}
+                  onClick={async () => {
+                    setSendingTestEmail(true);
+                    try {
+                      // Save settings first
+                      await handleSaveSettings();
+                      const { data, error } = await supabase.functions.invoke('test-smtp-email');
+                      if (error) throw error;
+                      if (data?.error) throw new Error(data.error);
+                      toast.success(`Test email berhasil dikirim ke ${data?.to || 'admin'}`);
+                    } catch (err: any) {
+                      toast.error(err.message || 'Gagal mengirim test email');
+                    } finally {
+                      setSendingTestEmail(false);
+                    }
+                  }}
+                >
+                  {sendingTestEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>📨</span>}
+                  Kirim Test Email
+                </Button>
               </div>
               <Button className="gold-glow" onClick={handleSaveSettings}>
                 {t.admin.saveSettings ?? 'Save Settings'}
