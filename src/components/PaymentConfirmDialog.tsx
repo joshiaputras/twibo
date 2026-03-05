@@ -210,6 +210,7 @@ const PaymentConfirmDialog = ({
     t.pricing?.premiumFeatures?.f4 ?? 'Full statistics',
     t.pricing?.premiumFeatures?.f5 ?? 'Priority support',
     t.pricing?.premiumFeatures?.f6 ?? 'Upload custom banner',
+    t.pricing?.premiumFeatures?.f7 ?? 'Hide from Search Engines',
   ];
 
   const showInternational = paypalEnabled && paypalClientId;

@@ -43,11 +43,11 @@ const headerStyle = `background:#1a1a2e;background-image:linear-gradient(rgba(25
 
 function buildLogoBlock(logoUrl: string) {
   const logoImg = logoUrl
-    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;width:36px;border-radius:8px;object-fit:cover;vertical-align:middle;background:transparent;" />`
+    ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;width:36px;border-radius:8px;object-fit:cover;vertical-align:middle;background:none;border:0;" />`
     : '';
   // Use table layout for reliable gap in email clients
   if (logoImg) {
-    return `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td style="vertical-align:middle;">${logoImg}</td><td style="width:14px;"></td><td style="vertical-align:middle;"><span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;">TWIBO.id</span></td></tr></table>`;
+    return `<table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td style="vertical-align:middle;">${logoImg}</td><td style="width:10px;"></td><td style="vertical-align:middle;"><span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;">TWIBO.id</span></td></tr></table>`;
   }
   return `<span style="font-size:22px;font-weight:800;color:#fcb503;font-family:'Space Grotesk','Segoe UI',sans-serif;">TWIBO.id</span>`;
 }
@@ -132,7 +132,7 @@ async function generateInvoicePdf(payment: any, campaign: any, profile: any, log
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
   const { height } = page.getSize();
-  const gold = rgb(0.72, 0.53, 0.04);
+  const gold = rgb(0.99, 0.71, 0.01); // #fcb503
   const black = rgb(0.13, 0.13, 0.13);
   const gray = rgb(0.53, 0.53, 0.53);
 
@@ -142,18 +142,28 @@ async function generateInvoicePdf(payment: any, campaign: any, profile: any, log
   let logoXOffset = 50;
   if (logoUrl) {
     try {
+      // Convert WebP/any format to PNG via canvas-free approach
+      // Try fetching as PNG first by checking content type
       const logoRes = await fetch(logoUrl);
-      const logoBytes = new Uint8Array(await logoRes.arrayBuffer());
       const contentType = logoRes.headers.get("content-type") || "";
+      const logoBytes = new Uint8Array(await logoRes.arrayBuffer());
+      
       let logoImage;
-      if (contentType.includes("png") || logoUrl.endsWith(".png") || logoUrl.endsWith(".webp")) {
+      if (contentType.includes("jpeg") || contentType.includes("jpg") || logoUrl.endsWith(".jpg") || logoUrl.endsWith(".jpeg")) {
+        logoImage = await doc.embedJpg(logoBytes);
+      } else if (contentType.includes("png") || logoUrl.endsWith(".png")) {
         logoImage = await doc.embedPng(logoBytes);
       } else {
-        logoImage = await doc.embedJpg(logoBytes);
+        // WebP or other formats - skip embedding, pdf-lib doesn't support them
+        console.warn("Logo format not supported for PDF embedding (webp/other). Skipping logo.");
+        logoImage = null;
       }
-      const logoDim = logoImage.scale(32 / logoImage.height);
-      page.drawImage(logoImage, { x: 50, y: y - 4, width: logoDim.width, height: logoDim.height });
-      logoXOffset = 50 + logoDim.width + 10;
+      
+      if (logoImage) {
+        const logoDim = logoImage.scale(32 / logoImage.height);
+        page.drawImage(logoImage, { x: 50, y: y - 4, width: logoDim.width, height: logoDim.height });
+        logoXOffset = 50 + logoDim.width + 10;
+      }
     } catch (e) {
       console.error("Failed to embed logo in PDF:", e);
     }
