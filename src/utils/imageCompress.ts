@@ -55,4 +55,5 @@ export const IMAGE_PRESETS = {
   campaignBanner: { maxWidth: 1200, maxHeight: 400, quality: 0.85 },
   favicon: { maxWidth: 128, maxHeight: 128, quality: 0.9 },
   logo: { maxWidth: 512, maxHeight: 512, quality: 0.9 },
+  ogImage: { maxWidth: 1200, maxHeight: 630, quality: 0.85 },
 } as const;

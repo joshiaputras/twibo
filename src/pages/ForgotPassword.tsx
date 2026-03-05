@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ const ForgotPassword = () => {
 
   return (
     <Layout>
+      <SEOHead title="Lupa Password — TWIBO.id" description="Reset password akun TWIBO.id kamu." robots="noindex, nofollow" />
       <section className="py-24 md:py-32 flex items-center justify-center min-h-[80vh]">
         <div className="w-full max-w-md mx-auto px-4">
           <div className="glass-strong rounded-2xl p-8 border-gold-subtle gold-glow">

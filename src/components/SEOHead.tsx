@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SEOHeadProps {
   title: string;
@@ -9,7 +10,27 @@ interface SEOHeadProps {
   robots?: string;
 }
 
+let cachedDefaultOgImage: string | null = null;
+
 const SEOHead = ({ title, description, canonical, ogImage, ogType = 'website', robots }: SEOHeadProps) => {
+  const [defaultOgImage, setDefaultOgImage] = useState<string>(cachedDefaultOgImage || '');
+
+  useEffect(() => {
+    if (cachedDefaultOgImage !== null) return;
+    supabase
+      .from('site_settings' as any)
+      .select('value')
+      .eq('key', 'og_image_url')
+      .maybeSingle()
+      .then(({ data }: any) => {
+        const url = data?.value || '';
+        cachedDefaultOgImage = url;
+        setDefaultOgImage(url);
+      });
+  }, []);
+
+  const resolvedOgImage = ogImage || defaultOgImage || 'https://twibo.id/og-image.png';
+
   useEffect(() => {
     document.title = title;
 
@@ -27,13 +48,11 @@ const SEOHead = ({ title, description, canonical, ogImage, ogType = 'website', r
     setMeta('property', 'og:title', title);
     setMeta('property', 'og:description', description);
     setMeta('property', 'og:type', ogType);
+    setMeta('property', 'og:image', resolvedOgImage);
     setMeta('name', 'twitter:title', title);
     setMeta('name', 'twitter:description', description);
-
-    if (ogImage) {
-      setMeta('property', 'og:image', ogImage);
-      setMeta('name', 'twitter:image', ogImage);
-    }
+    setMeta('name', 'twitter:image', resolvedOgImage);
+    setMeta('name', 'twitter:card', 'summary_large_image');
 
     if (robots) {
       setMeta('name', 'robots', robots);
@@ -51,7 +70,7 @@ const SEOHead = ({ title, description, canonical, ogImage, ogType = 'website', r
       }
       link.href = canonical;
     }
-  }, [title, description, canonical, ogImage, ogType, robots]);
+  }, [title, description, canonical, resolvedOgImage, ogType, robots]);
 
   return null;
 };

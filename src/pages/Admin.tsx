@@ -1124,6 +1124,38 @@ const Admin = () => {
                     }} />
                   </label>
                 </div>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">🖼️ Meta Thumbnail (OG Image)</h3>
+                  <p className="text-xs text-muted-foreground">Gambar default yang tampil saat link di-share di sosial media. Rekomendasi: 1200×630px.</p>
+                  {settings['og_image_url'] && (
+                    <div className="flex items-center gap-3">
+                      <img src={settings['og_image_url']} alt="Current OG image" className="h-16 rounded-lg object-cover border border-border" />
+                      <span className="text-xs text-muted-foreground truncate flex-1">{settings['og_image_url']}</span>
+                    </div>
+                  )}
+                  <label className="cursor-pointer">
+                    <div className="border border-dashed border-border rounded-lg p-3 text-center hover:border-primary/50 transition-colors">
+                      <Upload className="w-5 h-5 text-primary/50 mx-auto mb-1" />
+                      <span className="text-xs text-muted-foreground">Upload OG Image</span>
+                    </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      try {
+                        const preset = IMAGE_PRESETS.ogImage;
+                        const compressed = await compressImageToWebP(file, preset.maxWidth, preset.maxHeight, preset.quality);
+                        const name = `og-image-${Date.now()}.webp`;
+                        const { error } = await supabase.storage.from('banner-images').upload(name, compressed, { upsert: true, contentType: 'image/webp' });
+                        if (error) throw error;
+                        const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
+                        setSettings(prev => ({ ...prev, og_image_url: urlData.publicUrl }));
+                        toast.success('Meta thumbnail uploaded');
+                      } catch (err: any) {
+                        toast.error(err.message || 'Upload failed');
+                      }
+                    }} />
+                  </label>
+                </div>
               </div>
               {/* SMTP Email Notification */}
               <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">

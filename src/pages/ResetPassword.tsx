@@ -1,4 +1,5 @@
 import Layout from '@/components/Layout';
+import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -56,6 +57,7 @@ const ResetPassword = () => {
   if (validSession === null) {
     return (
       <Layout>
+        <SEOHead title="Reset Password — TWIBO.id" description="Atur ulang password akun TWIBO.id." robots="noindex, nofollow" />
         <section className="py-24 md:py-32 flex items-center justify-center min-h-[80vh]">
           <div className="text-muted-foreground">Loading...</div>
         </section>

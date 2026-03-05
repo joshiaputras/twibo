@@ -12,7 +12,7 @@ function toWIB(date: Date): string {
     timeZone: "Asia/Jakarta",
     dateStyle: "full",
     timeStyle: "medium",
-  }) + " WIB";
+  });
 }
 
 Deno.serve(async (req) => {
@@ -43,9 +43,10 @@ Deno.serve(async (req) => {
     const now = toWIB(new Date());
     const logoUrl = settings.logo_url || '';
 
-    const logoBlock = logoUrl
-      ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;margin-bottom:8px;background:transparent;" />`
-      : `<span style="font-size:22px;font-weight:800;color:#FFD700;">TWIBO.id</span>`;
+    const logoImg = logoUrl
+      ? `<img src="${logoUrl}" alt="TWIBO.id" style="height:36px;background:transparent;vertical-align:middle;" />`
+      : '';
+    const logoBlock = `<div style="display:inline-flex;align-items:center;gap:10px;justify-content:center;">${logoImg}<span style="font-size:22px;font-weight:800;color:#FFD700;font-family:'Space Grotesk','Segoe UI',sans-serif;vertical-align:middle;">TWIBO.id</span></div>`;
 
     const headerStyle = `background:#1a1a2e;background-image:linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);background-size:24px 24px;color:#fff;padding:24px;text-align:center;`;
 
