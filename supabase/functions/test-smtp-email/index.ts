@@ -1,64 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-async function sendSmtpEmail(opts: {
-  host: string; port: number; username: string; password: string;
-  from: string; to: string; subject: string; html: string;
-}) {
-  const { host, port, username, password, from, to, subject, html } = opts;
-  let conn: Deno.Conn;
-  if (port === 465) {
-    conn = await Deno.connectTls({ hostname: host, port });
-  } else {
-    conn = await Deno.connect({ hostname: host, port });
-  }
-  const encoder = new TextEncoder();
-  const decoder = new TextDecoder();
-  async function read(): Promise<string> {
-    const buf = new Uint8Array(4096);
-    const n = await conn.read(buf);
-    return n ? decoder.decode(buf.subarray(0, n)) : "";
-  }
-  async function write(cmd: string) {
-    await conn.write(encoder.encode(cmd + "\r\n"));
-  }
-  async function command(cmd: string): Promise<string> {
-    await write(cmd);
-    return await read();
-  }
-  await read();
-  await command(`EHLO localhost`);
-  if (port === 587) {
-    await command("STARTTLS");
-    conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: host });
-    await command(`EHLO localhost`);
-  }
-  await command("AUTH LOGIN");
-  await command(btoa(username));
-  const authRes = await command(btoa(password));
-  if (!authRes.startsWith("235")) {
-    conn.close();
-    throw new Error("SMTP Auth failed: " + authRes);
-  }
-  await command(`MAIL FROM:<${from}>`);
-  await command(`RCPT TO:<${to}>`);
-  await command("DATA");
-  const boundary = "----=_Part_" + Date.now();
-  const message = [
-    `From: ${from}`, `To: ${to}`, `Subject: ${subject}`,
-    `MIME-Version: 1.0`, `Content-Type: multipart/alternative; boundary="${boundary}"`,
-    ``, `--${boundary}`, `Content-Type: text/html; charset=UTF-8`, `Content-Transfer-Encoding: 7bit`,
-    ``, html, ``, `--${boundary}--`, `.`,
-  ].join("\r\n");
-  await command(message);
-  await command("QUIT");
-  conn.close();
-}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -82,20 +29,29 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Strip protocol prefixes from hostname (users may enter http:// or https://)
     const cleanHost = smtp.smtp_host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    const port = parseInt(smtp.smtp_port || "465");
     const to = smtp.admin_notification_email || "twibo.id@gmail.com";
     const from = smtp.smtp_from_email || smtp.smtp_username;
     const now = new Date().toLocaleString("id-ID", { dateStyle: "full", timeStyle: "medium" });
 
-    await sendSmtpEmail({
-      host: cleanHost,
-      port: parseInt(smtp.smtp_port || "587"),
-      username: smtp.smtp_username,
-      password: smtp.smtp_password,
+    const client = new SMTPClient({
+      connection: {
+        hostname: cleanHost,
+        port,
+        tls: port === 465,
+        auth: {
+          username: smtp.smtp_username,
+          password: smtp.smtp_password,
+        },
+      },
+    });
+
+    await client.send({
       from,
       to,
       subject: "[TWIBO] Test Email - SMTP Berhasil ✅",
+      content: "Test email berhasil",
       html: `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="font-family:Arial,sans-serif;background:#f9f9f9;padding:24px;">
@@ -107,8 +63,8 @@ Deno.serve(async (req) => {
     <div style="padding:24px;">
       <p style="color:#333;margin:0 0 12px;">Konfigurasi SMTP kamu sudah benar!</p>
       <table style="width:100%;font-size:13px;">
-        <tr><td style="padding:6px 0;color:#888;">Host</td><td style="padding:6px 0;text-align:right;">${smtp.smtp_host}</td></tr>
-        <tr><td style="padding:6px 0;color:#888;">Port</td><td style="padding:6px 0;text-align:right;">${smtp.smtp_port || '587'}</td></tr>
+        <tr><td style="padding:6px 0;color:#888;">Host</td><td style="padding:6px 0;text-align:right;">${cleanHost}</td></tr>
+        <tr><td style="padding:6px 0;color:#888;">Port</td><td style="padding:6px 0;text-align:right;">${port}</td></tr>
         <tr><td style="padding:6px 0;color:#888;">From</td><td style="padding:6px 0;text-align:right;">${from}</td></tr>
         <tr><td style="padding:6px 0;color:#888;">To</td><td style="padding:6px 0;text-align:right;">${to}</td></tr>
         <tr><td style="padding:6px 0;color:#888;">Waktu</td><td style="padding:6px 0;text-align:right;">${now}</td></tr>
@@ -118,6 +74,8 @@ Deno.serve(async (req) => {
   </div>
 </body></html>`,
     });
+
+    await client.close();
 
     return new Response(JSON.stringify({ status: "sent", to }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
