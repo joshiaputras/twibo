@@ -56,7 +56,7 @@ const SaleCountdown = () => {
 
 const Pricing = () => {
   const { t, lang } = useLanguage();
-  const { premiumPrice, originalPrice } = usePricing();
+  const { premiumPrice, originalPrice, paypalPriceUsd, paypalOriginalPriceUsd } = usePricing();
   const formatPrice = (price: number) => `Rp ${price.toLocaleString('id-ID')}`;
   const isId = lang === 'id';
 
@@ -128,6 +128,12 @@ const Pricing = () => {
                   <span className="font-display text-4xl font-bold text-gold-gradient">{formatPrice(premiumPrice)}</span>
                   <span className="text-sm text-muted-foreground">{t.pricing.perCampaign}</span>
                 </div>
+                {paypalOriginalPriceUsd && (
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    <span className="line-through">${paypalOriginalPriceUsd} USD</span>{' '}
+                    <span className="text-primary font-semibold">${paypalPriceUsd} USD</span>
+                  </div>
+                )}
               </div>
               <ul className="space-y-3 mb-8 flex-1">
                 {Object.values(t.pricing.premiumFeatures).map((f, i) => (
