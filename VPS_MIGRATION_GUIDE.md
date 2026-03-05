@@ -66,16 +66,43 @@ npm run build
 sudo cp -r dist/* /var/www/html/
 ```
 
-### Langkah 6: Konfigurasi Nginx
+### Langkah 6: Konfigurasi Nginx (dengan OG Proxy untuk Social Media)
+
+Agar link standar seperti `https://twibo.id/c/slug` menampilkan OG preview yang benar di WhatsApp/Facebook/Twitter, nginx perlu mendeteksi bot/crawler dan mengarahkan mereka ke edge function `og-share`.
+
 ```nginx
+# Map untuk mendeteksi social media bots
+map $http_user_agent $is_social_bot {
+    default 0;
+    ~*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|Slackbot|Discordbot|Googlebot|bingbot|Applebot|Pinterest|vkShare|W3C_Validator|redditbot|Embedly|quora\ link|outbrain|Swiftbot|SkypeUriPreview) 1;
+}
+
 server {
     listen 80;
-    server_name yourdomain.com;
+    server_name twibo.id www.twibo.id;
 
     root /var/www/html;
     index index.html;
 
-    # SPA routing
+    # OG Proxy: redirect social media bots ke edge function untuk OG tags
+    # Campaign pages
+    location ~ ^/c/(.+)$ {
+        if ($is_social_bot) {
+            # Ganti SUPABASE_URL dengan URL Supabase Anda
+            return 302 https://wonvlwajwhjunccyopvq.supabase.co/functions/v1/og-share?type=campaign&slug=$1&app_url=https://twibo.id;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Blog pages
+    location ~ ^/blog/(.+)$ {
+        if ($is_social_bot) {
+            return 302 https://wonvlwajwhjunccyopvq.supabase.co/functions/v1/og-share?type=blog&slug=$1&app_url=https://twibo.id;
+        }
+        try_files $uri $uri/ /index.html;
+    }
+
+    # SPA routing (semua route lainnya)
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -88,6 +115,11 @@ server {
     }
 }
 ```
+
+**Cara kerja:**
+1. User biasa buka `https://twibo.id/c/test3` → dapat SPA React seperti biasa
+2. Bot WhatsApp/Facebook buka URL yang sama → nginx redirect ke edge function `og-share` → bot mendapat HTML dengan OG tags yang benar (judul, deskripsi, gambar campaign/blog)
+3. Edge function juga menyertakan `<meta http-equiv="refresh">` yang redirect kembali ke URL asli (untuk jaga-jaga jika user biasa mengakses URL edge function)
 
 ### Langkah 7: Update Environment Variables
 Buat file `.env.production`:

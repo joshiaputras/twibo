@@ -146,10 +146,8 @@ const BlogPost = () => {
               variant="outline"
               size="sm"
               onClick={() => {
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                const appUrl = window.location.origin;
-                const ogUrl = `${supabaseUrl}/functions/v1/og-share?type=blog&slug=${encodeURIComponent(slug || '')}&app_url=${encodeURIComponent(appUrl)}`;
-                navigator.clipboard.writeText(ogUrl);
+                const url = `${window.location.origin}/blog/${slug}`;
+                navigator.clipboard.writeText(url);
                 toast.success('Link disalin!');
               }}
             >
@@ -159,10 +157,8 @@ const BlogPost = () => {
               variant="outline"
               size="sm"
               onClick={() => {
-                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-                const appUrl = window.location.origin;
-                const ogUrl = `${supabaseUrl}/functions/v1/og-share?type=blog&slug=${encodeURIComponent(slug || '')}&app_url=${encodeURIComponent(appUrl)}`;
-                window.open(`https://wa.me/?text=${encodeURIComponent(`${post.title}\n\n${ogUrl}`)}`, '_blank');
+                const url = `${window.location.origin}/blog/${slug}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(`${post.title}\n\n${url}`)}`, '_blank');
               }}
             >
               <Share2 className="w-4 h-4 mr-1" /> Share
