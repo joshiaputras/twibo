@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Download, Loader2 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Download } from 'lucide-react';
 import AdSenseBanner from '@/components/AdSenseBanner';
 
 interface InterstitialAdDialogProps {
@@ -10,28 +11,41 @@ interface InterstitialAdDialogProps {
   onDownload: () => void;
 }
 
+const TOTAL_MS = 4000;
+const INTERVAL_MS = 50;
+const STEPS = TOTAL_MS / INTERVAL_MS;
+
+const messages = [
+  'Menyiapkan twibbon kamu...',
+  'Memproses gambar...',
+  'Menerapkan efek visual...',
+  'Hampir selesai...',
+];
+
 const InterstitialAdDialog = ({ open, onClose, onDownload }: InterstitialAdDialogProps) => {
-  const [countdown, setCountdown] = useState(3);
+  const [progress, setProgress] = useState(0);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!open) {
-      setCountdown(3);
+      setProgress(0);
       setReady(false);
       return;
     }
+    let step = 0;
     const interval = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setReady(true);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+      step++;
+      const pct = Math.min(100, (step / STEPS) * 100);
+      setProgress(pct);
+      if (step >= STEPS) {
+        clearInterval(interval);
+        setReady(true);
+      }
+    }, INTERVAL_MS);
     return () => clearInterval(interval);
   }, [open]);
+
+  const messageIndex = Math.min(Math.floor(progress / 25), messages.length - 1);
 
   const handleDownload = () => {
     onDownload();
@@ -40,30 +54,18 @@ const InterstitialAdDialog = ({ open, onClose, onDownload }: InterstitialAdDialo
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="glass-strong border-border max-w-md text-center space-y-4">
+      <DialogContent className="glass-strong border-border max-w-sm mx-4 rounded-2xl text-center space-y-4">
         <h3 className="font-display text-lg font-bold text-foreground">Download akan dimulai...</h3>
-        
-        <AdSenseBanner />
 
-        <div className="py-2">
+        <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-4 text-center">
+          <AdSenseBanner />
+        </div>
+
+        <div className="py-2 space-y-3">
           {!ready ? (
-            <div className="flex flex-col items-center gap-2">
-              <div className="relative w-16 h-16 flex items-center justify-center">
-                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 64 64">
-                  <circle cx="32" cy="32" r="28" fill="none" stroke="hsl(var(--border))" strokeWidth="4" />
-                  <circle
-                    cx="32" cy="32" r="28" fill="none"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth="4"
-                    strokeDasharray={`${2 * Math.PI * 28}`}
-                    strokeDashoffset={`${2 * Math.PI * 28 * (countdown / 3)}`}
-                    strokeLinecap="round"
-                    className="transition-all duration-1000 ease-linear"
-                  />
-                </svg>
-                <span className="font-display text-2xl font-bold text-primary">{countdown}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Mohon tunggu sebentar...</p>
+            <div className="space-y-2">
+              <Progress value={progress} className="h-2" />
+              <p className="text-sm text-muted-foreground animate-pulse">{messages[messageIndex]}</p>
             </div>
           ) : (
             <Button className="gold-glow font-semibold gap-2 w-full" onClick={handleDownload}>

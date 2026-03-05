@@ -27,10 +27,10 @@ const Footer = () => {
           <div>
             <h4 className="font-semibold text-foreground mb-3">{t.footer.company}</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-foreground transition-colors">{t.footer.about}</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">{t.footer.contact}</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">{t.footer.terms}</a></li>
-              <li><a href="#" className="hover:text-foreground transition-colors">{t.footer.privacyPolicy}</a></li>
+              <li><Link to="/about" className="hover:text-foreground transition-colors">{t.footer.about}</Link></li>
+              <li><Link to="/contact" className="hover:text-foreground transition-colors">{t.footer.contact}</Link></li>
+              <li><Link to="/terms" className="hover:text-foreground transition-colors">{t.footer.terms}</Link></li>
+              <li><Link to="/privacy" className="hover:text-foreground transition-colors">{t.footer.privacyPolicy}</Link></li>
             </ul>
           </div>
         </div>

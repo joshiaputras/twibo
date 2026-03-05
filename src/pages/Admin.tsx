@@ -784,61 +784,95 @@ const Admin = () => {
 
             {/* Settings Tab */}
             <TabsContent value="settings" className="space-y-4">
-              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
-                <h3 className="font-display font-semibold text-foreground">Pengaturan Harga</h3>
-                {['premium_price', 'original_price'].map(key => (
-                  <div key={key}>
-                    <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
-                    <Input
-                      value={settings[key] ?? ''}
-                      onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="mt-1 bg-secondary/50 border-border"
-                      placeholder={t.admin.settingPlaceholder ?? 'Enter value'}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
-                <h3 className="font-display font-semibold text-foreground">Midtrans</h3>
-                {['midtrans_client_key', 'midtrans_server_key', 'midtrans_is_production'].map(key => (
-                  <div key={key}>
-                    <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
-                    <Input
-                      value={settings[key] ?? ''}
-                      onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="mt-1 bg-secondary/50 border-border"
-                      placeholder={key === 'midtrans_is_production' ? 'true / false' : 'Enter value'}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
-                <h3 className="font-display font-semibold text-foreground">Google AdSense</h3>
-                {['adsense_client_id', 'adsense_slot_id'].map(key => (
-                  <div key={key}>
-                    <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
-                    <Input
-                      value={settings[key] ?? ''}
-                      onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="mt-1 bg-secondary/50 border-border"
-                      placeholder="Enter value"
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
-                <h3 className="font-display font-semibold text-foreground">Lainnya</h3>
-                {['site_name', 'site_description', 'contact_email'].map(key => (
-                  <div key={key}>
-                    <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
-                    <Input
-                      value={settings[key] ?? ''}
-                      onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="mt-1 bg-secondary/50 border-border"
-                      placeholder="Enter value"
-                    />
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">Pengaturan Harga</h3>
+                  {['premium_price', 'original_price'].map(key => (
+                    <div key={key}>
+                      <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
+                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder={t.admin.settingPlaceholder ?? 'Enter value'} />
+                    </div>
+                  ))}
+                </div>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">Midtrans</h3>
+                  {['midtrans_client_key', 'midtrans_server_key', 'midtrans_is_production'].map(key => (
+                    <div key={key}>
+                      <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
+                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder={key === 'midtrans_is_production' ? 'true / false' : 'Enter value'} />
+                    </div>
+                  ))}
+                </div>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">Google AdSense</h3>
+                  {['adsense_client_id', 'adsense_slot_id'].map(key => (
+                    <div key={key}>
+                      <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
+                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="Enter value" />
+                    </div>
+                  ))}
+                </div>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">Lainnya</h3>
+                  {['site_name', 'site_description', 'contact_email'].map(key => (
+                    <div key={key}>
+                      <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
+                      <Input value={settings[key] ?? ''} onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="Enter value" />
+                    </div>
+                  ))}
+                </div>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">Favicon</h3>
+                  {settings['favicon_url'] && (
+                    <div className="flex items-center gap-3">
+                      <img src={settings['favicon_url']} alt="Current favicon" className="w-8 h-8 rounded object-contain border border-border" />
+                      <span className="text-xs text-muted-foreground truncate flex-1">{settings['favicon_url']}</span>
+                    </div>
+                  )}
+                  <label className="cursor-pointer">
+                    <div className="border border-dashed border-border rounded-lg p-3 text-center hover:border-primary/50 transition-colors">
+                      <Upload className="w-5 h-5 text-primary/50 mx-auto mb-1" />
+                      <span className="text-xs text-muted-foreground">Upload Favicon</span>
+                    </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const ext = file.name.split('.').pop() || 'png';
+                      const name = `favicon-${Date.now()}.${ext}`;
+                      const { error } = await supabase.storage.from('banner-images').upload(name, file, { upsert: true });
+                      if (error) { toast.error(error.message); return; }
+                      const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
+                      setSettings(prev => ({ ...prev, favicon_url: urlData.publicUrl }));
+                      toast.success('Favicon berhasil diupload');
+                    }} />
+                  </label>
+                </div>
+                <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                  <h3 className="font-display font-semibold text-foreground">Logo Site</h3>
+                  {settings['logo_url'] && (
+                    <div className="flex items-center gap-3">
+                      <img src={settings['logo_url']} alt="Current logo" className="h-10 rounded object-contain border border-border" />
+                      <span className="text-xs text-muted-foreground truncate flex-1">{settings['logo_url']}</span>
+                    </div>
+                  )}
+                  <label className="cursor-pointer">
+                    <div className="border border-dashed border-border rounded-lg p-3 text-center hover:border-primary/50 transition-colors">
+                      <Upload className="w-5 h-5 text-primary/50 mx-auto mb-1" />
+                      <span className="text-xs text-muted-foreground">Upload Logo</span>
+                    </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const ext = file.name.split('.').pop() || 'png';
+                      const name = `logo-${Date.now()}.${ext}`;
+                      const { error } = await supabase.storage.from('banner-images').upload(name, file, { upsert: true });
+                      if (error) { toast.error(error.message); return; }
+                      const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(name);
+                      setSettings(prev => ({ ...prev, logo_url: urlData.publicUrl }));
+                      toast.success('Logo berhasil diupload');
+                    }} />
+                  </label>
+                </div>
               </div>
               <Button className="gold-glow" onClick={handleSaveSettings}>
                 {t.admin.saveSettings ?? 'Save Settings'}
