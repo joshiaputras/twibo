@@ -123,6 +123,11 @@ const PaymentConfirmDialog = ({
             });
 
             await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaignId);
+
+            // Trigger invoice email (fire-and-forget)
+            supabase.functions.invoke('send-invoice-email', {
+              body: { order_id: orderId, app_url: window.location.origin },
+            }).catch(err => console.error('Invoice email trigger failed:', err));
           }
 
           toast.success(t.payment?.paypalSuccess ?? 'Payment successful! Campaign upgraded to Premium.');
@@ -229,7 +234,7 @@ const PaymentConfirmDialog = ({
                     : 'bg-secondary/20 text-muted-foreground hover:bg-secondary/40'
                 }`}
               >
-                <span className="text-base">🇮🇩</span>
+                <svg viewBox="0 0 3 2" className="w-5 h-3" aria-label="Indonesia"><rect width="3" height="1" fill="#FF0000" /><rect y="1" width="3" height="1" fill="#FFFFFF" /></svg>
                 <span className="text-xs sm:text-sm">{t.payment?.localPayment ?? 'Pembayaran Lokal'}</span>
               </button>
               <button
@@ -347,6 +352,11 @@ const PaymentConfirmDialog = ({
                     <span className="text-muted-foreground line-through">${paypalOriginalPriceUsd.toFixed(2)} USD</span>
                   </div>
                 )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{t.payment?.promoPrice ?? 'Harga Promo'}</span>
+                  <span className="text-foreground font-semibold">${paypalPriceUsd.toFixed(2)} USD</span>
+                </div>
+                <hr className="border-border/30" />
                 <div className="flex justify-between">
                   <span className="text-foreground font-semibold">{t.payment?.totalPay ?? 'Total Bayar'}</span>
                   <span className="text-gold-gradient font-display font-bold text-xl">${paypalPriceUsd.toFixed(2)} USD</span>

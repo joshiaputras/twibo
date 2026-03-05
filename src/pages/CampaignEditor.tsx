@@ -32,6 +32,9 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMidtransPayment } from '@/hooks/useMidtransPayment';
+import { usePricing } from '@/hooks/usePricing';
+import PaymentConfirmDialog from '@/components/PaymentConfirmDialog';
 import { renderTemplatePNG, renderBackgroundOverlayPNG, renderBackgroundUnderPNG, composeResult, loadImage } from '@/utils/renderTemplate';
 import { removeBackgroundFromDataUrl, warmupBackgroundRemoval } from '@/utils/removeBackground';
 import { applyAlphaThreshold } from '@/utils/applyAlphaThreshold';
@@ -62,6 +65,8 @@ const CampaignEditor = () => {
   const { t } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { pay, paying, initializing: paymentInitializing } = useMidtransPayment();
+  const { premiumPrice, originalPrice, paypalEnabled, paypalClientId, paypalMode, paypalPriceUsd, paypalOriginalPriceUsd } = usePricing();
   const { id } = useParams();
   const isEdit = !!id;
 
@@ -93,6 +98,7 @@ const CampaignEditor = () => {
   const [simOffsetY, setSimOffsetY] = useState(0);
   const [previewResult, setPreviewResult] = useState<string>('');
   const [showPayment, setShowPayment] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle');
   const [processingPhoto, setProcessingPhoto] = useState(false);
   const [isInteractingPreview, setIsInteractingPreview] = useState(false);
@@ -456,13 +462,14 @@ const CampaignEditor = () => {
     navigate('/dashboard');
   };
 
-  const handlePayment = async () => {
-    toast.info(t.campaign.paymentPending ?? 'Pembayaran sedang diproses...');
-    if (campaignId) {
-      await supabase.from('campaigns' as any).update({ tier: 'premium' }).eq('id', campaignId);
+  const handleMidtransPayment = async (voucherCode?: string) => {
+    if (!campaignId) return;
+    const result = await pay(campaignId, voucherCode);
+    if (result.success) {
+      setCampaignTier('premium');
+      toast.success(t.campaign.premiumSuccess ?? 'Campaign berhasil diupgrade ke Premium!');
+      navigate('/dashboard');
     }
-    toast.success(t.campaign.premiumSuccess ?? 'Campaign berhasil diupgrade ke Premium!');
-    navigate('/dashboard');
   };
 
   const handleNext = async () => {
@@ -986,36 +993,31 @@ const CampaignEditor = () => {
               </div>
             )}
 
-            {step === 4 && showPayment && (
+            {step === 4 && showPayment && campaignTier !== 'premium' && (
               <div className="space-y-6 max-w-lg mx-auto text-center">
                 <Crown className="w-12 h-12 text-primary mx-auto" />
                 <h2 className="font-display text-2xl font-bold text-foreground">{t.campaign.upgradeToPremium ?? 'Upgrade ke Premium'}</h2>
                 <p className="text-muted-foreground text-sm">{t.campaign.upgradeDesc ?? 'Hapus watermark dan iklan dari campaign kamu dengan upgrade ke Premium.'}</p>
 
-                <div className="glass rounded-xl p-6 border-gold-subtle space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-foreground font-semibold">{t.campaign.premiumPlan ?? 'Premium Access'}</span>
-                    <div>
-                      <span className="text-xs text-muted-foreground line-through mr-2">Rp 149.000</span>
-                      <span className="text-primary font-bold text-lg">Rp 50.000</span>
-                    </div>
-                  </div>
-                  <ul className="text-left text-sm text-muted-foreground space-y-1">
-                    <li>✓ {t.pricing.premiumFeatures.f2}</li>
-                    <li>✓ {t.pricing.premiumFeatures.f3}</li>
-                    <li>✓ {t.pricing.premiumFeatures.f4}</li>
-                    <li>✓ {t.pricing.premiumFeatures.f5}</li>
-                  </ul>
-                </div>
-
                 <div className="flex gap-3 justify-center flex-wrap">
                   <Button variant="outline" className="border-border" onClick={handleSkipPayment}>
                     {t.campaign.skipForNow ?? 'Lewati, Coba Gratis'}
                   </Button>
-                  <Button className="gold-glow font-semibold gap-2" onClick={handlePayment}>
+                  <Button className="gold-glow font-semibold gap-2" onClick={() => { setShowPayment(false); setShowPaymentDialog(true); }}>
                     <CreditCard className="w-4 h-4" /> {t.campaign.payNow ?? 'Bayar Sekarang'}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {step === 4 && showPayment && campaignTier === 'premium' && (
+              <div className="space-y-6 max-w-lg mx-auto text-center">
+                <Crown className="w-12 h-12 text-primary mx-auto" />
+                <h2 className="font-display text-2xl font-bold text-foreground">🎉 Campaign Berhasil Dipublish!</h2>
+                <p className="text-muted-foreground text-sm">Campaign kamu sudah berstatus Premium.</p>
+                <Button className="gold-glow font-semibold" onClick={() => navigate('/dashboard')}>
+                  Kembali ke Dashboard
+                </Button>
               </div>
             )}
 
@@ -1043,6 +1045,42 @@ const CampaignEditor = () => {
           </div>
         </div>
       </section>
+
+      {/* Payment Confirmation Dialog */}
+      <PaymentConfirmDialog
+        open={showPaymentDialog}
+        onClose={() => setShowPaymentDialog(false)}
+        onConfirm={(voucherCode) => {
+          setShowPaymentDialog(false);
+          handleMidtransPayment(voucherCode);
+        }}
+        onPayPalSuccess={() => {
+          setCampaignTier('premium');
+          setShowPaymentDialog(false);
+          toast.success(t.campaign.premiumSuccess ?? 'Campaign berhasil diupgrade ke Premium!');
+          navigate('/dashboard');
+        }}
+        basePrice={premiumPrice}
+        originalPrice={originalPrice}
+        campaignName={form.name || 'Untitled Campaign'}
+        campaignId={campaignId ?? undefined}
+        paying={paying}
+        paypalEnabled={paypalEnabled}
+        paypalClientId={paypalClientId}
+        paypalMode={paypalMode}
+        paypalPriceUsd={paypalPriceUsd}
+        paypalOriginalPriceUsd={paypalOriginalPriceUsd}
+      />
+
+      {/* Full-screen loading overlay while Midtrans initialises */}
+      {paymentInitializing && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-foreground font-semibold">Memproses pembayaran...</p>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
