@@ -2,8 +2,9 @@ import Layout from '@/components/Layout';
 import SEOHead from '@/components/SEOHead';
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { Calendar, Tag, ArrowLeft, BookOpen } from 'lucide-react';
+import { Calendar, Tag, ArrowLeft, BookOpen, Share2, Link2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import AdSenseBanner from '@/components/AdSenseBanner';
@@ -137,6 +138,35 @@ const BlogPost = () => {
                 {post.tags.join(', ')}
               </span>
             )}
+          </div>
+
+          {/* Share buttons */}
+          <div className="flex items-center gap-2 mb-8">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const appUrl = window.location.origin;
+                const ogUrl = `${supabaseUrl}/functions/v1/og-share?type=blog&slug=${encodeURIComponent(slug || '')}&app_url=${encodeURIComponent(appUrl)}`;
+                navigator.clipboard.writeText(ogUrl);
+                toast.success('Link disalin!');
+              }}
+            >
+              <Link2 className="w-4 h-4 mr-1" /> Salin Link
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+                const appUrl = window.location.origin;
+                const ogUrl = `${supabaseUrl}/functions/v1/og-share?type=blog&slug=${encodeURIComponent(slug || '')}&app_url=${encodeURIComponent(appUrl)}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(`${post.title}\n\n${ogUrl}`)}`, '_blank');
+              }}
+            >
+              <Share2 className="w-4 h-4 mr-1" /> Share
+            </Button>
           </div>
 
           {/* AdSense - Top of article */}
