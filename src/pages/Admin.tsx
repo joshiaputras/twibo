@@ -28,41 +28,64 @@ import { Label } from '@/components/ui/label';
 type SortKey = 'name' | 'slug' | 'tier' | 'status' | 'userName' | 'email';
 type SortDir = 'asc' | 'desc';
 
-const ITEMS_PER_PAGE = 10;
+const PAGE_SIZE_OPTIONS = [10, 50, 100] as const;
 
-// Reusable pagination component
-const Pagination = ({ currentPage, totalPages, onPageChange }: { currentPage: number; totalPages: number; onPageChange: (p: number) => void }) => {
-  if (totalPages <= 1) return null;
+// Small Indonesian flag SVG component
+const IndonesianFlag = ({ className = "w-4 h-3" }: { className?: string }) => (
+  <svg viewBox="0 0 3 2" className={className} aria-label="Indonesia">
+    <rect width="3" height="1" fill="#FF0000" />
+    <rect y="1" width="3" height="1" fill="#FFFFFF" />
+  </svg>
+);
+
+// Reusable pagination component with per-page selector
+const PaginationBar = ({ currentPage, totalPages, onPageChange, pageSize, onPageSizeChange, totalItems }: { currentPage: number; totalPages: number; onPageChange: (p: number) => void; pageSize: number; onPageSizeChange: (size: number) => void; totalItems: number }) => {
+  if (totalItems === 0) return null;
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-xs text-muted-foreground">Halaman {currentPage} dari {totalPages}</span>
-      <div className="flex gap-1">
-        <Button size="sm" variant="outline" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}>
-          <ChevronLeft className="w-4 h-4" />
-        </Button>
-        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-          let page: number;
-          if (totalPages <= 5) page = i + 1;
-          else if (currentPage <= 3) page = i + 1;
-          else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
-          else page = currentPage - 2 + i;
-          return (
-            <Button key={page} size="sm" variant={page === currentPage ? 'default' : 'outline'} className="h-8 w-8 p-0 text-xs" onClick={() => onPageChange(page)}>
-              {page}
-            </Button>
-          );
-        })}
-        <Button size="sm" variant="outline" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}>
-          <ChevronRight className="w-4 h-4" />
-        </Button>
+    <div className="flex items-center justify-between px-4 py-3 flex-wrap gap-2">
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">Show</span>
+        <select
+          value={pageSize}
+          onChange={e => onPageSizeChange(Number(e.target.value))}
+          className="text-xs bg-secondary/50 border border-border rounded-md px-2 py-1 text-foreground"
+        >
+          {PAGE_SIZE_OPTIONS.map(s => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
+        <span className="text-xs text-muted-foreground">dari {totalItems} data</span>
       </div>
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground mr-2">Halaman {currentPage} dari {totalPages}</span>
+          <Button size="sm" variant="outline" className="h-8 w-8 p-0" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+            let page: number;
+            if (totalPages <= 5) page = i + 1;
+            else if (currentPage <= 3) page = i + 1;
+            else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
+            else page = currentPage - 2 + i;
+            return (
+              <Button key={page} size="sm" variant={page === currentPage ? 'default' : 'outline'} className="h-8 w-8 p-0 text-xs" onClick={() => onPageChange(page)}>
+                {page}
+              </Button>
+            );
+          })}
+          <Button size="sm" variant="outline" className="h-8 w-8 p-0" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)}>
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 };
 
-const paginate = <T,>(data: T[], page: number): T[] => {
-  const start = (page - 1) * ITEMS_PER_PAGE;
-  return data.slice(start, start + ITEMS_PER_PAGE);
+const paginate = <T,>(data: T[], page: number, pageSize: number): T[] => {
+  const start = (page - 1) * pageSize;
+  return data.slice(start, start + pageSize);
 };
 
 const Admin = () => {
@@ -90,6 +113,16 @@ const Admin = () => {
   const [pageTransactions, setPageTransactions] = useState(1);
   const [pageVouchers, setPageVouchers] = useState(1);
   const [pageBlog, setPageBlog] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPageCampaigns(1);
+    setPageUsers(1);
+    setPageTransactions(1);
+    setPageVouchers(1);
+    setPageBlog(1);
+  };
 
   // Voucher form
   const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
@@ -463,17 +496,17 @@ const Admin = () => {
   );
 
   // Pagination calculations
-  const totalPagesCampaigns = Math.ceil(filteredCampaigns.length / ITEMS_PER_PAGE);
-  const totalPagesUsers = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-  const totalPagesTransactions = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE);
-  const totalPagesVouchers = Math.ceil(filteredVouchers.length / ITEMS_PER_PAGE);
-  const totalPagesBlog = Math.ceil(filteredBlogPosts.length / ITEMS_PER_PAGE);
+  const totalPagesCampaigns = Math.ceil(filteredCampaigns.length / pageSize);
+  const totalPagesUsers = Math.ceil(filteredUsers.length / pageSize);
+  const totalPagesTransactions = Math.ceil(filteredTransactions.length / pageSize);
+  const totalPagesVouchers = Math.ceil(filteredVouchers.length / pageSize);
+  const totalPagesBlog = Math.ceil(filteredBlogPosts.length / pageSize);
 
-  const paginatedCampaigns = paginate(filteredCampaigns, pageCampaigns);
-  const paginatedUsers = paginate(filteredUsers, pageUsers);
-  const paginatedTransactions = paginate(filteredTransactions, pageTransactions);
-  const paginatedVouchers = paginate(filteredVouchers, pageVouchers);
-  const paginatedBlog = paginate(filteredBlogPosts, pageBlog);
+  const paginatedCampaigns = paginate(filteredCampaigns, pageCampaigns, pageSize);
+  const paginatedUsers = paginate(filteredUsers, pageUsers, pageSize);
+  const paginatedTransactions = paginate(filteredTransactions, pageTransactions, pageSize);
+  const paginatedVouchers = paginate(filteredVouchers, pageVouchers, pageSize);
+  const paginatedBlog = paginate(filteredBlogPosts, pageBlog, pageSize);
 
   return (
     <Layout>
@@ -569,7 +602,7 @@ const Admin = () => {
                     {filteredCampaigns.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
-                <Pagination currentPage={pageCampaigns} totalPages={totalPagesCampaigns} onPageChange={setPageCampaigns} />
+                <PaginationBar currentPage={pageCampaigns} totalPages={totalPagesCampaigns} onPageChange={setPageCampaigns} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} totalItems={filteredCampaigns.length} />
               </div>
             </TabsContent>
 
@@ -611,7 +644,7 @@ const Admin = () => {
                     {filteredUsers.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
-                <Pagination currentPage={pageUsers} totalPages={totalPagesUsers} onPageChange={setPageUsers} />
+                <PaginationBar currentPage={pageUsers} totalPages={totalPagesUsers} onPageChange={setPageUsers} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} totalItems={filteredUsers.length} />
               </div>
             </TabsContent>
 
@@ -624,7 +657,7 @@ const Admin = () => {
                   <p className="text-xl font-bold text-foreground">{paidPayments.length}</p>
                 </div>
                 <div className="glass rounded-xl p-4 border-gold-subtle">
-                  <p className="text-xs text-muted-foreground">🇮🇩 Pendapatan IDR (Midtrans)</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1"><IndonesianFlag /> Pendapatan IDR (Midtrans)</p>
                   <p className="text-xl font-bold text-foreground">Rp {revenueIDR.toLocaleString('id-ID')}</p>
                 </div>
                 <div className="glass rounded-xl p-4 border-gold-subtle">
@@ -686,8 +719,8 @@ const Admin = () => {
                           </TableCell>
                           <TableCell><span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'paid' ? 'bg-green-500/20 text-green-400' : tx.status === 'failed' ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'}`}>{tx.status}</span></TableCell>
                           <TableCell>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${isPaypal ? 'bg-blue-500/20 text-blue-400' : 'bg-muted text-muted-foreground'}`}>
-                              {isPaypal ? '🌍 PayPal' : `🇮🇩 ${tx.payment_method || 'Midtrans'}`}
+                            <span className={`text-xs px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${isPaypal ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                              {isPaypal ? <><span>🌍</span> PayPal</> : <><IndonesianFlag className="w-3 h-2" /> {tx.payment_method || 'Midtrans'}</>}
                             </span>
                           </TableCell>
                           <TableCell className="text-xs text-muted-foreground">{tx.paid_at ? new Date(tx.paid_at).toLocaleString('id-ID') : '-'}</TableCell>
@@ -697,7 +730,7 @@ const Admin = () => {
                     {filteredTransactions.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
-                <Pagination currentPage={pageTransactions} totalPages={totalPagesTransactions} onPageChange={setPageTransactions} />
+                <PaginationBar currentPage={pageTransactions} totalPages={totalPagesTransactions} onPageChange={setPageTransactions} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} totalItems={filteredTransactions.length} />
               </div>
             </TabsContent>
 
@@ -775,7 +808,7 @@ const Admin = () => {
                     {filteredVouchers.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">Belum ada voucher</TableCell></TableRow>}
                   </TableBody>
                 </Table>
-                <Pagination currentPage={pageVouchers} totalPages={totalPagesVouchers} onPageChange={setPageVouchers} />
+                <PaginationBar currentPage={pageVouchers} totalPages={totalPagesVouchers} onPageChange={setPageVouchers} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} totalItems={filteredVouchers.length} />
               </div>
             </TabsContent>
 
@@ -935,7 +968,7 @@ const Admin = () => {
                     {filteredBlogPosts.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">Belum ada artikel</TableCell></TableRow>}
                   </TableBody>
                 </Table>
-                <Pagination currentPage={pageBlog} totalPages={totalPagesBlog} onPageChange={setPageBlog} />
+                <PaginationBar currentPage={pageBlog} totalPages={totalPagesBlog} onPageChange={setPageBlog} pageSize={pageSize} onPageSizeChange={handlePageSizeChange} totalItems={filteredBlogPosts.length} />
               </div>
             </TabsContent>
 

@@ -19,7 +19,6 @@ async function sendSmtpEmail(opts: {
 }) {
   const { host, port, username, password, from, to, subject, html } = opts;
 
-  // Use Deno's native TLS connection for port 465, or STARTTLS for 587
   let conn: Deno.Conn;
 
   if (port === 465) {
@@ -46,20 +45,15 @@ async function sendSmtpEmail(opts: {
     return await read();
   }
 
-  // Read greeting
   await read();
-
-  // EHLO
   await command(`EHLO localhost`);
 
-  // STARTTLS for port 587
   if (port === 587) {
     await command("STARTTLS");
     conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: host });
     await command(`EHLO localhost`);
   }
 
-  // AUTH LOGIN
   await command("AUTH LOGIN");
   await command(btoa(username));
   const authRes = await command(btoa(password));
@@ -97,7 +91,10 @@ async function sendSmtpEmail(opts: {
 }
 
 function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl: string) {
-  const amount = `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
+  const isPaypal = payment.payment_method === 'paypal';
+  const amount = isPaypal
+    ? `$${(payment.amount / 100).toFixed(2)} USD`
+    : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
   const paidAt = payment.paid_at
     ? new Date(payment.paid_at).toLocaleDateString("id-ID", {
         day: "2-digit",
@@ -157,6 +154,68 @@ function buildInvoiceHtml(payment: any, campaign: any, profile: any, invoiceUrl:
 </html>`;
 }
 
+function buildAdminNotificationHtml(payment: any, campaign: any, profile: any) {
+  const isPaypal = payment.payment_method === 'paypal';
+  const amount = isPaypal
+    ? `$${(payment.amount / 100).toFixed(2)} USD`
+    : `Rp ${(payment.amount || 0).toLocaleString("id-ID")}`;
+  const paidAt = payment.paid_at
+    ? new Date(payment.paid_at).toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "-";
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; background: #f9f9f9; padding: 24px;">
+  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e5e5e5; overflow: hidden;">
+    <div style="background: #2563eb; color: #fff; padding: 24px 32px;">
+      <h1 style="margin: 0; font-size: 20px;">💰 Transaksi Baru Berhasil</h1>
+      <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.7;">TWIBO.id Admin Notification</p>
+    </div>
+    <div style="padding: 32px;">
+      <p style="margin: 0 0 16px; color: #333;">Ada transaksi premium baru yang berhasil!</p>
+      
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 8px 0; color: #888;">Customer</td>
+          <td style="padding: 8px 0; text-align: right;">${profile?.name || "-"} (${profile?.email || "-"})</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 8px 0; color: #888;">Campaign</td>
+          <td style="padding: 8px 0; text-align: right;">${campaign?.name || "-"}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 8px 0; color: #888;">Order ID</td>
+          <td style="padding: 8px 0; text-align: right; font-family: monospace; font-size: 12px;">${payment.midtrans_order_id}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 8px 0; color: #888;">Metode</td>
+          <td style="padding: 8px 0; text-align: right; text-transform: capitalize;">${payment.payment_method || "-"}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 8px 0; color: #888;">Tanggal Bayar</td>
+          <td style="padding: 8px 0; text-align: right;">${paidAt}</td>
+        </tr>
+        <tr>
+          <td style="padding: 12px 0; color: #333; font-weight: bold; font-size: 16px;">Total</td>
+          <td style="padding: 12px 0; text-align: right; color: #2563eb; font-weight: bold; font-size: 16px;">${amount}</td>
+        </tr>
+      </table>
+    </div>
+    <div style="padding: 16px 32px; background: #fafafa; text-align: center; font-size: 11px; color: #aaa;">
+      TWIBO.id — Admin Notification
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -177,7 +236,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get SMTP settings
+    // Get SMTP settings + admin notification email
     const { data: smtpRows } = await adminClient
       .from("site_settings")
       .select("key, value")
@@ -188,6 +247,7 @@ Deno.serve(async (req) => {
         "smtp_password",
         "smtp_from_email",
         "smtp_from_name",
+        "admin_notification_email",
       ]);
 
     const smtp: Record<string, string> = {};
@@ -221,28 +281,44 @@ Deno.serve(async (req) => {
       adminClient.from("profiles").select("name, email, phone").eq("id", (payment as any).user_id).single(),
     ]);
 
-    if (!(profile as any)?.email) {
-      return new Response(
-        JSON.stringify({ error: "No customer email" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    const invoiceUrl = `${app_url || "https://twibbo-creator-hub.lovable.app"}/invoice/${order_id}`;
-    const html = buildInvoiceHtml(payment, campaign, profile, invoiceUrl);
     const fromEmail = smtp.smtp_from_email || smtp.smtp_username;
-    const fromDisplay = smtp.smtp_from_name ? `${smtp.smtp_from_name} <${fromEmail}>` : fromEmail;
+    const invoiceUrl = `${app_url || "https://twibbo-creator-hub.lovable.app"}/invoice/${order_id}`;
 
-    await sendSmtpEmail({
+    const smtpOpts = {
       host: smtp.smtp_host,
       port: parseInt(smtp.smtp_port || "587"),
       username: smtp.smtp_username,
       password: smtp.smtp_password,
       from: fromEmail,
-      to: (profile as any).email,
-      subject: `Invoice Pembayaran - ${(payment as any).midtrans_order_id}`,
-      html,
-    });
+    };
+
+    // Send invoice email to customer
+    if ((profile as any)?.email) {
+      const html = buildInvoiceHtml(payment, campaign, profile, invoiceUrl);
+      await sendSmtpEmail({
+        ...smtpOpts,
+        to: (profile as any).email,
+        subject: `Invoice Pembayaran - ${(payment as any).midtrans_order_id}`,
+        html,
+      });
+      console.log("Invoice email sent to customer:", (profile as any).email);
+    }
+
+    // Send admin notification email
+    const adminEmail = smtp.admin_notification_email || "twibo.id@gmail.com";
+    try {
+      const adminHtml = buildAdminNotificationHtml(payment, campaign, profile);
+      await sendSmtpEmail({
+        ...smtpOpts,
+        to: adminEmail,
+        subject: `[TWIBO] Transaksi Baru - ${(payment as any).midtrans_order_id}`,
+        html: adminHtml,
+      });
+      console.log("Admin notification email sent to:", adminEmail);
+    } catch (adminEmailErr: any) {
+      console.error("Failed to send admin notification email:", adminEmailErr.message);
+      // Don't fail the whole function if admin email fails
+    }
 
     return new Response(JSON.stringify({ status: "sent" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
