@@ -130,7 +130,7 @@ const Dashboard = () => {
   const handleCopyLink = async (slug: string) => {
     const url = `${window.location.origin}/c/${slug}`;
     await navigator.clipboard.writeText(url);
-    toast.success('Link berhasil disalin!');
+    toast.success(t.dashboard?.linkCopied ?? 'Link copied!');
   };
 
   const handleDelete = async (id: string) => {
@@ -140,7 +140,7 @@ const Dashboard = () => {
       return;
     }
     setCampaigns(prev => prev.filter(c => c.id !== id));
-    toast.success('Campaign berhasil dihapus');
+    toast.success(t.dashboard?.campaignDeleted ?? 'Campaign deleted');
   };
 
   const handleRemoveWatermark = async (id: string, voucherCode?: string) => {
