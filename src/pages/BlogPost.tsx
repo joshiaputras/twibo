@@ -14,11 +14,13 @@ const BlogPost = () => {
   useEffect(() => {
     if (!slug) return;
     const load = async () => {
+      const now = new Date().toISOString();
+      // Published posts or scheduled posts whose time has come
       const { data } = await supabase
         .from('blog_posts' as any)
         .select('*')
         .eq('slug', slug)
-        .eq('status', 'published')
+        .or(`status.eq.published,and(status.eq.scheduled,published_at.lte.${now})`)
         .maybeSingle();
       setPost(data);
       setLoading(false);
@@ -53,7 +55,6 @@ const BlogPost = () => {
     );
   }
 
-  // JSON-LD for SEO
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
@@ -70,9 +71,7 @@ const BlogPost = () => {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {post.meta_title && (
-        <title>{post.meta_title}</title>
-      )}
+      {post.meta_title && <title>{post.meta_title}</title>}
       <article className="py-24 md:py-32">
         <div className="container mx-auto px-4 max-w-3xl">
           <Link to="/blog" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
@@ -106,7 +105,7 @@ const BlogPost = () => {
           </div>
 
           <div
-            className="prose prose-invert max-w-none text-foreground/90 
+            className="prose max-w-none text-foreground/90 
               [&_h2]:font-display [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-4 [&_h2]:text-foreground
               [&_h3]:font-display [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-foreground
               [&_p]:mb-4 [&_p]:leading-relaxed [&_p]:text-foreground/80

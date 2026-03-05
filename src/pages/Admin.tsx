@@ -5,47 +5,20 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import {
-  Users,
-  Megaphone,
-  CreditCard,
-  Settings,
-  Crown,
-  Ban,
-  Shield,
-  Trash2,
-  Unlock,
-  Ticket,
-  Plus,
-  Loader2,
-  Star,
-  ArrowUpDown,
-  BookOpen,
-  Pencil,
+  Users, Megaphone, CreditCard, Settings, Crown, Ban, Shield, Trash2, Unlock, Ticket,
+  Plus, Loader2, Star, ArrowUpDown, BookOpen, Pencil, Upload, Clock,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -70,13 +43,8 @@ const Admin = () => {
   // Voucher form
   const [voucherDialogOpen, setVoucherDialogOpen] = useState(false);
   const [voucherForm, setVoucherForm] = useState({
-    code: '',
-    discount_type: 'percentage',
-    discount_value: 0,
-    max_uses: '',
-    valid_from: '',
-    valid_until: '',
-    is_active: true,
+    code: '', discount_type: 'percentage', discount_value: 0, max_uses: '',
+    valid_from: '', valid_until: '', is_active: true,
   });
   const [savingVoucher, setSavingVoucher] = useState(false);
   const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null);
@@ -85,14 +53,16 @@ const Admin = () => {
   const [blogDialogOpen, setBlogDialogOpen] = useState(false);
   const [editingBlogId, setEditingBlogId] = useState<string | null>(null);
   const [savingBlog, setSavingBlog] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const contentEditableRef = useRef<HTMLDivElement>(null);
   const [blogForm, setBlogForm] = useState({
     title: '', slug: '', content: '', excerpt: '', cover_image_url: '',
     meta_title: '', meta_description: '', tags: '', status: 'draft',
+    scheduled_at: '',
   });
 
   const load = async () => {
     setLoading(true);
-
     const [{ data: cData }, { data: pData }, { data: txData }, { data: sData }, { data: rolesData }, { data: vData }, { data: bData }] = await Promise.all([
       supabase.from('campaigns' as any).select('*').order('created_at', { ascending: false }),
       supabase.from('profiles' as any).select('*').order('created_at', { ascending: false }),
@@ -102,39 +72,25 @@ const Admin = () => {
       supabase.from('vouchers' as any).select('*').order('created_at', { ascending: false }),
       supabase.from('blog_posts' as any).select('*').order('created_at', { ascending: false }),
     ]);
-
     const adminSet = new Set(((rolesData as any[]) ?? []).filter(r => r.role === 'admin').map(r => r.user_id));
-
     setCampaigns((cData as any[]) ?? []);
     setPayments((txData as any[]) ?? []);
     setUsers(((pData as any[]) ?? []).map((u: any) => ({ ...u, is_admin: adminSet.has(u.id) })));
     setVouchers((vData as any[]) ?? []);
     setBlogPosts((bData as any[]) ?? []);
-
     const settingsMap: Record<string, string> = {};
-    ((sData as any[]) ?? []).forEach((s: any) => {
-      settingsMap[s.key] = s.value;
-    });
+    ((sData as any[]) ?? []).forEach((s: any) => { settingsMap[s.key] = s.value; });
     setSettings(settingsMap);
-
     setLoading(false);
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  const totalRevenue = payments
-    .filter((p: any) => p.status === 'paid')
-    .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+  const totalRevenue = payments.filter((p: any) => p.status === 'paid').reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
 
   const toggleSort = (key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('asc'); }
   };
 
   const filteredCampaigns = useMemo(() => {
@@ -143,25 +99,14 @@ const Admin = () => {
     if (key) {
       filtered = campaigns.filter((c: any) => {
         const u = users.find((u: any) => u.id === c.user_id);
-        const searchStr = `${c.name} ${c.slug} ${u?.name || ''} ${u?.email || ''}`.toLowerCase();
-        return searchStr.includes(key);
+        return `${c.name} ${c.slug} ${u?.name || ''} ${u?.email || ''}`.toLowerCase().includes(key);
       });
     }
-
-    // Sort
     return [...filtered].sort((a, b) => {
-      let aVal = '';
-      let bVal = '';
-      if (sortKey === 'userName') {
-        aVal = users.find((u: any) => u.id === a.user_id)?.name || '';
-        bVal = users.find((u: any) => u.id === b.user_id)?.name || '';
-      } else if (sortKey === 'email') {
-        aVal = users.find((u: any) => u.id === a.user_id)?.email || '';
-        bVal = users.find((u: any) => u.id === b.user_id)?.email || '';
-      } else {
-        aVal = (a[sortKey] || '').toString();
-        bVal = (b[sortKey] || '').toString();
-      }
+      let aVal = '', bVal = '';
+      if (sortKey === 'userName') { aVal = users.find((u: any) => u.id === a.user_id)?.name || ''; bVal = users.find((u: any) => u.id === b.user_id)?.name || ''; }
+      else if (sortKey === 'email') { aVal = users.find((u: any) => u.id === a.user_id)?.email || ''; bVal = users.find((u: any) => u.id === b.user_id)?.email || ''; }
+      else { aVal = (a[sortKey] || '').toString(); bVal = (b[sortKey] || '').toString(); }
       const cmp = aVal.localeCompare(bVal, undefined, { sensitivity: 'base' });
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -182,20 +127,14 @@ const Admin = () => {
 
   const updateCampaign = async (id: string, patch: Record<string, any>, successMessage: string) => {
     const { error } = await supabase.from('campaigns' as any).update(patch).eq('id', id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     setCampaigns(prev => prev.map((c: any) => (c.id === id ? { ...c, ...patch } : c)));
     toast.success(successMessage);
   };
 
   const deleteCampaign = async (id: string) => {
     const { error } = await supabase.from('campaigns' as any).delete().eq('id', id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     setCampaigns(prev => prev.filter((c: any) => c.id !== id));
     toast.success(t.admin.campaignDeleted ?? 'Campaign deleted');
   };
@@ -203,30 +142,20 @@ const Admin = () => {
   const toggleUserAdmin = async (userId: string, makeAdmin: boolean) => {
     if (makeAdmin) {
       const { error } = await supabase.from('user_roles' as any).insert({ user_id: userId, role: 'admin' });
-      if (error && error.code !== '23505') {
-        toast.error(error.message);
-        return;
-      }
+      if (error && error.code !== '23505') { toast.error(error.message); return; }
       setUsers(prev => prev.map((u: any) => (u.id === userId ? { ...u, is_admin: true } : u)));
       toast.success(t.admin.adminGranted ?? 'Admin role granted');
       return;
     }
-
     const { error } = await supabase.from('user_roles' as any).delete().eq('user_id', userId).eq('role', 'admin');
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     setUsers(prev => prev.map((u: any) => (u.id === userId ? { ...u, is_admin: false } : u)));
     toast.success(t.admin.adminRevoked ?? 'Admin role revoked');
   };
 
   const deleteUser = async (userId: string) => {
     const { error } = await supabase.from('profiles' as any).delete().eq('id', userId);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     setUsers(prev => prev.filter((u: any) => u.id !== userId));
     toast.success(t.admin.userDeleted ?? 'User profile deleted');
   };
@@ -238,10 +167,7 @@ const Admin = () => {
   };
 
   const handleSaveVoucher = async () => {
-    if (!voucherForm.code.trim()) {
-      toast.error('Kode voucher wajib diisi');
-      return;
-    }
+    if (!voucherForm.code.trim()) { toast.error('Kode voucher wajib diisi'); return; }
     setSavingVoucher(true);
     const payload = {
       code: voucherForm.code.toUpperCase().trim(),
@@ -252,27 +178,17 @@ const Admin = () => {
       valid_until: voucherForm.valid_until || null,
       is_active: voucherForm.is_active,
     };
-
     if (editingVoucherId) {
       const { error } = await supabase.from('vouchers' as any).update(payload).eq('id', editingVoucherId);
-      if (error) {
-        toast.error(error.message);
-        setSavingVoucher(false);
-        return;
-      }
+      if (error) { toast.error(error.message); setSavingVoucher(false); return; }
       setVouchers(prev => prev.map(v => v.id === editingVoucherId ? { ...v, ...payload } : v));
       toast.success('Voucher berhasil diperbarui');
     } else {
       const { data, error } = await supabase.from('vouchers' as any).insert(payload).select().single();
-      if (error) {
-        toast.error(error.message);
-        setSavingVoucher(false);
-        return;
-      }
+      if (error) { toast.error(error.message); setSavingVoucher(false); return; }
       setVouchers(prev => [data, ...prev]);
       toast.success('Voucher berhasil dibuat');
     }
-
     setSavingVoucher(false);
     setVoucherDialogOpen(false);
     resetVoucherForm();
@@ -280,9 +196,7 @@ const Admin = () => {
 
   const handleEditVoucher = (v: any) => {
     setVoucherForm({
-      code: v.code,
-      discount_type: v.discount_type,
-      discount_value: v.discount_value,
+      code: v.code, discount_type: v.discount_type, discount_value: v.discount_value,
       max_uses: v.max_uses?.toString() || '',
       valid_from: v.valid_from ? new Date(v.valid_from).toISOString().slice(0, 16) : '',
       valid_until: v.valid_until ? new Date(v.valid_until).toISOString().slice(0, 16) : '',
@@ -294,20 +208,14 @@ const Admin = () => {
 
   const handleDeleteVoucher = async (id: string) => {
     const { error } = await supabase.from('vouchers' as any).delete().eq('id', id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     setVouchers(prev => prev.filter(v => v.id !== id));
     toast.success('Voucher berhasil dihapus');
   };
 
   const handleToggleVoucherActive = async (id: string, isActive: boolean) => {
     const { error } = await supabase.from('vouchers' as any).update({ is_active: isActive }).eq('id', id);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     setVouchers(prev => prev.map(v => v.id === id ? { ...v, is_active: isActive } : v));
   };
 
@@ -321,10 +229,47 @@ const Admin = () => {
     );
   }
 
-  // Blog CRUD
+  // Blog CRUD helpers
+  const generateSlug = (title: string) => {
+    return title.toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+  };
+
   const resetBlogForm = () => {
-    setBlogForm({ title: '', slug: '', content: '', excerpt: '', cover_image_url: '', meta_title: '', meta_description: '', tags: '', status: 'draft' });
+    setBlogForm({ title: '', slug: '', content: '', excerpt: '', cover_image_url: '', meta_title: '', meta_description: '', tags: '', status: 'draft', scheduled_at: '' });
     setEditingBlogId(null);
+  };
+
+  const handleBlogTitleChange = (title: string) => {
+    const slug = generateSlug(title);
+    setBlogForm(prev => ({ ...prev, title, slug }));
+  };
+
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `blog-cover-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('banner-images').upload(fileName, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('banner-images').getPublicUrl(fileName);
+      setBlogForm(prev => ({ ...prev, cover_image_url: urlData.publicUrl }));
+      toast.success('Cover image berhasil diupload');
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal upload cover image');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
+  const execCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    contentEditableRef.current?.focus();
   };
 
   const handleSaveBlog = async () => {
@@ -332,19 +277,47 @@ const Admin = () => {
       toast.error('Title dan slug wajib diisi');
       return;
     }
+
+    // Get content from contentEditable
+    const htmlContent = contentEditableRef.current?.innerHTML || blogForm.content;
+
     setSavingBlog(true);
     const { data: { user } } = await supabase.auth.getUser();
+
+    // Check slug uniqueness
+    const slugToUse = blogForm.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const { data: existingSlug } = await supabase
+      .from('blog_posts' as any)
+      .select('id')
+      .eq('slug', slugToUse)
+      .neq('id', editingBlogId || '00000000-0000-0000-0000-000000000000')
+      .maybeSingle();
+
+    if (existingSlug) {
+      toast.error('Slug sudah digunakan oleh artikel lain. Silakan ganti.');
+      setSavingBlog(false);
+      return;
+    }
+
+    // Determine published_at based on status and schedule
+    let publishedAt: string | null = null;
+    if (blogForm.status === 'published') {
+      publishedAt = new Date().toISOString();
+    } else if (blogForm.status === 'scheduled' && blogForm.scheduled_at) {
+      publishedAt = new Date(blogForm.scheduled_at).toISOString();
+    }
+
     const payload: any = {
       title: blogForm.title,
-      slug: blogForm.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-      content: blogForm.content,
+      slug: slugToUse,
+      content: htmlContent,
       excerpt: blogForm.excerpt,
       cover_image_url: blogForm.cover_image_url || null,
       meta_title: blogForm.meta_title || blogForm.title,
       meta_description: blogForm.meta_description || blogForm.excerpt,
       tags: blogForm.tags ? blogForm.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
-      status: blogForm.status,
-      published_at: blogForm.status === 'published' ? new Date().toISOString() : null,
+      status: blogForm.status === 'scheduled' ? 'scheduled' : blogForm.status,
+      published_at: publishedAt,
     };
     if (!editingBlogId) payload.author_id = user?.id;
 
@@ -370,9 +343,16 @@ const Admin = () => {
       cover_image_url: p.cover_image_url || '', meta_title: p.meta_title || '',
       meta_description: p.meta_description || '', tags: (p.tags || []).join(', '),
       status: p.status,
+      scheduled_at: p.status === 'scheduled' && p.published_at ? new Date(p.published_at).toISOString().slice(0, 16) : '',
     });
     setEditingBlogId(p.id);
     setBlogDialogOpen(true);
+    // Set content after dialog opens
+    setTimeout(() => {
+      if (contentEditableRef.current) {
+        contentEditableRef.current.innerHTML = p.content || '';
+      }
+    }, 100);
   };
 
   const handleDeleteBlog = async (id: string) => {
@@ -419,36 +399,17 @@ const Admin = () => {
 
           <Tabs defaultValue="campaigns" className="space-y-4">
             <TabsList className="bg-secondary/50 border border-border flex-wrap h-auto">
-              <TabsTrigger value="campaigns" className="gap-1">
-                <Megaphone className="w-3 h-3" />
-                {t.admin.campaigns}
-              </TabsTrigger>
-              <TabsTrigger value="users" className="gap-1">
-                <Users className="w-3 h-3" />
-                {t.admin.users}
-              </TabsTrigger>
-              <TabsTrigger value="transactions" className="gap-1">
-                <CreditCard className="w-3 h-3" />
-                {t.admin.transactions}
-              </TabsTrigger>
-              <TabsTrigger value="vouchers" className="gap-1">
-                <Ticket className="w-3 h-3" />
-                Voucher
-              </TabsTrigger>
-              <TabsTrigger value="blog" className="gap-1">
-                <BookOpen className="w-3 h-3" />
-                Blog
-              </TabsTrigger>
-              <TabsTrigger value="settings" className="gap-1">
-                <Settings className="w-3 h-3" />
-                {t.admin.settings}
-              </TabsTrigger>
+              <TabsTrigger value="campaigns" className="gap-1"><Megaphone className="w-3 h-3" />{t.admin.campaigns}</TabsTrigger>
+              <TabsTrigger value="users" className="gap-1"><Users className="w-3 h-3" />{t.admin.users}</TabsTrigger>
+              <TabsTrigger value="transactions" className="gap-1"><CreditCard className="w-3 h-3" />{t.admin.transactions}</TabsTrigger>
+              <TabsTrigger value="vouchers" className="gap-1"><Ticket className="w-3 h-3" />Voucher</TabsTrigger>
+              <TabsTrigger value="blog" className="gap-1"><BookOpen className="w-3 h-3" />Blog</TabsTrigger>
+              <TabsTrigger value="settings" className="gap-1"><Settings className="w-3 h-3" />{t.admin.settings}</TabsTrigger>
             </TabsList>
 
             {/* Campaigns Tab */}
             <TabsContent value="campaigns" className="space-y-3">
               <Input value={searchCampaign} onChange={e => setSearchCampaign(e.target.value)} placeholder="Cari nama, slug, user, atau email..." className="max-w-sm bg-secondary/50 border-border" />
-
               <div className="glass rounded-2xl border-gold-subtle overflow-x-auto">
                 <Table>
                   <TableHeader>
@@ -471,77 +432,35 @@ const Admin = () => {
                         <TableCell className="text-muted-foreground">{c.slug}</TableCell>
                         <TableCell>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${c.tier === 'premium' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                            {c.tier === 'premium' && <Crown className="w-3 h-3 inline mr-1" />}
-                            {c.tier || 'free'}
+                            {c.tier === 'premium' && <Crown className="w-3 h-3 inline mr-1" />}{c.tier || 'free'}
                           </span>
                         </TableCell>
                         <TableCell>
-                          <span
-                            className={`text-xs px-2 py-0.5 rounded-full ${
-                              c.status === 'published'
-                                ? 'bg-green-500/20 text-green-400'
-                                : c.status === 'blocked'
-                                  ? 'bg-destructive/20 text-destructive'
-                                  : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {c.status}
-                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === 'published' ? 'bg-green-500/20 text-green-400' : c.status === 'blocked' ? 'bg-destructive/20 text-destructive' : 'bg-muted text-muted-foreground'}`}>{c.status}</span>
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-2">
-                            {c.status !== 'published' && (
-                              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, t.admin.campaignPublished ?? 'Campaign published')}>
-                                {t.admin.publish ?? 'Publish'}
-                              </Button>
-                            )}
-                            {c.status !== 'draft' && (
-                              <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'draft' }, t.admin.campaignDrafted ?? 'Campaign moved to draft')}>
-                                {t.admin.draft ?? 'Draft'}
-                              </Button>
-                            )}
+                            {c.status !== 'published' && <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, t.admin.campaignPublished ?? 'Campaign published')}>{t.admin.publish ?? 'Publish'}</Button>}
+                            {c.status !== 'draft' && <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { status: 'draft' }, t.admin.campaignDrafted ?? 'Campaign moved to draft')}>{t.admin.draft ?? 'Draft'}</Button>}
                             {c.status !== 'blocked' ? (
-                              <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'blocked' }, t.admin.campaignBlocked ?? 'Campaign blocked')}>
-                                <Ban className="w-3 h-3" /> {t.admin.block}
-                              </Button>
+                              <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'blocked' }, t.admin.campaignBlocked ?? 'Campaign blocked')}><Ban className="w-3 h-3" /> {t.admin.block}</Button>
                             ) : (
-                              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, t.admin.campaignOpened ?? 'Campaign unblocked')}>
-                                <Unlock className="w-3 h-3" /> {t.admin.unblock ?? 'Unblock'}
-                              </Button>
+                              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => updateCampaign(c.id, { status: 'published' }, t.admin.campaignOpened ?? 'Campaign unblocked')}><Unlock className="w-3 h-3" /> {t.admin.unblock ?? 'Unblock'}</Button>
                             )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs"
-                              onClick={() => updateCampaign(c.id, { tier: c.tier === 'premium' ? 'free' : 'premium' }, t.admin.tierUpdated ?? 'Campaign tier updated')}
-                            >
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => updateCampaign(c.id, { tier: c.tier === 'premium' ? 'free' : 'premium' }, t.admin.tierUpdated ?? 'Campaign tier updated')}>
                               {c.tier === 'premium' ? (t.admin.setFree ?? 'Set Free') : (t.admin.setPremium ?? 'Set Premium')}
                             </Button>
                             {users.find((u: any) => u.id === c.user_id)?.is_admin && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className={`text-xs gap-1 ${c.is_featured ? 'border-primary/50 text-primary' : ''}`}
-                                onClick={() => updateCampaign(c.id, { is_featured: !c.is_featured }, c.is_featured ? 'Dihapus dari featured' : 'Ditampilkan di homepage')}
-                              >
-                                <Star className={`w-3 h-3 ${c.is_featured ? 'fill-primary' : ''}`} />
-                                {c.is_featured ? 'Featured ✓' : 'Set Featured'}
+                              <Button size="sm" variant="outline" className={`text-xs gap-1 ${c.is_featured ? 'border-primary/50 text-primary' : ''}`} onClick={() => updateCampaign(c.id, { is_featured: !c.is_featured }, c.is_featured ? 'Dihapus dari featured' : 'Ditampilkan di homepage')}>
+                                <Star className={`w-3 h-3 ${c.is_featured ? 'fill-primary' : ''}`} />{c.is_featured ? 'Featured ✓' : 'Set Featured'}
                               </Button>
                             )}
-                            <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteCampaign(c.id)}>
-                              <Trash2 className="w-3 h-3" /> {t.admin.delete ?? 'Delete'}
-                            </Button>
+                            <Button size="sm" variant="outline" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={() => deleteCampaign(c.id)}><Trash2 className="w-3 h-3" /> {t.admin.delete ?? 'Delete'}</Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filteredCampaigns.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="p-8 text-center text-muted-foreground">
-                          {t.admin.noData ?? 'Belum ada data'}
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {filteredCampaigns.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
@@ -550,7 +469,6 @@ const Admin = () => {
             {/* Users Tab */}
             <TabsContent value="users" className="space-y-3">
               <Input value={searchUser} onChange={e => setSearchUser(e.target.value)} placeholder={t.admin.searchUser ?? 'Search users'} className="max-w-sm bg-secondary/50 border-border" />
-
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
                   <TableHeader>
@@ -571,35 +489,19 @@ const Admin = () => {
                         <TableCell className="text-muted-foreground text-xs">{u.phone || '-'}</TableCell>
                         <TableCell>
                           <span className={`text-xs px-2 py-0.5 rounded-full ${u.is_admin ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                            {u.is_admin ? <Shield className="w-3 h-3 inline mr-1" /> : null}
-                            {u.is_admin ? (t.admin.adminRole ?? 'admin') : (t.admin.userRole ?? 'user')}
+                            {u.is_admin ? <Shield className="w-3 h-3 inline mr-1" /> : null}{u.is_admin ? (t.admin.adminRole ?? 'admin') : (t.admin.userRole ?? 'user')}
                           </span>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">{u.created_at ? new Date(u.created_at).toLocaleDateString('id-ID') : '-'}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs"
-                              onClick={() => toggleUserAdmin(u.id, !u.is_admin)}
-                            >
-                              {u.is_admin ? (t.admin.setUser ?? 'Set User') : (t.admin.setAdmin ?? 'Set Admin')}
-                            </Button>
-                            <Button size="sm" variant="outline" className="border-destructive/30 text-destructive text-xs" onClick={() => deleteUser(u.id)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+                            <Button size="sm" variant="outline" className="text-xs" onClick={() => toggleUserAdmin(u.id, !u.is_admin)}>{u.is_admin ? (t.admin.setUser ?? 'Set User') : (t.admin.setAdmin ?? 'Set Admin')}</Button>
+                            <Button size="sm" variant="outline" className="border-destructive/30 text-destructive text-xs" onClick={() => deleteUser(u.id)}><Trash2 className="w-3 h-3" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
-                    {filteredUsers.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="p-8 text-center text-muted-foreground">
-                          {t.admin.noData ?? 'Belum ada data'}
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {filteredUsers.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
@@ -630,23 +532,13 @@ const Admin = () => {
                           <TableCell className="text-xs">{txUser?.name || txUser?.email || '-'}</TableCell>
                           <TableCell className="text-xs">{txCampaign?.name || '-'}</TableCell>
                           <TableCell className="text-xs font-semibold">Rp {(tx.amount || 0).toLocaleString('id-ID')}</TableCell>
-                          <TableCell>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
-                              {tx.status}
-                            </span>
-                          </TableCell>
+                          <TableCell><span className={`text-xs px-2 py-0.5 rounded-full ${tx.status === 'paid' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>{tx.status}</span></TableCell>
                           <TableCell className="text-xs text-muted-foreground">{tx.payment_method || '-'}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{tx.paid_at ? new Date(tx.paid_at).toLocaleString('id-ID') : '-'}</TableCell>
                         </TableRow>
                       );
                     })}
-                    {payments.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} className="p-8 text-center text-muted-foreground">
-                          {t.admin.noData ?? 'Belum ada data'}
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {payments.length === 0 && <TableRow><TableCell colSpan={7} className="p-8 text-center text-muted-foreground">{t.admin.noData ?? 'Belum ada data'}</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
@@ -657,14 +549,12 @@ const Admin = () => {
               <div className="flex justify-end">
                 <Dialog open={voucherDialogOpen} onOpenChange={(open) => { setVoucherDialogOpen(open); if (!open) resetVoucherForm(); }}>
                   <DialogTrigger asChild>
-                    <Button className="gold-glow gap-2 text-sm" onClick={() => { resetVoucherForm(); setVoucherDialogOpen(true); }}>
-                      <Plus className="w-4 h-4" />
-                      Tambah Voucher
-                    </Button>
+                    <Button className="gold-glow gap-2 text-sm" onClick={() => { resetVoucherForm(); setVoucherDialogOpen(true); }}><Plus className="w-4 h-4" />Tambah Voucher</Button>
                   </DialogTrigger>
                   <DialogContent className="glass-strong border-border max-w-md">
                     <DialogHeader>
                       <DialogTitle className="font-display">{editingVoucherId ? 'Edit Voucher' : 'Buat Voucher Baru'}</DialogTitle>
+                      <DialogDescription>Kelola voucher diskon untuk campaign premium.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
@@ -676,10 +566,7 @@ const Admin = () => {
                           <Label className="text-xs text-muted-foreground">Tipe Diskon</Label>
                           <Select value={voucherForm.discount_type} onValueChange={v => setVoucherForm(prev => ({ ...prev, discount_type: v }))}>
                             <SelectTrigger className="mt-1 bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="percentage">Persentase (%)</SelectItem>
-                              <SelectItem value="fixed">Nominal (Rp)</SelectItem>
-                            </SelectContent>
+                            <SelectContent><SelectItem value="percentage">Persentase (%)</SelectItem><SelectItem value="fixed">Nominal (Rp)</SelectItem></SelectContent>
                           </Select>
                         </div>
                         <div>
@@ -692,75 +579,37 @@ const Admin = () => {
                         <Input type="number" value={voucherForm.max_uses} onChange={e => setVoucherForm(prev => ({ ...prev, max_uses: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="Unlimited" />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Valid Dari</Label>
-                          <Input type="datetime-local" value={voucherForm.valid_from} onChange={e => setVoucherForm(prev => ({ ...prev, valid_from: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-xs" />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Valid Sampai</Label>
-                          <Input type="datetime-local" value={voucherForm.valid_until} onChange={e => setVoucherForm(prev => ({ ...prev, valid_until: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-xs" />
-                        </div>
+                        <div><Label className="text-xs text-muted-foreground">Valid Dari</Label><Input type="datetime-local" value={voucherForm.valid_from} onChange={e => setVoucherForm(prev => ({ ...prev, valid_from: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-xs" /></div>
+                        <div><Label className="text-xs text-muted-foreground">Valid Sampai</Label><Input type="datetime-local" value={voucherForm.valid_until} onChange={e => setVoucherForm(prev => ({ ...prev, valid_until: e.target.value }))} className="mt-1 bg-secondary/50 border-border text-xs" /></div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Switch checked={voucherForm.is_active} onCheckedChange={v => setVoucherForm(prev => ({ ...prev, is_active: v }))} />
-                        <Label className="text-sm">Aktif</Label>
-                      </div>
+                      <div className="flex items-center gap-2"><Switch checked={voucherForm.is_active} onCheckedChange={v => setVoucherForm(prev => ({ ...prev, is_active: v }))} /><Label className="text-sm">Aktif</Label></div>
                       <Button className="w-full gold-glow" onClick={handleSaveVoucher} disabled={savingVoucher}>
-                        {savingVoucher ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                        {editingVoucherId ? 'Update Voucher' : 'Buat Voucher'}
+                        {savingVoucher ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}{editingVoucherId ? 'Update Voucher' : 'Buat Voucher'}
                       </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
-
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Kode</TableHead>
-                      <TableHead>Diskon</TableHead>
-                      <TableHead>Penggunaan</TableHead>
-                      <TableHead>Berlaku</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <TableHeader><TableRow><TableHead>Kode</TableHead><TableHead>Diskon</TableHead><TableHead>Penggunaan</TableHead><TableHead>Berlaku</TableHead><TableHead>Status</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {vouchers.map((v: any) => (
                       <TableRow key={v.id}>
                         <TableCell className="font-mono font-semibold text-foreground">{v.code}</TableCell>
-                        <TableCell className="text-sm">
-                          {v.discount_type === 'percentage' ? `${v.discount_value}%` : `Rp ${v.discount_value.toLocaleString('id-ID')}`}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {v.used_count}{v.max_uses ? ` / ${v.max_uses}` : ' / ∞'}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {v.valid_from ? new Date(v.valid_from).toLocaleDateString('id-ID') : '—'}
-                          {' – '}
-                          {v.valid_until ? new Date(v.valid_until).toLocaleDateString('id-ID') : '—'}
-                        </TableCell>
-                        <TableCell>
-                          <Switch checked={v.is_active} onCheckedChange={(checked) => handleToggleVoucherActive(v.id, checked)} />
-                        </TableCell>
+                        <TableCell className="text-sm">{v.discount_type === 'percentage' ? `${v.discount_value}%` : `Rp ${v.discount_value.toLocaleString('id-ID')}`}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{v.used_count}{v.max_uses ? ` / ${v.max_uses}` : ' / ∞'}</TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{v.valid_from ? new Date(v.valid_from).toLocaleDateString('id-ID') : '—'}{' – '}{v.valid_until ? new Date(v.valid_until).toLocaleDateString('id-ID') : '—'}</TableCell>
+                        <TableCell><Switch checked={v.is_active} onCheckedChange={(checked) => handleToggleVoucherActive(v.id, checked)} /></TableCell>
                         <TableCell>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline" className="text-xs" onClick={() => handleEditVoucher(v)}>Edit</Button>
-                            <Button size="sm" variant="outline" className="text-xs border-destructive/30 text-destructive" onClick={() => handleDeleteVoucher(v.id)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+                            <Button size="sm" variant="outline" className="text-xs border-destructive/30 text-destructive" onClick={() => handleDeleteVoucher(v.id)}><Trash2 className="w-3 h-3" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
-                    {vouchers.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={6} className="p-8 text-center text-muted-foreground">
-                          Belum ada voucher
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {vouchers.length === 0 && <TableRow><TableCell colSpan={6} className="p-8 text-center text-muted-foreground">Belum ada voucher</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
@@ -771,111 +620,140 @@ const Admin = () => {
               <div className="flex justify-end">
                 <Dialog open={blogDialogOpen} onOpenChange={(open) => { setBlogDialogOpen(open); if (!open) resetBlogForm(); }}>
                   <DialogTrigger asChild>
-                    <Button className="gold-glow gap-2 text-sm" onClick={() => { resetBlogForm(); setBlogDialogOpen(true); }}>
-                      <Plus className="w-4 h-4" /> Artikel Baru
-                    </Button>
+                    <Button className="gold-glow gap-2 text-sm" onClick={() => { resetBlogForm(); setBlogDialogOpen(true); }}><Plus className="w-4 h-4" /> Artikel Baru</Button>
                   </DialogTrigger>
                   <DialogContent className="glass-strong border-border max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="font-display">{editingBlogId ? 'Edit Artikel' : 'Buat Artikel Baru'}</DialogTitle>
+                      <DialogDescription>Tulis dan kelola artikel blog untuk SEO.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
                         <Label className="text-xs text-muted-foreground">Judul</Label>
-                        <Input value={blogForm.title} onChange={e => setBlogForm(prev => ({ ...prev, title: e.target.value }))} className="mt-1 bg-secondary/50 border-border" />
+                        <Input value={blogForm.title} onChange={e => handleBlogTitleChange(e.target.value)} className="mt-1 bg-secondary/50 border-border" />
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Slug URL</Label>
                         <Input value={blogForm.slug} onChange={e => setBlogForm(prev => ({ ...prev, slug: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="judul-artikel" />
+                        <p className="text-xs text-muted-foreground mt-1">Auto-generated dari judul. Akan divalidasi agar unik.</p>
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Excerpt (ringkasan singkat)</Label>
                         <Textarea value={blogForm.excerpt} onChange={e => setBlogForm(prev => ({ ...prev, excerpt: e.target.value }))} className="mt-1 bg-secondary/50 border-border" rows={2} />
                       </div>
+
+                      {/* Rich text editor */}
                       <div>
-                        <Label className="text-xs text-muted-foreground">Konten (HTML)</Label>
-                        <Textarea value={blogForm.content} onChange={e => setBlogForm(prev => ({ ...prev, content: e.target.value }))} className="mt-1 bg-secondary/50 border-border font-mono text-xs" rows={10} />
+                        <Label className="text-xs text-muted-foreground mb-2 block">Konten</Label>
+                        <div className="flex flex-wrap gap-1 mb-2 p-1 rounded-lg bg-secondary/50 border border-border">
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('bold')}><strong>B</strong></Button>
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('italic')}><em>I</em></Button>
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('underline')}><u>U</u></Button>
+                          <span className="w-px h-5 bg-border self-center mx-1" />
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('formatBlock', 'h2')}>H2</Button>
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('formatBlock', 'h3')}>H3</Button>
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('formatBlock', 'p')}>P</Button>
+                          <span className="w-px h-5 bg-border self-center mx-1" />
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('insertUnorderedList')}>• List</Button>
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('insertOrderedList')}>1. List</Button>
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => execCommand('formatBlock', 'blockquote')}>Quote</Button>
+                          <span className="w-px h-5 bg-border self-center mx-1" />
+                          <Button type="button" size="sm" variant="ghost" className="text-xs h-7 px-2" onClick={() => {
+                            const url = prompt('Masukkan URL link:');
+                            if (url) execCommand('createLink', url);
+                          }}>Link</Button>
+                        </div>
+                        <div
+                          ref={contentEditableRef}
+                          contentEditable
+                          className="rich-text-editor mt-1 bg-secondary/50 border border-border rounded-md p-3 text-sm text-foreground overflow-y-auto max-h-[400px]"
+                          onInput={() => {
+                            // Content is read on save from innerHTML
+                          }}
+                          dangerouslySetInnerHTML={!editingBlogId ? { __html: blogForm.content } : undefined}
+                        />
                       </div>
+
+                      {/* Cover Image Upload */}
                       <div>
-                        <Label className="text-xs text-muted-foreground">Cover Image URL (opsional)</Label>
-                        <Input value={blogForm.cover_image_url} onChange={e => setBlogForm(prev => ({ ...prev, cover_image_url: e.target.value }))} className="mt-1 bg-secondary/50 border-border" />
+                        <Label className="text-xs text-muted-foreground">Cover Image</Label>
+                        <div className="mt-1 flex items-center gap-3">
+                          {blogForm.cover_image_url && (
+                            <img src={blogForm.cover_image_url} alt="Cover" className="w-24 h-16 object-cover rounded-lg border border-border" />
+                          )}
+                          <label className={`cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/50 text-xs hover:border-primary/50 transition-colors ${uploadingCover ? 'opacity-60 cursor-not-allowed' : ''}`}>
+                            {uploadingCover ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                            {uploadingCover ? 'Uploading...' : 'Upload Cover'}
+                            <input type="file" accept="image/*" className="hidden" onChange={handleCoverImageUpload} disabled={uploadingCover} />
+                          </label>
+                          {blogForm.cover_image_url && (
+                            <Button type="button" size="sm" variant="ghost" className="text-xs text-destructive" onClick={() => setBlogForm(prev => ({ ...prev, cover_image_url: '' }))}>Hapus</Button>
+                          )}
+                        </div>
                       </div>
+
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Meta Title (SEO)</Label>
-                          <Input value={blogForm.meta_title} onChange={e => setBlogForm(prev => ({ ...prev, meta_title: e.target.value }))} className="mt-1 bg-secondary/50 border-border" />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-muted-foreground">Tags (pisah koma)</Label>
-                          <Input value={blogForm.tags} onChange={e => setBlogForm(prev => ({ ...prev, tags: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="tips, tutorial" />
-                        </div>
+                        <div><Label className="text-xs text-muted-foreground">Meta Title (SEO)</Label><Input value={blogForm.meta_title} onChange={e => setBlogForm(prev => ({ ...prev, meta_title: e.target.value }))} className="mt-1 bg-secondary/50 border-border" /></div>
+                        <div><Label className="text-xs text-muted-foreground">Tags (pisah koma)</Label><Input value={blogForm.tags} onChange={e => setBlogForm(prev => ({ ...prev, tags: e.target.value }))} className="mt-1 bg-secondary/50 border-border" placeholder="tips, tutorial" /></div>
                       </div>
                       <div>
                         <Label className="text-xs text-muted-foreground">Meta Description (SEO)</Label>
                         <Textarea value={blogForm.meta_description} onChange={e => setBlogForm(prev => ({ ...prev, meta_description: e.target.value }))} className="mt-1 bg-secondary/50 border-border" rows={2} />
                       </div>
-                      <div>
-                        <Label className="text-xs text-muted-foreground">Status</Label>
-                        <Select value={blogForm.status} onValueChange={v => setBlogForm(prev => ({ ...prev, status: v }))}>
-                          <SelectTrigger className="mt-1 bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="published">Published</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Status</Label>
+                          <Select value={blogForm.status} onValueChange={v => setBlogForm(prev => ({ ...prev, status: v }))}>
+                            <SelectTrigger className="mt-1 bg-secondary/50 border-border"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="draft">Draft</SelectItem>
+                              <SelectItem value="published">Published</SelectItem>
+                              <SelectItem value="scheduled">Scheduled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {blogForm.status === 'scheduled' && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground flex items-center gap-1"><Clock className="w-3 h-3" /> Jadwal Publish</Label>
+                            <Input
+                              type="datetime-local"
+                              value={blogForm.scheduled_at}
+                              onChange={e => setBlogForm(prev => ({ ...prev, scheduled_at: e.target.value }))}
+                              className="mt-1 bg-secondary/50 border-border text-xs"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">Default: 00:00 jika tidak diatur</p>
+                          </div>
+                        )}
                       </div>
                       <Button className="w-full gold-glow" onClick={handleSaveBlog} disabled={savingBlog}>
                         {savingBlog ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                        {editingBlogId ? 'Update Artikel' : 'Publish Artikel'}
+                        {editingBlogId ? 'Update Artikel' : 'Simpan Artikel'}
                       </Button>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
-
               <div className="glass rounded-2xl border-gold-subtle overflow-hidden">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Judul</TableHead>
-                      <TableHead>Slug</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Tanggal</TableHead>
-                      <TableHead>Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <TableHeader><TableRow><TableHead>Judul</TableHead><TableHead>Slug</TableHead><TableHead>Status</TableHead><TableHead>Tanggal</TableHead><TableHead>Aksi</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {blogPosts.map((p: any) => (
                       <TableRow key={p.id}>
                         <TableCell className="font-medium">{p.title}</TableCell>
                         <TableCell className="text-muted-foreground text-xs">{p.slug}</TableCell>
                         <TableCell>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'published' ? 'bg-green-500/20 text-green-400' : 'bg-muted text-muted-foreground'}`}>
-                            {p.status}
-                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${p.status === 'published' ? 'bg-green-500/20 text-green-400' : p.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400' : 'bg-muted text-muted-foreground'}`}>{p.status}</span>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {new Date(p.created_at).toLocaleDateString('id-ID')}
-                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString('id-ID')}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => handleEditBlog(p)}>
-                              <Pencil className="w-3 h-3" /> Edit
-                            </Button>
-                            <Button size="sm" variant="outline" className="text-xs border-destructive/30 text-destructive" onClick={() => handleDeleteBlog(p.id)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
+                            <Button size="sm" variant="outline" className="text-xs gap-1" onClick={() => handleEditBlog(p)}><Pencil className="w-3 h-3" /> Edit</Button>
+                            <Button size="sm" variant="outline" className="text-xs border-destructive/30 text-destructive" onClick={() => handleDeleteBlog(p.id)}><Trash2 className="w-3 h-3" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
                     ))}
-                    {blogPosts.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={5} className="p-8 text-center text-muted-foreground">
-                          Belum ada artikel
-                        </TableCell>
-                      </TableRow>
-                    )}
+                    {blogPosts.length === 0 && <TableRow><TableCell colSpan={5} className="p-8 text-center text-muted-foreground">Belum ada artikel</TableCell></TableRow>}
                   </TableBody>
                 </Table>
               </div>
@@ -884,6 +762,7 @@ const Admin = () => {
             {/* Settings Tab */}
             <TabsContent value="settings" className="space-y-4">
               <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                <h3 className="font-display font-semibold text-foreground">Pengaturan Harga</h3>
                 {['premium_price', 'original_price'].map(key => (
                   <div key={key}>
                     <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
@@ -895,10 +774,52 @@ const Admin = () => {
                     />
                   </div>
                 ))}
-                <Button className="gold-glow" onClick={handleSaveSettings}>
-                  {t.admin.saveSettings ?? 'Save Settings'}
-                </Button>
               </div>
+              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                <h3 className="font-display font-semibold text-foreground">Midtrans</h3>
+                {['midtrans_client_key', 'midtrans_server_key', 'midtrans_is_production'].map(key => (
+                  <div key={key}>
+                    <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
+                    <Input
+                      value={settings[key] ?? ''}
+                      onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="mt-1 bg-secondary/50 border-border"
+                      placeholder={key === 'midtrans_is_production' ? 'true / false' : 'Enter value'}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                <h3 className="font-display font-semibold text-foreground">Google AdSense</h3>
+                {['adsense_client_id', 'adsense_slot_id'].map(key => (
+                  <div key={key}>
+                    <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
+                    <Input
+                      value={settings[key] ?? ''}
+                      onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="mt-1 bg-secondary/50 border-border"
+                      placeholder="Enter value"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="glass rounded-2xl p-6 border-gold-subtle space-y-4">
+                <h3 className="font-display font-semibold text-foreground">Lainnya</h3>
+                {['site_name', 'site_description', 'contact_email'].map(key => (
+                  <div key={key}>
+                    <Label className="text-sm text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</Label>
+                    <Input
+                      value={settings[key] ?? ''}
+                      onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="mt-1 bg-secondary/50 border-border"
+                      placeholder="Enter value"
+                    />
+                  </div>
+                ))}
+              </div>
+              <Button className="gold-glow" onClick={handleSaveSettings}>
+                {t.admin.saveSettings ?? 'Save Settings'}
+              </Button>
             </TabsContent>
           </Tabs>
         </div>
