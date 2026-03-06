@@ -19,26 +19,20 @@ const ResetPassword = () => {
   const [validSession, setValidSession] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Check if user arrived via a valid recovery link
     const hash = window.location.hash;
     if (hash.includes('type=recovery')) {
       setValidSession(true);
       return;
     }
-    // Also check if there's already a session (user clicked the link and was auto-logged in)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setValidSession(true);
-      } else {
-        setValidSession(false);
-      }
+      setValidSession(!!session);
     });
   }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirm) {
-      toast.error((t.auth as any).passwordMismatch || 'Passwords do not match');
+      toast.error(t.auth.passwordMismatch);
       return;
     }
     setLoading(true);
@@ -47,25 +41,23 @@ const ResetPassword = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success((t.auth as any).resetSuccess || 'Password updated successfully!');
+      toast.success(t.auth.resetSuccess);
       await supabase.auth.signOut();
       navigate('/login');
     }
   };
 
-  // Loading state
   if (validSession === null) {
     return (
       <Layout>
-        <SEOHead title="Reset Password — TWIBO.id" description="Atur ulang password akun TWIBO.id." robots="noindex, nofollow" />
+        <SEOHead title="Reset Password — TWIBO.id" description="Reset password akun TWIBO.id." robots="noindex, nofollow" />
         <section className="py-24 md:py-32 flex items-center justify-center min-h-[80vh]">
-          <div className="text-muted-foreground">Loading...</div>
+          <div className="text-muted-foreground">{t.auth.loading}</div>
         </section>
       </Layout>
     );
   }
 
-  // Invalid/expired link
   if (validSession === false) {
     return (
       <Layout>
@@ -75,16 +67,14 @@ const ResetPassword = () => {
               <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-8 h-8 text-destructive" />
               </div>
-              <h1 className="font-display text-2xl font-bold text-foreground mb-2">Link Tidak Valid</h1>
-              <p className="text-muted-foreground text-sm mb-6">
-                Link reset password ini sudah kadaluarsa atau sudah digunakan. Silakan minta link baru.
-              </p>
+              <h1 className="font-display text-2xl font-bold text-foreground mb-2">{t.auth.invalidLinkTitle}</h1>
+              <p className="text-muted-foreground text-sm mb-6">{t.auth.invalidLinkDesc}</p>
               <div className="flex gap-3 justify-center">
                 <Link to="/forgot-password">
-                  <Button className="gold-glow font-semibold">Minta Link Baru</Button>
+                  <Button className="gold-glow font-semibold">{t.auth.requestNewLink}</Button>
                 </Link>
                 <Link to="/login">
-                  <Button variant="outline" className="border-border">Kembali ke Login</Button>
+                  <Button variant="outline" className="border-border">{t.auth.backToLogin}</Button>
                 </Link>
               </div>
             </div>
@@ -100,8 +90,8 @@ const ResetPassword = () => {
         <div className="w-full max-w-md mx-auto px-4">
           <div className="glass-strong rounded-2xl p-8 border-gold-subtle gold-glow">
             <div className="text-center mb-8">
-              <h1 className="font-display text-3xl font-bold text-gold-gradient mb-2">Reset Password</h1>
-              <p className="text-muted-foreground text-sm">Enter your new password</p>
+              <h1 className="font-display text-3xl font-bold text-gold-gradient mb-2">{t.auth.forgotTitle}</h1>
+              <p className="text-muted-foreground text-sm">{t.auth.resetPasswordSubtitle}</p>
             </div>
             <form onSubmit={handleReset} className="space-y-4">
               <div>
@@ -119,7 +109,7 @@ const ResetPassword = () => {
                 </div>
               </div>
               <Button type="submit" className="w-full gold-glow font-semibold" disabled={loading}>
-                {loading ? '...' : 'Update Password'}
+                {loading ? '...' : t.auth.updatePasswordCta}
               </Button>
             </form>
           </div>
