@@ -119,7 +119,14 @@
     "passwordMismatch": "Password tidak cocok",
     "passwordMinLength": "Password minimal 6 karakter",
     "signupSuccess": "Akun berhasil dibuat! Cek email kamu untuk verifikasi.",
-    "resetSuccess": "Password berhasil diperbarui!"
+    "resetSuccess": "Password berhasil diperbarui!",
+    "checkEmailTitle": "Cek Email Kamu!",
+    "checkEmailSent": "Kami telah mengirim link verifikasi ke",
+    "checkEmailStep1": "Buka inbox email kamu",
+    "checkEmailStep2": "Klik link verifikasi di email",
+    "checkEmailStep3": "Kembali ke halaman login untuk masuk",
+    "checkEmailNoReceive": "Tidak menerima email? Cek folder spam atau coba daftar ulang.",
+    "goToLogin": "Ke Halaman Login"
   },
   "dashboard": {
     "title": "Campaign Saya",
