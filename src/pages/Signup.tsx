@@ -9,8 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Phone, Chrome } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const Signup = () => {
   const { t } = useLanguage();
@@ -20,19 +21,29 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   useEffect(() => {
     if (user) navigate('/dashboard');
   }, [user, navigate]);
 
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(prev => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.password !== form.confirmPassword) {
-      toast.error((t.auth as any).passwordMismatch || 'Passwords do not match');
+      toast.error(t.auth.passwordMismatch);
       return;
     }
     if (form.password.length < 6) {
-      toast.error(t.auth?.passwordMinLength ?? 'Password must be at least 6 characters');
+      toast.error(t.auth.passwordMinLength);
       return;
     }
     setLoading(true);
@@ -50,6 +61,41 @@ const Signup = () => {
     } else {
       setSignupSuccess(true);
       setRegisteredEmail(form.email);
+      setResendCooldown(60);
+    }
+  };
+
+  const handleVerifyOtp = useCallback(async (code: string) => {
+    if (code.length !== 6) return;
+    setOtpLoading(true);
+    const { error } = await supabase.auth.verifyOtp({
+      email: registeredEmail,
+      token: code,
+      type: 'signup',
+    });
+    setOtpLoading(false);
+    if (error) {
+      toast.error(t.auth.otpInvalid);
+      setOtpCode('');
+    } else {
+      toast.success(t.auth.otpSuccess);
+      // Sign out so user logs in fresh
+      await supabase.auth.signOut();
+      setTimeout(() => navigate('/login'), 1500);
+    }
+  }, [registeredEmail, t, navigate]);
+
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: registeredEmail,
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(t.auth.resendSuccess);
+      setResendCooldown(60);
     }
   };
 
@@ -84,24 +130,76 @@ const Signup = () => {
                   {t.auth.checkEmailSent}<br />
                   <span className="font-medium text-foreground">{registeredEmail}</span>
                 </p>
-                <div className="bg-muted/50 rounded-lg p-4 text-left space-y-2">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                    <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep1}</p>
+
+                {/* OTP Input */}
+                <div className="space-y-3 pt-2">
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(value) => {
+                        setOtpCode(value);
+                        if (value.length === 6) handleVerifyOtp(value);
+                      }}
+                      disabled={otpLoading}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                    <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep2}</p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                    <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep3}</p>
-                  </div>
+                  <p className="text-xs text-muted-foreground">{t.auth.otpPlaceholder}</p>
+
+                  <Button
+                    onClick={() => handleVerifyOtp(otpCode)}
+                    className="w-full gold-glow font-semibold"
+                    disabled={otpCode.length !== 6 || otpLoading}
+                  >
+                    {otpLoading ? t.auth.otpVerifying : t.auth.otpVerify}
+                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">{t.auth.checkEmailNoReceive}</p>
-                <Link to="/login">
-                  <Button variant="outline" className="w-full mt-2">{t.auth.goToLogin}</Button>
-                </Link>
+
+                <div className="pt-2 space-y-2">
+                  <p className="text-xs text-muted-foreground">{t.auth.orUseLink}</p>
+
+                  <div className="bg-muted/50 rounded-lg p-4 text-left space-y-2">
+                    <div className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep1}</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep2}</p>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep3}</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">{t.auth.checkEmailNoReceive}</p>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResend}
+                    disabled={resendCooldown > 0}
+                    className="text-primary hover:text-primary/80"
+                  >
+                    {resendCooldown > 0
+                      ? `${t.auth.resendCooldown} ${resendCooldown}s`
+                      : t.auth.resendCode}
+                  </Button>
+
+                  <Link to="/login">
+                    <Button variant="outline" className="w-full mt-2">{t.auth.goToLogin}</Button>
+                  </Link>
+                </div>
               </div>
             ) : (
               <>
