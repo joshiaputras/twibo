@@ -17,6 +17,8 @@ const Signup = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [loading, setLoading] = useState(false);
+  const [signupSuccess, setSignupSuccess] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   useEffect(() => {
     if (user) navigate('/dashboard');
@@ -45,7 +47,8 @@ const Signup = () => {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success((t.auth as any).signupSuccess || 'Account created! Check your email to verify.');
+      setSignupSuccess(true);
+      setRegisteredEmail(form.email);
     }
   };
 
