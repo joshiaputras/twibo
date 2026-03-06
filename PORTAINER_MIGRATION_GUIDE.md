@@ -8,7 +8,7 @@
 3. [Setup Supabase Self-Hosted](#3-setup-supabase-self-hosted)
 4. [Siapkan File Konfigurasi Frontend](#4-siapkan-file-konfigurasi-frontend)
 5. [Deploy Edge Functions Lokal](#5-deploy-edge-functions-lokal)
-6. [Setup SSL dengan Caddy](#6-setup-ssl-dengan-caddy)
+6. [Setup Nginx Reverse Proxy + SSL](#6-setup-nginx-reverse-proxy--ssl)
 7. [Import Data & Storage](#7-import-data--storage)
 8. [Verifikasi](#8-verifikasi)
 9. [Update & Maintenance](#9-update--maintenance-setelah-deploy)
@@ -97,10 +97,6 @@ echo "JWT_SECRET: $JWT_SECRET"
 
 # Generate Anon Key & Service Role Key menggunakan JWT secret
 # Gunakan tool online: https://supabase.com/docs/guides/self-hosting/docker#generate-api-keys
-# Atau gunakan script berikut:
-
-# Install jwt-cli (opsional)
-# npm install -g jwt-cli
 
 # Generate POSTGRES_PASSWORD
 POSTGRES_PASSWORD=$(openssl rand -base64 24)
@@ -142,13 +138,45 @@ SMTP_PASS=your-app-password
 SMTP_SENDER_NAME=TWIBO.id
 SMTP_ADMIN_EMAIL=your-email@gmail.com
 
+# ====== PORT MAPPING (sesuaikan) ======
+# Kong API Gateway → port 8001 (bukan default 8000 karena Portainer pakai 8000)
+KONG_HTTP_PORT=8001
+# PostgreSQL → port 5433 (bukan default 5432 untuk menghindari konflik)
+POSTGRES_PORT=5433
+
 # ====== BIARKAN DEFAULT ======
 POSTGRES_HOST=db
 POSTGRES_DB=postgres
-POSTGRES_PORT=5432
 ```
 
-### 3.4 Jalankan Supabase
+> **⚠️ Penting**: Port Kong diubah ke **8001** karena Portainer sudah memakai port 8000. Port PostgreSQL diubah ke **5433** untuk menghindari konflik dengan PostgreSQL sistem jika ada.
+
+### 3.4 Update Port di Docker Compose Supabase
+
+Edit file `docker-compose.yml` di `/opt/supabase/supabase/docker/`:
+
+```bash
+nano docker-compose.yml
+```
+
+Cari bagian service `kong` dan ubah port mapping:
+```yaml
+  kong:
+    # ...
+    ports:
+      - ${KONG_HTTP_PORT:-8001}:8000   # Expose Kong di port 8001
+      - ${KONG_HTTPS_PORT:-8443}:8443
+```
+
+Cari bagian service `db` dan ubah port mapping:
+```yaml
+  db:
+    # ...
+    ports:
+      - ${POSTGRES_PORT:-5433}:5432    # Expose PostgreSQL di port 5433
+```
+
+### 3.5 Jalankan Supabase
 ```bash
 docker compose up -d
 ```
@@ -160,11 +188,17 @@ docker compose ps
 
 # Harus ada: supabase-db, supabase-auth, supabase-rest, supabase-storage, 
 # supabase-realtime, supabase-studio, supabase-kong, dll
+
+# Test Kong di port 8001
+curl http://localhost:8001/rest/v1/ -H "apikey: YOUR_ANON_KEY"
+
+# Test PostgreSQL di port 5433
+docker exec supabase-db psql -U postgres -c "SELECT 1;"
 ```
 
-Akses Supabase Studio: `http://IP_VPS_ANDA:8000`
+Akses Supabase Studio: `http://IP_VPS_ANDA:3000` (default Studio port)
 
-### 3.5 Import Database Schema
+### 3.6 Import Database Schema
 
 Jalankan semua migration SQL dari project. Buka **Supabase Studio** → **SQL Editor**, lalu jalankan SQL berikut secara berurutan:
 
@@ -380,7 +414,7 @@ $$;
 
 > **Catatan**: Untuk RLS policies, jalankan juga migration SQL dari folder `supabase/migrations/` secara berurutan di SQL Editor.
 
-### 3.6 Setup Storage Buckets
+### 3.7 Setup Storage Buckets
 
 Di Supabase Studio → **Storage** → buat bucket:
 1. `avatars` — Public: ✅ Yes
@@ -426,7 +460,9 @@ EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
 
-### 4.3 Nginx Config (dengan OG Bot Proxy ke Edge Function Lokal)
+### 4.3 Nginx Config Internal (SPA Routing + OG Bot Proxy)
+
+Ini adalah nginx **di dalam container** twibo-web. Tugasnya: SPA routing + OG bot proxy ke edge function lokal.
 
 Buat file `/opt/twibo/nginx.conf`:
 ```nginx
@@ -438,7 +474,7 @@ map $http_user_agent $is_social_bot {
 
 server {
     listen 80;
-    server_name twibo.id www.twibo.id;
+    server_name _;
 
     root /usr/share/nginx/html;
     index index.html;
@@ -558,7 +594,7 @@ services:
     build:
       context: .
       args:
-        # Mengarah ke Supabase LOKAL via Kong gateway
+        # Mengarah ke Supabase LOKAL via Kong gateway (port 8001)
         VITE_SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
         VITE_SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_ANON_KEY}
         VITE_SUPABASE_PROJECT_ID: local
@@ -588,34 +624,9 @@ services:
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - APP_URL=https://twibo.id
-    ports:
-      - "8001:8000"
     networks:
       - web
       - supabase
-
-  # ========== Caddy (Reverse Proxy + SSL) ==========
-  caddy:
-    image: caddy:2-alpine
-    container_name: twibo-caddy
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - twibo-web
-      - twibo-functions
-    networks:
-      - web
-      - supabase
-
-volumes:
-  caddy_data:
-  caddy_config:
 
 networks:
   web:
@@ -626,42 +637,19 @@ networks:
 ```
 
 > **Penting**: Network `supabase_default` menghubungkan container frontend & edge functions ke database, auth, storage Supabase yang berjalan lokal.
+>
+> **Port Kong = 8001**, jadi `SUPABASE_PUBLIC_URL` harus mengarah ke domain:8001 atau melalui Nginx reverse proxy.
 
-### 4.6 Caddyfile (SSL + Reverse Proxy)
-
-Buat file `/opt/twibo/Caddyfile`:
-```
-twibo.id, www.twibo.id {
-    reverse_proxy twibo-web:80
-}
-
-# Supabase API (opsional — jika ingin akses publik ke Supabase)
-api.twibo.id {
-    reverse_proxy supabase-kong:8000
-}
-
-# Atau jika tidak punya subdomain api, gunakan path-based:
-# twibo.id {
-#     handle /supabase/* {
-#         uri strip_prefix /supabase
-#         reverse_proxy supabase-kong:8000
-#     }
-#     handle {
-#         reverse_proxy twibo-web:80
-#     }
-# }
-```
-
-### 4.7 Environment Variables
+### 4.6 Environment Variables
 
 Buat file `/opt/twibo/.env`:
 ```env
 # ====== Supabase Self-Hosted ======
-# URL publik Supabase (yang diakses browser user)
+# URL publik Supabase (yang diakses browser user, via Nginx reverse proxy)
 SUPABASE_PUBLIC_URL=https://api.twibo.id
 # Atau jika path-based: https://twibo.id/supabase
 
-# URL internal (antar container Docker)
+# URL internal (antar container Docker — Kong listen internal di port 8000)
 SUPABASE_INTERNAL_URL=http://supabase-kong:8000
 
 # Keys (dari langkah 3.2)
@@ -675,24 +663,9 @@ SUPABASE_SERVICE_ROLE_KEY=GANTI_DENGAN_SERVICE_ROLE_KEY_ANDA
 
 Ada **2 opsi** untuk menjalankan edge functions:
 
-### Opsi A: Supabase CLI (Recommended ✅)
+### Opsi A: Supabase Edge Runtime (Recommended ✅)
 
-Cara paling mudah — Supabase CLI bisa serve functions lokal:
-
-```bash
-# Install Supabase CLI
-npm install -g supabase
-
-# Di folder project
-cd /opt/twibo
-
-# Serve functions lokal (mengarah ke Supabase self-hosted)
-supabase functions serve \
-  --env-file /opt/supabase/supabase/docker/.env \
-  --no-verify-jwt
-```
-
-Jika menggunakan opsi ini, ubah `docker-compose.yml` — ganti service `twibo-functions` dengan:
+Ganti service `twibo-functions` di `docker-compose.yml` dengan:
 
 ```yaml
   twibo-functions:
@@ -734,13 +707,126 @@ serve(async (req: Request) => {
 
 Menggunakan `edge-functions-server.ts` yang sudah dibuat di langkah 4.4. Sudah termasuk di docker-compose.
 
-> **Catatan**: Edge functions Twibo menggunakan `Deno.serve()`. Untuk menjalankannya secara standalone, Anda mungkin perlu sedikit modifikasi. Opsi A (Supabase CLI / Edge Runtime) lebih mudah karena kompatibel langsung.
-
 ---
 
-## 6. Setup SSL dengan Caddy
+## 6. Setup Nginx Reverse Proxy + SSL
 
-SSL otomatis ditangani Caddy! Pastikan:
+Nginx digunakan sebagai **reverse proxy utama di host VPS** — menerima traffic port 80/443, lalu meneruskan ke container yang sesuai.
+
+### 6.1 Install Nginx & Certbot
+
+```bash
+sudo apt update
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
+
+### 6.2 Konfigurasi Nginx (Reverse Proxy)
+
+Buat file `/etc/nginx/sites-available/twibo`:
+
+```nginx
+# ================================================
+# Deteksi social media bots untuk OG preview
+# ================================================
+map $http_user_agent $is_social_bot {
+    default 0;
+    ~*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|TelegramBot|Slackbot|Discordbot|Googlebot|bingbot|Applebot|Pinterest|vkShare|redditbot|Embedly|SkypeUriPreview) 1;
+}
+
+# ================================================
+# TWIBO.ID — Frontend + OG Proxy
+# ================================================
+server {
+    listen 80;
+    server_name twibo.id www.twibo.id;
+
+    # ---- Gzip ----
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml text/javascript image/svg+xml;
+
+    # ---- OG Proxy: Campaign Pages ----
+    location ~ ^/c/(.+)$ {
+        if ($is_social_bot) {
+            # Mengarah ke edge function lokal
+            # twibo-functions container internal port 8000
+            return 302 http://127.0.0.1:8080/functions/og-share?type=campaign&slug=$1&app_url=https://twibo.id;
+        }
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---- OG Proxy: Blog Pages ----
+    location ~ ^/blog/(.+)$ {
+        if ($is_social_bot) {
+            return 302 http://127.0.0.1:8080/functions/og-share?type=blog&slug=$1&app_url=https://twibo.id;
+        }
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---- Semua route lain → twibo-web container ----
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---- Security Headers ----
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+}
+
+# ================================================
+# API.TWIBO.ID — Supabase Kong Gateway (port 8001)
+# ================================================
+server {
+    listen 80;
+    server_name api.twibo.id;
+
+    # Proxy ke Supabase Kong (exposed di port 8001)
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support (untuk Supabase Realtime)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+### 6.3 Aktifkan Site & Test
+
+```bash
+# Aktifkan site config
+sudo ln -sf /etc/nginx/sites-available/twibo /etc/nginx/sites-enabled/twibo
+
+# Hapus default (opsional)
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Test konfigurasi
+sudo nginx -t
+
+# Reload
+sudo systemctl reload nginx
+```
+
+### 6.4 Setup SSL dengan Certbot (Let's Encrypt)
 
 ```bash
 # Buka firewall
@@ -748,12 +834,66 @@ sudo ufw allow 80
 sudo ufw allow 443
 sudo ufw allow 9443  # Portainer
 sudo ufw enable
+
+# Generate SSL certificates
+sudo certbot --nginx -d twibo.id -d www.twibo.id -d api.twibo.id
+
+# Certbot otomatis:
+# - Menambahkan SSL config ke Nginx
+# - Redirect HTTP → HTTPS
+# - Auto-renew via systemd timer
 ```
 
-Caddy akan otomatis:
-- Request sertifikat SSL dari Let's Encrypt
-- Auto-renew sebelum expired
-- Redirect HTTP → HTTPS
+Verifikasi auto-renew:
+```bash
+sudo certbot renew --dry-run
+```
+
+### 6.5 Hasil Nginx Setelah Certbot
+
+Setelah certbot, file `/etc/nginx/sites-available/twibo` akan otomatis dimodifikasi menjadi seperti ini (contoh):
+
+```nginx
+server {
+    server_name twibo.id www.twibo.id;
+
+    # ... (semua location block tetap sama) ...
+
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/twibo.id/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/twibo.id/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+# Redirect HTTP → HTTPS
+server {
+    listen 80;
+    server_name twibo.id www.twibo.id;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    server_name api.twibo.id;
+
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        # ... proxy headers ...
+    }
+
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/api.twibo.id/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.twibo.id/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+server {
+    listen 80;
+    server_name api.twibo.id;
+    return 301 https://$server_name$request_uri;
+}
+```
 
 ---
 
@@ -770,7 +910,7 @@ Sebelum pindah, export data Anda:
 
 ### 7.2 Import ke Supabase Self-Hosted
 
-1. Buka **Supabase Studio** lokal (`http://IP_VPS:8000`)
+1. Buka **Supabase Studio** lokal (`http://IP_VPS:3000` atau sesuai port Studio)
 2. **Table Editor** → pilih tabel → **Import CSV**
 3. Upload file CSV yang sudah di-export
 
@@ -815,31 +955,42 @@ docker ps
 # Output yang diharapkan:
 # NAMES               STATUS          PORTS
 # twibo-web            Up X minutes    0.0.0.0:8080->80/tcp
-# twibo-functions      Up X minutes    0.0.0.0:8001->8000/tcp
-# twibo-caddy          Up X minutes    0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp
+# twibo-functions      Up X minutes    (internal only)
 # portainer            Up X hours      0.0.0.0:9443->9443/tcp
-# supabase-kong        Up X minutes    0.0.0.0:8000->8000/tcp
-# supabase-db          Up X minutes    5432/tcp
+# supabase-kong        Up X minutes    0.0.0.0:8001->8000/tcp
+# supabase-db          Up X minutes    0.0.0.0:5433->5432/tcp
 # supabase-auth        Up X minutes    ...
 # supabase-storage     Up X minutes    ...
 # ...dll
+# 
+# Nginx berjalan sebagai service systemd (bukan container)
 
-# Cek logs
+# Cek Nginx
+sudo systemctl status nginx
+
+# Cek logs container
 docker logs twibo-web
 docker logs twibo-functions
-docker logs twibo-caddy
+docker logs supabase-kong
+docker logs supabase-db
 
 # Test akses website
 curl -I https://twibo.id
 
-# Test Supabase API
+# Test Supabase API via Nginx reverse proxy
 curl https://api.twibo.id/rest/v1/ -H "apikey: YOUR_ANON_KEY"
+
+# Test Supabase API langsung ke Kong port 8001
+curl http://localhost:8001/rest/v1/ -H "apikey: YOUR_ANON_KEY"
+
+# Test PostgreSQL di port 5433
+psql -h localhost -p 5433 -U postgres -c "SELECT 1;"
 
 # Test OG preview (simulasi bot WhatsApp)
 curl -A "WhatsApp" -L "https://twibo.id/c/test-campaign"
 
 # Test edge function langsung
-curl http://localhost:8001/og-share?type=campaign&slug=test&app_url=https://twibo.id
+curl http://localhost:8080/functions/og-share?type=campaign&slug=test&app_url=https://twibo.id
 ```
 
 ---
@@ -873,7 +1024,7 @@ Jika Lovable menambah/mengubah tabel database:
 cd /opt/twibo
 git pull origin main
 ```
-3. **Jalankan migration** di Supabase Studio lokal (`http://IP_VPS:8000`):
+3. **Jalankan migration** di Supabase Studio lokal:
    - Buka **SQL Editor**
    - Copy-paste isi file migration baru
    - Klik **Run**
@@ -936,13 +1087,16 @@ docker compose up -d twibo-web
 cd /opt/twibo
 
 # Edit konfigurasi
-nano .env           # Environment variables
-nano nginx.conf     # Nginx config
-nano Caddyfile      # Domain/SSL config
+nano .env                                    # Environment variables
+nano nginx.conf                              # Nginx internal (di container)
+sudo nano /etc/nginx/sites-available/twibo   # Nginx host reverse proxy
 
-# Rebuild & restart
+# Rebuild & restart container
 docker compose build --no-cache
 docker compose up -d
+
+# Reload Nginx host
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ### Skenario 7: Update Supabase Self-Hosted
@@ -979,8 +1133,11 @@ docker system df
 # Lihat resource usage
 docker stats
 
+# Renew SSL (otomatis via certbot timer, tapi bisa manual)
+sudo certbot renew
+
 # Backup konfigurasi
-tar -czf /root/twibo-config-backup.tar.gz /opt/twibo/{Dockerfile,nginx.conf,docker-compose.yml,Caddyfile,.env}
+tar -czf /root/twibo-config-backup.tar.gz /opt/twibo/{Dockerfile,nginx.conf,docker-compose.yml,.env} /etc/nginx/sites-available/twibo
 ```
 
 ---
@@ -1051,24 +1208,24 @@ cat ~/.ssh/id_ed25519  # Copy ini ke GitHub Secret VPS_SSH_KEY
 ```bash
 docker logs twibo-web
 docker logs twibo-functions
-docker logs twibo-caddy
 docker logs supabase-kong
 docker logs supabase-db
 ```
 
 ### Frontend tidak bisa connect ke Supabase
-- Pastikan `VITE_SUPABASE_URL` mengarah ke URL publik Supabase (bukan internal)
-- Pastikan Caddy/Nginx melakukan proxy ke `supabase-kong:8000`
+- Pastikan `VITE_SUPABASE_URL` mengarah ke URL publik Supabase (`https://api.twibo.id`)
+- Pastikan Nginx host melakukan reverse proxy ke `127.0.0.1:8001` (Kong)
 - Test API: `curl https://api.twibo.id/rest/v1/ -H "apikey: ANON_KEY"`
 
 ### SSL tidak bekerja
-- Pastikan port 80 & 443 terbuka
-- Pastikan domain sudah mengarah ke IP VPS
-- Cek logs: `docker logs twibo-caddy`
+- Pastikan port 80 & 443 terbuka: `sudo ufw status`
+- Pastikan domain sudah mengarah ke IP VPS: `dig twibo.id`
+- Cek logs: `sudo tail -f /var/log/nginx/error.log`
+- Re-run certbot: `sudo certbot --nginx -d twibo.id -d www.twibo.id -d api.twibo.id`
 
 ### OG Preview tidak muncul di WhatsApp
 - Test: `curl -A "WhatsApp" -L "https://twibo.id/c/SLUG"`
-- Pastikan nginx.conf mengarah ke `twibo-functions:8000` (bukan cloud)
+- Pastikan Nginx host mengkonfigurasi bot proxy dengan benar
 - Cek logs: `docker logs twibo-functions`
 
 ### Edge function error
@@ -1076,7 +1233,7 @@ docker logs supabase-db
 docker logs twibo-functions
 
 # Test langsung
-curl http://localhost:8001/og-share?type=campaign&slug=test&app_url=https://twibo.id
+curl http://localhost:8080/functions/og-share?type=campaign&slug=test&app_url=https://twibo.id
 ```
 
 ### Database connection issue
@@ -1084,11 +1241,25 @@ curl http://localhost:8001/og-share?type=campaign&slug=test&app_url=https://twib
 # Cek Supabase DB
 docker logs supabase-db
 
-# Test koneksi
-docker exec supabase-db psql -U postgres -c "SELECT 1;"
+# Test koneksi lokal (port 5433)
+psql -h localhost -p 5433 -U postgres -c "SELECT 1;"
 
-# Cek dari container lain
+# Test dari container lain
 docker exec twibo-functions sh -c "curl http://supabase-kong:8000/rest/v1/"
+```
+
+### Port conflict
+```bash
+# Cek port yang sudah dipakai
+sudo ss -tlnp | grep -E '(8000|8001|5432|5433|80|443|9443)'
+
+# Pastikan:
+# - Port 8000 → Portainer
+# - Port 8001 → Supabase Kong
+# - Port 5433 → PostgreSQL
+# - Port 8080 → twibo-web container
+# - Port 80/443 → Nginx host
+# - Port 9443 → Portainer HTTPS
 ```
 
 ### Build gagal
@@ -1120,15 +1291,16 @@ find /root/backups/ -mtime +30 -delete
 ┌───────────────────────▼─────────────────────────────────┐
 │              VPS (Semua Mandiri di Sini!)                │
 │                                                         │
-│  Portainer (manajemen semua container)                   │
+│  Portainer (:9443 — manajemen semua container)           │
 │       │                                                 │
+│  Nginx Host (reverse proxy + SSL via Certbot)            │
+│    ├── :80/:443 twibo.id → twibo-web (:8080)            │
+│    │     └── Bot sosmed → redirect ke og-share           │
+│    └── :80/:443 api.twibo.id → supabase-kong (:8001)    │
+│                                                         │
 │  ┌─── Docker Network: web ────────────────────────────┐ │
 │  │                                                     │ │
-│  │  Caddy (reverse proxy + SSL otomatis)                │ │
-│  │    ├── twibo.id → twibo-web (Nginx + React SPA)     │ │
-│  │    └── api.twibo.id → supabase-kong                 │ │
-│  │                                                     │ │
-│  │  twibo-web (Nginx)                                  │ │
+│  │  twibo-web (Nginx container, :8080)                 │ │
 │  │    ├── User biasa → React SPA                       │ │
 │  │    └── Bot sosmed → twibo-functions (OG share)      │ │
 │  │                                                     │ │
@@ -1144,10 +1316,10 @@ find /root/backups/ -mtime +30 -delete
 │  ┌─── Docker Network: supabase ───────────────────────┐ │
 │  │                                                     │ │
 │  │  Supabase Self-Hosted                               │ │
-│  │    ├── PostgreSQL (database)                        │ │
+│  │    ├── PostgreSQL (:5433 → internal :5432)          │ │
 │  │    ├── GoTrue (authentication)                      │ │
 │  │    ├── PostgREST (REST API)                         │ │
-│  │    ├── Kong (API gateway)                           │ │
+│  │    ├── Kong API Gateway (:8001 → internal :8000)    │ │
 │  │    ├── Storage (file upload)                        │ │
 │  │    ├── Realtime (websocket)                         │ │
 │  │    └── Studio (dashboard admin)                     │ │
@@ -1160,6 +1332,18 @@ find /root/backups/ -mtime +30 -delete
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
+
+### Port Mapping Summary
+
+| Port | Service | Keterangan |
+|------|---------|------------|
+| 80 | Nginx Host | HTTP (redirect ke HTTPS) |
+| 443 | Nginx Host | HTTPS (SSL via Certbot) |
+| 8000 | Portainer | Portainer Edge Agent |
+| 8001 | Supabase Kong | API Gateway (REST, Auth, Storage) |
+| 8080 | twibo-web | Frontend container (internal) |
+| 5433 | PostgreSQL | Database (external access) |
+| 9443 | Portainer | Dashboard HTTPS |
 
 ### Ringkasan Workflow Update:
 
@@ -1190,7 +1374,7 @@ find /root/backups/ -mtime +30 -delete
 4. **Edge functions perlu restart** — Saat ada perubahan edge function, restart container: `docker compose restart twibo-functions`
 5. **Backup rutin!** — Setup cron job pg_dump untuk backup database harian.
 6. **Portainer gratis** — Portainer CE (Community Edition) gratis untuk single node.
-7. **Caddy vs Nginx** — Caddy untuk SSL otomatis & reverse proxy, Nginx untuk SPA routing & OG proxy. Keduanya berjalan bersamaan.
-8. **Jangan expose port internal** — Hanya port 80, 443 (Caddy), dan 9443 (Portainer) yang perlu dibuka di firewall.
+7. **Nginx ganda** — Nginx Host (reverse proxy + SSL) dan Nginx Container (SPA routing + OG proxy). Host Nginx di-manage via systemd, container Nginx di-manage via Docker.
+8. **Jangan expose port internal** — Hanya port 80, 443 (Nginx), dan 9443 (Portainer) yang perlu dibuka di firewall. Port 8001, 8080, 5433 cukup listen di localhost atau via Docker network.
 9. **RAM minimum 4GB** — Supabase self-hosted membutuhkan RAM lebih banyak daripada hanya frontend.
-10. **Midtrans webhook** — Update webhook URL di dashboard Midtrans ke: `https://api.twibo.id/functions/v1/midtrans-webhook` atau `http://IP_VPS:8001/midtrans-webhook`
+10. **Midtrans webhook** — Update webhook URL di dashboard Midtrans ke: `https://api.twibo.id/functions/v1/midtrans-webhook`
