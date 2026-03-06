@@ -119,7 +119,14 @@
     "passwordMismatch": "Passwords do not match",
     "passwordMinLength": "Password must be at least 6 characters",
     "signupSuccess": "Account created! Check your email to verify.",
-    "resetSuccess": "Password updated successfully!"
+    "resetSuccess": "Password updated successfully!",
+    "checkEmailTitle": "Check Your Email!",
+    "checkEmailSent": "We've sent a verification link to",
+    "checkEmailStep1": "Open your email inbox",
+    "checkEmailStep2": "Click the verification link in the email",
+    "checkEmailStep3": "Return to the login page to sign in",
+    "checkEmailNoReceive": "Didn't receive the email? Check your spam folder or try signing up again.",
+    "goToLogin": "Go to Login"
   },
   "dashboard": {
     "title": "My Campaigns",
@@ -425,5 +432,11 @@
     "paypalSuccess": "Payment successful! Campaign upgraded to Premium.",
     "paypalFailed": "PayPal payment failed",
     "loadingPaypal": "Loading PayPal..."
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "description": "The page you're looking for doesn't exist or has been moved.",
+    "home": "Home",
+    "back": "Go Back"
   }
 }
