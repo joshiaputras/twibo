@@ -46,7 +46,7 @@ const ForgotPassword = () => {
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
                   <Mail className="w-8 h-8 text-primary" />
                 </div>
-                <p className="text-foreground">Check your email for a reset link.</p>
+                <p className="text-foreground">{t.auth.forgotEmailSent}</p>
                 <Link to="/login">
                   <Button variant="outline" className="gap-2 border-border"><ArrowLeft className="w-4 h-4" />{t.auth.backToLogin}</Button>
                 </Link>
