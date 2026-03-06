@@ -432,5 +432,11 @@
     "paypalSuccess": "Pembayaran berhasil! Campaign di-upgrade ke Premium.",
     "paypalFailed": "Pembayaran PayPal gagal",
     "loadingPaypal": "Memuat PayPal..."
+  },
+  "notFound": {
+    "title": "Halaman Tidak Ditemukan",
+    "description": "Halaman yang kamu cari tidak ada atau sudah dipindahkan.",
+    "home": "Beranda",
+    "back": "Kembali"
   }
 }

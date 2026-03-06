@@ -432,5 +432,11 @@
     "paypalSuccess": "Payment successful! Campaign upgraded to Premium.",
     "paypalFailed": "PayPal payment failed",
     "loadingPaypal": "Loading PayPal..."
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "description": "The page you're looking for doesn't exist or has been moved.",
+    "home": "Home",
+    "back": "Go Back"
   }
 }
