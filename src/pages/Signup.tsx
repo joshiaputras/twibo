@@ -79,28 +79,28 @@ const Signup = () => {
                 <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                   <MailCheck className="w-8 h-8 text-primary" />
                 </div>
-                <h2 className="text-xl font-semibold text-foreground">Cek Email Kamu!</h2>
+                <h2 className="text-xl font-semibold text-foreground">{t.auth.checkEmailTitle}</h2>
                 <p className="text-muted-foreground text-sm leading-relaxed">
-                  Kami telah mengirim link verifikasi ke<br />
+                  {t.auth.checkEmailSent}<br />
                   <span className="font-medium text-foreground">{registeredEmail}</span>
                 </p>
                 <div className="bg-muted/50 rounded-lg p-4 text-left space-y-2">
                   <div className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                    <p className="text-sm text-muted-foreground">Buka inbox email kamu</p>
+                    <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep1}</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                    <p className="text-sm text-muted-foreground">Klik link verifikasi di email</p>
+                    <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep2}</p>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                    <p className="text-sm text-muted-foreground">Kembali ke halaman login untuk masuk</p>
+                    <p className="text-sm text-muted-foreground">{t.auth.checkEmailStep3}</p>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Tidak menerima email? Cek folder spam atau coba daftar ulang.</p>
+                <p className="text-xs text-muted-foreground">{t.auth.checkEmailNoReceive}</p>
                 <Link to="/login">
-                  <Button variant="outline" className="w-full mt-2">Ke Halaman Login</Button>
+                  <Button variant="outline" className="w-full mt-2">{t.auth.goToLogin}</Button>
                 </Link>
               </div>
             ) : (
