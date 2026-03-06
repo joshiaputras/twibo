@@ -142,7 +142,17 @@
     "resendCode": "Kirim Ulang Kode",
     "resendCooldown": "Kirim ulang dalam",
     "resendSuccess": "Kode verifikasi berhasil dikirim ulang!",
-    "orUseLink": "atau gunakan link yang dikirim ke email kamu"
+    "orUseLink": "atau gunakan link yang dikirim ke email kamu",
+    "seoSignupTitle": "Daftar Akun — TWIBO.id",
+    "seoSignupDesc": "Buat akun TWIBO.id gratis untuk mulai membuat campaign twibbon.",
+    "seoLoginTitle": "Masuk — TWIBO.id",
+    "seoLoginDesc": "Masuk ke akun TWIBO.id untuk mengelola campaign twibbon kamu.",
+    "seoForgotTitle": "Lupa Password — TWIBO.id",
+    "seoForgotDesc": "Reset password akun TWIBO.id kamu.",
+    "seoResetTitle": "Reset Password — TWIBO.id",
+    "seoResetDesc": "Reset password akun TWIBO.id.",
+    "seoDashboardTitle": "Dashboard — TWIBO.id",
+    "seoDashboardDesc": "Kelola campaign twibbon kamu di dashboard TWIBO.id."
   },
   "dashboard": {
     "title": "Campaign Saya",

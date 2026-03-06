@@ -142,7 +142,17 @@
     "resendCode": "Resend Code",
     "resendCooldown": "Resend in",
     "resendSuccess": "Verification code resent!",
-    "orUseLink": "or use the link sent to your email"
+    "orUseLink": "or use the link sent to your email",
+    "seoSignupTitle": "Sign Up — TWIBO.id",
+    "seoSignupDesc": "Create a free TWIBO.id account to start making twibbon campaigns.",
+    "seoLoginTitle": "Login — TWIBO.id",
+    "seoLoginDesc": "Sign in to your TWIBO.id account to manage your twibbon campaigns.",
+    "seoForgotTitle": "Forgot Password — TWIBO.id",
+    "seoForgotDesc": "Reset your TWIBO.id account password.",
+    "seoResetTitle": "Reset Password — TWIBO.id",
+    "seoResetDesc": "Reset your TWIBO.id account password.",
+    "seoDashboardTitle": "Dashboard — TWIBO.id",
+    "seoDashboardDesc": "Manage your twibbon campaigns on TWIBO.id dashboard."
   },
   "dashboard": {
     "title": "My Campaigns",

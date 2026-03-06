@@ -50,7 +50,7 @@ const ResetPassword = () => {
   if (validSession === null) {
     return (
       <Layout>
-        <SEOHead title="Reset Password — TWIBO.id" description="Reset password akun TWIBO.id." robots="noindex, nofollow" />
+        <SEOHead title={t.auth.seoResetTitle} description={t.auth.seoResetDesc} robots="noindex, nofollow" />
         <section className="py-24 md:py-32 flex items-center justify-center min-h-[80vh]">
           <div className="text-muted-foreground">{t.auth.loading}</div>
         </section>
