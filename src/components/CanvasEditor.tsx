@@ -350,42 +350,36 @@ const CanvasEditor = ({
   }, [tool, mode]);
 
   const handleUndo = useCallback(() => {
-    if (historyIdx <= 0 || !fabricRef.current) return;
+    if (historyIdxRef.current <= 0 || !fabricRef.current) return;
     skipHistory.current = true;
-    const newIdx = historyIdx - 1;
-    fabricRef.current.loadFromJSON(JSON.parse(history[newIdx])).then(() => {
+    const newIdx = historyIdxRef.current - 1;
+    const json = historyRef.current[newIdx];
+    fabricRef.current.loadFromJSON(JSON.parse(json)).then(() => {
       fabricRef.current?.setZoom(baseScale * userZoom);
       fabricRef.current?.renderAll();
+      historyIdxRef.current = newIdx;
       setHistoryIdx(newIdx);
       syncLayers();
-      onStateChange?.(history[newIdx]);
+      onStateChange?.(json);
       skipHistory.current = false;
     });
-  }, [history, historyIdx, onStateChange, syncLayers, baseScale, userZoom]);
+  }, [onStateChange, syncLayers, baseScale, userZoom]);
 
   const handleRedo = useCallback(() => {
-    if (historyIdx >= history.length - 1 || !fabricRef.current) return;
+    if (historyIdxRef.current >= historyRef.current.length - 1 || !fabricRef.current) return;
     skipHistory.current = true;
-    const newIdx = historyIdx + 1;
-    fabricRef.current.loadFromJSON(JSON.parse(history[newIdx])).then(() => {
+    const newIdx = historyIdxRef.current + 1;
+    const json = historyRef.current[newIdx];
+    fabricRef.current.loadFromJSON(JSON.parse(json)).then(() => {
       fabricRef.current?.setZoom(baseScale * userZoom);
       fabricRef.current?.renderAll();
+      historyIdxRef.current = newIdx;
       setHistoryIdx(newIdx);
       syncLayers();
-      onStateChange?.(history[newIdx]);
+      onStateChange?.(json);
       skipHistory.current = false;
     });
-  }, [history, historyIdx, onStateChange, syncLayers, baseScale, userZoom]);
-
-  const handleZoom = useCallback((dir: 'in' | 'out' | 'reset') => {
-    if (!fabricRef.current) return;
-    let newZoom = userZoom;
-    if (dir === 'in') newZoom = Math.min(userZoom * 1.2, 5);
-    if (dir === 'out') newZoom = Math.max(userZoom / 1.2, 0.2);
-    if (dir === 'reset') newZoom = 1;
-    fabricRef.current.setZoom(baseScale * newZoom);
-    setUserZoom(newZoom);
-  }, [userZoom, baseScale]);
+  }, [onStateChange, syncLayers, baseScale, userZoom]);
 
   const handleUpload = useCallback(() => fileInputRef.current?.click(), []);
 
