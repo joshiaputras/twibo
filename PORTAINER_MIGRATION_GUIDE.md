@@ -1006,8 +1006,8 @@ Setiap kali Anda melakukan perubahan di Lovable:
 ```bash
 cd /opt/twibo
 git pull origin main
-docker compose build --no-cache twibo-web
-docker compose up -d twibo-web
+docker compose build --no-cache twibo-frontend
+docker compose up -d twibo-frontend
 ```
 
 Atau jika menggunakan **Portainer Git Repository**:
