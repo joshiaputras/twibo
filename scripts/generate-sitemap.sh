@@ -8,15 +8,16 @@
 #   ./scripts/generate-sitemap.sh
 #
 # Cron (setiap 1 jam):
-#   0 * * * * /path/to/scripts/generate-sitemap.sh
+#   0 * * * * /path/to/scripts/generate-sitemap.sh >> /var/log/sitemap.log 2>&1
 #
 # Requirements:
 #   - psql (PostgreSQL client)
 #   - Pastikan variabel di bawah sesuai dengan konfigurasi VPS
 # =============================================================
 
+set -e
+
 # ---- KONFIGURASI ----
-# Sesuaikan dengan konfigurasi Docker Supabase di VPS Anda
 DB_HOST="localhost"
 DB_PORT="5433"
 DB_NAME="postgres"
@@ -26,6 +27,32 @@ DB_PASSWORD="your-super-secret-and-long-postgres-password"  # Ganti dengan passw
 SITE_URL="https://twibo.id"
 OUTPUT_DIR="/var/www/twibo.id"  # Sesuaikan dengan document root Nginx Anda
 OUTPUT_FILE="$OUTPUT_DIR/sitemap.xml"
+LOG_PREFIX="[sitemap $(date '+%Y-%m-%d %H:%M:%S')]"
+
+# ---- CEK PSQL ----
+if ! command -v psql &> /dev/null; then
+  echo "$LOG_PREFIX ❌ ERROR: psql tidak ditemukan. Install dulu: apt install postgresql-client"
+  exit 1
+fi
+
+# ---- CEK KONEKSI DB ----
+if ! PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT 1;" > /dev/null 2>&1; then
+  echo "$LOG_PREFIX ❌ ERROR: Tidak bisa connect ke database. Cek host/port/password."
+  exit 1
+fi
+
+echo "$LOG_PREFIX ✅ Database connected"
+
+# ---- CEK TABEL blog_posts ----
+BLOG_TABLE_EXISTS=$(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -A \
+  -c "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'blog_posts');")
+
+if [ "$BLOG_TABLE_EXISTS" != "t" ]; then
+  echo "$LOG_PREFIX ⚠️ WARNING: Tabel blog_posts TIDAK ADA di database!"
+fi
+
+# ---- BUAT OUTPUT DIR ----
+mkdir -p "$OUTPUT_DIR"
 
 # ---- STATIC PAGES ----
 TODAY=$(date +%Y-%m-%d)
@@ -35,7 +62,6 @@ cat > "$OUTPUT_FILE" << 'HEADER'
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 HEADER
 
-# Static pages
 declare -A STATIC_PAGES=(
   ["/"]="1.0|daily"
   ["/pricing"]="0.8|weekly"
@@ -61,11 +87,11 @@ EOF
 done
 
 # ---- CAMPAIGNS (published & not private) ----
-PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -A -F'|' \
-  -c "SELECT slug, updated_at::date FROM public.campaigns WHERE status = 'published' AND is_private = false ORDER BY updated_at DESC;" \
-  2>/dev/null | while IFS='|' read -r slug updated_at; do
-    [ -z "$slug" ] && continue
-    cat >> "$OUTPUT_FILE" << EOF
+CAMPAIGN_COUNT=0
+while IFS='|' read -r slug updated_at; do
+  [ -z "$slug" ] && continue
+  CAMPAIGN_COUNT=$((CAMPAIGN_COUNT + 1))
+  cat >> "$OUTPUT_FILE" << EOF
   <url>
     <loc>${SITE_URL}/campaign/${slug}</loc>
     <lastmod>${updated_at}</lastmod>
@@ -73,14 +99,17 @@ PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB
     <priority>0.7</priority>
   </url>
 EOF
-done
+done < <(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -A -F'|' \
+  -c "SELECT slug, updated_at::date FROM public.campaigns WHERE status = 'published' AND is_private = false ORDER BY updated_at DESC;")
+
+echo "$LOG_PREFIX 📋 Campaigns: $CAMPAIGN_COUNT entries"
 
 # ---- BLOG POSTS (published) ----
-PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -A -F'|' \
-  -c "SELECT slug, updated_at::date FROM public.blog_posts WHERE status = 'published' ORDER BY updated_at DESC;" \
-  2>/dev/null | while IFS='|' read -r slug updated_at; do
-    [ -z "$slug" ] && continue
-    cat >> "$OUTPUT_FILE" << EOF
+BLOG_COUNT=0
+while IFS='|' read -r slug updated_at; do
+  [ -z "$slug" ] && continue
+  BLOG_COUNT=$((BLOG_COUNT + 1))
+  cat >> "$OUTPUT_FILE" << EOF
   <url>
     <loc>${SITE_URL}/blog/${slug}</loc>
     <lastmod>${updated_at}</lastmod>
@@ -88,9 +117,12 @@ PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB
     <priority>0.7</priority>
   </url>
 EOF
-done
+done < <(PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -A -F'|' \
+  -c "SELECT slug, updated_at::date FROM public.blog_posts WHERE status = 'published' ORDER BY updated_at DESC;")
+
+echo "$LOG_PREFIX 📝 Blog posts: $BLOG_COUNT entries"
 
 # Close urlset
 echo "</urlset>" >> "$OUTPUT_FILE"
 
-echo "✅ Sitemap generated: $OUTPUT_FILE ($(date))"
+echo "$LOG_PREFIX ✅ Sitemap generated: $OUTPUT_FILE (total: $((9 + CAMPAIGN_COUNT + BLOG_COUNT)) URLs)"
