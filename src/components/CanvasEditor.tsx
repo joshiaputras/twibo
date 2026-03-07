@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Upload, Trash2, ZoomIn, ZoomOut, Undo2, Redo2,
+  Upload, Trash2, Undo2, Redo2,
   Type, Square, CircleIcon, Eye, EyeOff, ChevronUp, ChevronDown, Crosshair, RotateCcw,
   Move, MousePointer, FlipHorizontal2, FlipVertical2, GripVertical, User,
 } from 'lucide-react';
