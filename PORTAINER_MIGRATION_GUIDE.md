@@ -32,6 +32,7 @@ Pastikan domain sudah diarahkan:
 A    @      → IP_VPS_ANDA
 A    www    → IP_VPS_ANDA
 A    api    → IP_VPS_ANDA   (opsional, untuk Supabase API)
+
 ```
 
 ---
