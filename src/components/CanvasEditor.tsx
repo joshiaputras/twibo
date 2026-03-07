@@ -767,16 +767,6 @@ const CanvasEditor = ({
               <Redo2 className="w-3 h-3" />
             </Button>
             <div className="w-px h-5 bg-border" />
-            <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => handleZoom('out')}>
-              <ZoomOut className="w-3 h-3" />
-            </Button>
-            <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(userZoom * 100)}%</span>
-            <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => handleZoom('in')}>
-              <ZoomIn className="w-3 h-3" />
-            </Button>
-            <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => handleZoom('reset')}>
-              <RotateCcw className="w-3 h-3" />
-            </Button>
             <div className="w-px h-5 bg-border" />
             <Button variant="outline" size="sm" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={deleteSelected}>
               <Trash2 className="w-3 h-3" /> {t.campaign.editor.delete}
