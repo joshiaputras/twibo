@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Upload, Trash2, ZoomIn, ZoomOut, Undo2, Redo2,
+  Upload, Trash2, Undo2, Redo2,
   Type, Square, CircleIcon, Eye, EyeOff, ChevronUp, ChevronDown, Crosshair, RotateCcw,
   Move, MousePointer, FlipHorizontal2, FlipVertical2, GripVertical, User,
 } from 'lucide-react';
@@ -72,6 +72,8 @@ const CanvasEditor = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
+  const historyRef = useRef<string[]>([]);
+  const historyIdxRef = useRef(-1);
   const [userZoom, setUserZoom] = useState(1);
   const [tool, setTool] = useState<'select' | 'pan'>('select');
   const [textSettings, setTextSettings] = useState({
@@ -151,16 +153,18 @@ const CanvasEditor = ({
     const json = serializeCanvas();
     if (!json) return;
 
-    setHistory(prev => {
-      const base = prev.slice(0, historyIdx + 1);
-      if (base[base.length - 1] === json) return base;
-      const next = [...base, json];
-      return next.length > 50 ? next.slice(next.length - 50) : next;
-    });
+    const base = historyRef.current.slice(0, historyIdxRef.current + 1);
+    if (base[base.length - 1] === json) return;
+    const next = [...base, json];
+    const trimmed = next.length > 50 ? next.slice(next.length - 50) : next;
+    const newIdx = trimmed.length - 1;
 
-    setHistoryIdx(prev => prev + 1);
+    historyRef.current = trimmed;
+    historyIdxRef.current = newIdx;
+    setHistory(trimmed);
+    setHistoryIdx(newIdx);
     onStateChange?.(json);
-  }, [historyIdx, mode, onStateChange, serializeCanvas]);
+  }, [mode, onStateChange, serializeCanvas]);
 
   useEffect(() => { syncLayersRef.current = syncLayers; }, [syncLayers]);
   useEffect(() => { saveHistoryRef.current = saveHistory; }, [saveHistory]);
@@ -346,42 +350,36 @@ const CanvasEditor = ({
   }, [tool, mode]);
 
   const handleUndo = useCallback(() => {
-    if (historyIdx <= 0 || !fabricRef.current) return;
+    if (historyIdxRef.current <= 0 || !fabricRef.current) return;
     skipHistory.current = true;
-    const newIdx = historyIdx - 1;
-    fabricRef.current.loadFromJSON(JSON.parse(history[newIdx])).then(() => {
+    const newIdx = historyIdxRef.current - 1;
+    const json = historyRef.current[newIdx];
+    fabricRef.current.loadFromJSON(JSON.parse(json)).then(() => {
       fabricRef.current?.setZoom(baseScale * userZoom);
       fabricRef.current?.renderAll();
+      historyIdxRef.current = newIdx;
       setHistoryIdx(newIdx);
       syncLayers();
-      onStateChange?.(history[newIdx]);
+      onStateChange?.(json);
       skipHistory.current = false;
     });
-  }, [history, historyIdx, onStateChange, syncLayers, baseScale, userZoom]);
+  }, [onStateChange, syncLayers, baseScale, userZoom]);
 
   const handleRedo = useCallback(() => {
-    if (historyIdx >= history.length - 1 || !fabricRef.current) return;
+    if (historyIdxRef.current >= historyRef.current.length - 1 || !fabricRef.current) return;
     skipHistory.current = true;
-    const newIdx = historyIdx + 1;
-    fabricRef.current.loadFromJSON(JSON.parse(history[newIdx])).then(() => {
+    const newIdx = historyIdxRef.current + 1;
+    const json = historyRef.current[newIdx];
+    fabricRef.current.loadFromJSON(JSON.parse(json)).then(() => {
       fabricRef.current?.setZoom(baseScale * userZoom);
       fabricRef.current?.renderAll();
+      historyIdxRef.current = newIdx;
       setHistoryIdx(newIdx);
       syncLayers();
-      onStateChange?.(history[newIdx]);
+      onStateChange?.(json);
       skipHistory.current = false;
     });
-  }, [history, historyIdx, onStateChange, syncLayers, baseScale, userZoom]);
-
-  const handleZoom = useCallback((dir: 'in' | 'out' | 'reset') => {
-    if (!fabricRef.current) return;
-    let newZoom = userZoom;
-    if (dir === 'in') newZoom = Math.min(userZoom * 1.2, 5);
-    if (dir === 'out') newZoom = Math.max(userZoom / 1.2, 0.2);
-    if (dir === 'reset') newZoom = 1;
-    fabricRef.current.setZoom(baseScale * newZoom);
-    setUserZoom(newZoom);
-  }, [userZoom, baseScale]);
+  }, [onStateChange, syncLayers, baseScale, userZoom]);
 
   const handleUpload = useCallback(() => fileInputRef.current?.click(), []);
 
@@ -769,16 +767,6 @@ const CanvasEditor = ({
               <Redo2 className="w-3 h-3" />
             </Button>
             <div className="w-px h-5 bg-border" />
-            <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => handleZoom('out')}>
-              <ZoomOut className="w-3 h-3" />
-            </Button>
-            <span className="text-xs text-muted-foreground w-10 text-center">{Math.round(userZoom * 100)}%</span>
-            <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => handleZoom('in')}>
-              <ZoomIn className="w-3 h-3" />
-            </Button>
-            <Button variant="outline" size="icon" className="border-border h-8 w-8" onClick={() => handleZoom('reset')}>
-              <RotateCcw className="w-3 h-3" />
-            </Button>
             <div className="w-px h-5 bg-border" />
             <Button variant="outline" size="sm" className="border-destructive/30 text-destructive gap-1 text-xs" onClick={deleteSelected}>
               <Trash2 className="w-3 h-3" /> {t.campaign.editor.delete}

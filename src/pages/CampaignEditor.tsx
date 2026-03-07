@@ -299,81 +299,91 @@ const CampaignEditor = () => {
 
     setSaving(true);
 
-    let parsedDesign: Record<string, unknown> = {};
     try {
-      parsedDesign = canvasState ? JSON.parse(canvasState) : {};
-    } catch {
-      parsedDesign = {};
-    }
-
-    const finalPreviewImageDataUrl = templateImage
-      ? await composeResult({
-          templateDataUrl: templateImage,
-          userPhotoDataUrl: simulationPhoto || undefined,
-          fullWidth: selectedSize.w,
-          fullHeight: selectedSize.h,
-          photoScale: simScale,
-          photoOffsetX: simOffsetX,
-          photoOffsetY: simOffsetY,
-          addWatermark: false,
-          campaignType: form.type,
-          placeholderMeta,
-          previewMaxW: 420,
-          previewMaxH: 520,
-          bgOverlayDataUrl: bgOverlayImage || undefined,
-          bgUnderDataUrl: bgUnderImage || undefined,
-        }).catch(() => previewResult)
-      : previewResult;
-
-    const designWithPreview = mergeDesignWithPreview(parsedDesign, {
-      photoDataUrl: simulationPhoto,
-      photoScale: simScale,
-      photoOffsetX: simOffsetX,
-      photoOffsetY: simOffsetY,
-      previewImageDataUrl: finalPreviewImageDataUrl,
-    });
-
-    const payload: any = {
-      user_id: user.id,
-      name: form.name.trim(),
-      description: form.description.trim(),
-      caption: form.caption.trim(),
-      slug: normalizeSlug(form.slug),
-      size: form.size,
-      type: form.type,
-      status,
-      design_json: designWithPreview,
-      banner_url: bannerUrl || null,
-      is_private: form.is_private,
-    };
-
-    if (campaignId) {
-      const { error } = await supabase.from('campaigns' as any).update(payload).eq('id', campaignId);
-      if (error) {
-        toast.error(error.message);
-        setSaving(false);
-        return;
+      let parsedDesign: Record<string, unknown> = {};
+      try {
+        parsedDesign = canvasState ? JSON.parse(canvasState) : {};
+      } catch {
+        parsedDesign = {};
       }
-    } else {
-      const { data, error }: { data: any; error: any } = await supabase.from('campaigns' as any).insert(payload).select('id').single();
-      if (error) {
-        toast.error(error.code === '23505' ? t.campaign.slugTaken : error.message);
-        setSaving(false);
-        return;
+
+      const finalPreviewImageDataUrl = templateImage
+        ? await composeResult({
+            templateDataUrl: templateImage,
+            userPhotoDataUrl: simulationPhoto || undefined,
+            fullWidth: selectedSize.w,
+            fullHeight: selectedSize.h,
+            photoScale: simScale,
+            photoOffsetX: simOffsetX,
+            photoOffsetY: simOffsetY,
+            addWatermark: false,
+            campaignType: form.type,
+            placeholderMeta,
+            previewMaxW: 420,
+            previewMaxH: 520,
+            bgOverlayDataUrl: bgOverlayImage || undefined,
+            bgUnderDataUrl: bgUnderImage || undefined,
+          }).catch(() => previewResult)
+        : previewResult;
+
+      const designWithPreview = mergeDesignWithPreview(parsedDesign, {
+        photoDataUrl: simulationPhoto,
+        photoScale: simScale,
+        photoOffsetX: simOffsetX,
+        photoOffsetY: simOffsetY,
+        previewImageDataUrl: finalPreviewImageDataUrl,
+      });
+
+      const payload: any = {
+        user_id: user.id,
+        name: form.name.trim(),
+        description: form.description.trim(),
+        caption: form.caption.trim(),
+        slug: normalizeSlug(form.slug),
+        size: form.size,
+        type: form.type,
+        status,
+        design_json: designWithPreview,
+        banner_url: bannerUrl || null,
+        is_private: form.is_private,
+      };
+
+      if (campaignId) {
+        const { error } = await supabase.from('campaigns' as any).update(payload).eq('id', campaignId);
+        if (error) {
+          toast.error(error.message);
+          setSaving(false);
+          return;
+        }
+      } else {
+        const { data, error }: { data: any; error: any } = await supabase.from('campaigns' as any).insert(payload).select('id').single();
+        if (error) {
+          toast.error(error.code === '23505' ? t.campaign.slugTaken : error.message);
+          setSaving(false);
+          return;
+        }
+        setCampaignId(data.id);
       }
-      setCampaignId(data.id);
-    }
 
-    setSaving(false);
+      setSaving(false);
 
-    if (campaignTier === 'premium') {
-      toast.success(status === 'published' ? t.campaign.publishSuccess : t.campaign.draftSaved);
-      navigate('/dashboard');
-    } else if (status === 'published') {
-      setStep(5); // go to step 6 (upgrade prompt)
-    } else {
-      toast.success(t.campaign.draftSaved);
-      setStep(5);
+      if (campaignTier === 'premium') {
+        toast.success(status === 'published' ? t.campaign.publishSuccess : t.campaign.draftSaved);
+        navigate('/dashboard');
+      } else if (status === 'published') {
+        setStep(5); // go to step 6 (upgrade prompt)
+      } else {
+        toast.success(t.campaign.draftSaved);
+        setStep(5);
+      }
+    } catch (err: any) {
+      console.error('Save campaign error:', err);
+      if (err?.message?.includes('Failed to fetch')) {
+        toast.error('Request terlalu besar atau koneksi terputus. Coba kurangi ukuran gambar di canvas, atau periksa konfigurasi Nginx (client_max_body_size).');
+      } else {
+        toast.error(err?.message || 'Gagal menyimpan kampanye');
+      }
+      setSaving(false);
     }
   };
 
