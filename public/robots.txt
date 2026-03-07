@@ -14,10 +14,3 @@ User-agent: *
 Allow: /
 
 Sitemap: https://twibo.id/sitemap.xml
-
-# Note: /sitemap.xml should be proxied via Nginx to the edge function:
-# location = /sitemap.xml {
-#   proxy_pass https://wonvlwajwhjunccyopvq.supabase.co/functions/v1/sitemap;
-#   proxy_set_header Host wonvlwajwhjunccyopvq.supabase.co;
-#   proxy_ssl_server_name on;
-# }
