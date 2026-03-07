@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
 
     const logoUrl = settings.logo_url || '';
     const invoiceLogoUrl = settings.invoice_logo_url || logoUrl; // PNG version for PDF
-    const invoiceUrl = `${app_url || "https://twibbo-creator-hub.lovable.app"}/invoice/${order_id}`;
+    const invoiceUrl = `${app_url || "https://twibo.id"}/invoice/${order_id}`;
 
     // Generate PDF with PNG invoice logo
     let pdfBytes: Uint8Array | null = null;

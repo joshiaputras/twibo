@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
 
       // Send invoice email (fire-and-forget)
       try {
-        const appUrl = Deno.env.get("APP_URL") || "https://twibbo-creator-hub.lovable.app";
+        const appUrl = Deno.env.get("APP_URL") || "https://twibo.id";
         await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-invoice-email`, {
           method: "POST",
           headers: {

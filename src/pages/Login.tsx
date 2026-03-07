@@ -3,7 +3,6 @@ import SEOHead from '@/components/SEOHead';
 import { useLanguage } from '@/i18n/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { lovable } from '@/integrations/lovable/index';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,10 +36,11 @@ const Login = () => {
   };
 
   const handleGoogle = async () => {
-    const result = await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/dashboard' },
     });
-    if (result?.error) toast.error(String(result.error));
+    if (error) toast.error(error.message);
   };
 
   return (
