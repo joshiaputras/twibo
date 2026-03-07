@@ -153,16 +153,18 @@ const CanvasEditor = ({
     const json = serializeCanvas();
     if (!json) return;
 
-    setHistory(prev => {
-      const base = prev.slice(0, historyIdx + 1);
-      if (base[base.length - 1] === json) return base;
-      const next = [...base, json];
-      return next.length > 50 ? next.slice(next.length - 50) : next;
-    });
+    const base = historyRef.current.slice(0, historyIdxRef.current + 1);
+    if (base[base.length - 1] === json) return;
+    const next = [...base, json];
+    const trimmed = next.length > 50 ? next.slice(next.length - 50) : next;
+    const newIdx = trimmed.length - 1;
 
-    setHistoryIdx(prev => prev + 1);
+    historyRef.current = trimmed;
+    historyIdxRef.current = newIdx;
+    setHistory(trimmed);
+    setHistoryIdx(newIdx);
     onStateChange?.(json);
-  }, [historyIdx, mode, onStateChange, serializeCanvas]);
+  }, [mode, onStateChange, serializeCanvas]);
 
   useEffect(() => { syncLayersRef.current = syncLayers; }, [syncLayers]);
   useEffect(() => { saveHistoryRef.current = saveHistory; }, [saveHistory]);
